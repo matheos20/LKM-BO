@@ -238,7 +238,7 @@ L'éditeur agit exactement sur ces points, sans jamais toucher au moteur.
 | **Page d'accueil** | ordonner, ajouter et retirer les blocs ; choisir la disposition de chaque bloc ; saisir tous les textes, images, boutons, listes (chiffres, témoignages, questions) ; description pour les moteurs de recherche |
 | **Couleurs** | les 9 couleurs de la charte, avec aperçu immédiat |
 | **Identité** | nom, slogan, émoji, langue, présets d'en-tête, de pied de page, de rubriques et d'articles |
-| **Articles** | recherche, puis édition du titre, du chapeau, de l'image, de l'auteur, de la date, et du corps de l'article dans un éditeur sans balises visibles |
+| **Articles** | compteurs par rubrique, recherche par titre ou par adresse, filtre par rubrique, puis édition du titre, du chapeau, de l'image, de l'auteur, de la date, et du corps de l'article, en mode visuel ou directement en HTML |
 | **Sauvegardes** | restauration en un clic d'une version antérieure |
 
 ### L'écran « Page d'accueil »
@@ -248,9 +248,20 @@ L'écran est prévu pour un agent qui n'a pas de culture technique, et pour une 
 - **La page se lit comme une page.** À gauche, les blocs dans l'ordre où le visiteur les verra : un schéma de la mise en page, le nom courant du bloc (« Bannière », « Appel à l'action ») et le début du texte réellement saisi, qui suit la frappe. Les flèches déplacent le bloc.
 - **Un seul bloc à la fois.** Le bloc sélectionné s'ouvre à droite, ses champs regroupés dans un ordre constant : contenu, visuel, boutons, éléments. Fini l'empilement de tous les blocs dépliés.
 - **Aucun nom de gabarit.** Les 53 modèles du parc sont présentés par leur forme : un schéma et un intitulé en langage courant (« Texte à gauche, image à droite », « Bandeau pleine largeur · dégradé »). Un test vérifie qu'aucun modèle n'échappe à cette traduction, dans les six langues.
-- **Aucune balise à l'écran.** Un titre mis en valeur s'affiche en italique ou en gras, avec deux boutons **B** et **I** ; le HTML reste dans le fichier, jamais dans le champ.
+- **Aucune balise à l'écran.** Un texte mis en valeur s'affiche en italique, en gras ou en couleur, avec trois boutons **B**, **I** et **A** ; le HTML reste dans le fichier, jamais dans le champ.
+- **Couleur d'un mot, en direct.** On sélectionne le texte, on ouvre **A** : les neuf couleurs de la charte du site viennent en premier, puis des neutres, puis un sélecteur et un champ de code (`#c81e4a` ou `rgb(200, 30, 74)`). La couleur s'applique au moment du choix, et « Retirer les couleurs de ce champ » revient en arrière. L'outil est le même dans les blocs, dans les listes (témoignages, questions, chiffres) et dans le corps d'un article — où il ne colore que la sélection, jamais tout le texte par mégarde.
+- **Deux façons de voir le même contenu.** Un commutateur **Visuel / Texte** est posé sur chaque champ mis en forme et sur le corps des articles. « Visuel » montre le résultat, « Texte » montre le code HTML — une balise de bloc par ligne pour un article. Le passage d'un mode à l'autre repasse par le même filtre que l'enregistrement : ce qui est affiché est exactement ce qui sera écrit, et regarder le code sans y toucher ne marque pas le brouillon comme modifié. Une balise que le site ne sait pas rendre, saisie en mode texte, disparaît au retour en visuel — son texte, lui, est conservé.
 - **Rien à penser à enregistrer.** Chaque modification part en brouillon toute seule après deux secondes ; la barre d'action, toujours visible, indique l'heure du dernier enregistrement et rappelle que rien n'est en ligne avant « Publier ». Le bouton d'enregistrement manuel reste disponible.
 - **Le seul réglage technique**, la description pour les moteurs de recherche, est rangé à part sous « Référencement ».
+
+### L'onglet « Articles »
+
+- **Les articles sont cherchés là où ils sont.** Le fichier `permalinks.php` donne l'adresse publique de chaque article, mais **il est vide sur une partie du parc** (15 sites sur 200 relevés sur le VPS 003) : l'éditeur parcourt donc aussi les dossiers de rubriques, et ne retient que les fichiers portant le bloc `$article_meta` du moteur. Sur un site où l'onglet annonçait « aucun article », il en liste 80.
+- **Compteurs en tête de liste.** Le total du domaine et la répartition par rubrique (« Services 21 », « Formation 17 »…). Chaque compteur est aussi un filtre : un clic n'affiche que cette rubrique.
+- **Une seule recherche pour deux usages.** Le champ cherche à la fois dans le **titre** et dans l'**adresse** du fichier, ce qui couvre la recherche par titre et par slug sans multiplier les champs.
+- **Un incident ne bloque pas l'onglet.** Les titres sont un confort de recherche : si leur chargement s'interrompt — une session SSH qui tombe, par exemple — la liste reste utilisable et l'indicateur devient un bouton « reprendre », qui repart là où il s'était arrêté. Aucun message d'erreur ne s'interpose.
+- **Les titres arrivent par paquets de soixante.** Les connaître demande d'ouvrir chaque article sur le serveur : la liste s'affiche immédiatement, les titres la complètent ensuite, et un discret « titres 60/80 » dit où en est le chargement. La recherche par titre couvre donc tout le site, pas seulement le premier écran.
+- **Rien n'est rechargé.** Changer de filtre ou recevoir un paquet de titres ne redessine que la liste et les compteurs : le curseur ne quitte jamais le champ de recherche.
 
 ### Les deux temps : brouillon et publication
 
@@ -266,7 +277,8 @@ Un brouillon vit dans la base du back-office, pas sur le serveur. Il mémorise l
 
 ### Garde-fous
 
-- Les couleurs n'acceptent que des valeurs hexadécimales : aucune valeur CSS arbitraire ne peut être injectée.
+- **Les textes sont filtrés avant écriture.** Les gabarits du parc affichent les valeurs de `config.php` sans échappement : tout ce que le back-office y écrit est du HTML servi aux visiteurs. Chaque champ est donc filtré selon son contexte — mise en valeur, couleur et lien dans le corps de la page ; texte brut partout où la valeur finit dans un attribut (`alt`, `<title>`, description pour les moteurs) ; adresses refusées si elles peuvent exécuter du code (`javascript:`, `data:`). Le filtre ne recopie jamais une balise reçue : il la reconstruit à partir de son seul attribut utile, ce qui exclut `onerror` et consorts. La mise en forme déjà présente dans le parc — `<em>`, `<b>`, `<br>` et les liens sortants — est préservée à l'identique.
+- Les couleurs de la charte n'acceptent que des valeurs hexadécimales ; les couleurs de texte sont ramenées à `#rrggbb` avant d'être écrites.
 - Un bloc ne peut être choisi que s'il est **réellement installé** sur ce site.
 - Le corps d'un article refuse `<script>`, le code PHP, les gestionnaires d'événements et la marque de fin du bloc de texte.
 - Les valeurs de présets et la langue sont vérifiées contre la liste que le moteur sait rendre.
@@ -378,7 +390,8 @@ Chaque route SSH vérifie qu'une connexion active existe (sinon `409 errors.ssh_
 
 - **Injection shell** : validation stricte des domaines (`[a-z0-9.-]`, même règle que `add-site`), quoting POSIX systématique de toute valeur insérée dans une commande, modèles de commandes issus de la seule configuration.
 - **SSH** : secrets lus depuis `.env` au moment de la connexion, épinglage des clés d'hôte, keepalive, fermeture automatique après 15 min d'inactivité (`SSH_IDLE_TIMEOUT_MS`), timeouts de commande, 4 canaux parallèles maximum par serveur, fermeture propre des sessions à l'arrêt (Ctrl+C).
-- **Web** : écoute sur `127.0.0.1` par défaut, mot de passe hashé (scrypt), session régénérée à la connexion, cookie `HttpOnly` + `SameSite=Strict`, anti-CSRF, 10 tentatives de connexion par 15 min, CSP stricte (aucun script inline), rendu DOM sans `innerHTML`.
+- **Session tombée** : une coupure réseau ou la fermeture pour inactivité n'oblige pas à se reconnecter à la main. La session est rouverte **au moment d'ouvrir le canal**, c'est-à-dire avant que la commande ne démarre : la relancer ne peut donc rien exécuter deux fois. Une coupure survenue *pendant* une commande remonte telle quelle, et une session fermée par l'utilisateur n'est jamais rouverte toute seule.
+- **Web** : écoute sur `127.0.0.1` par défaut, mot de passe hashé (scrypt), session régénérée à la connexion, cookie `HttpOnly` + `SameSite=Strict`, anti-CSRF, 10 tentatives de connexion par 15 min, CSP stricte (aucun script inline, aucune feuille de style extérieure), rendu DOM sans `innerHTML`. L'éditeur colorant du texte, seuls les **attributs** `style` sont autorisés (`style-src-attr`) : une couleur choisie ne peut vivre ailleurs, et cette ouverture ne permet aucun script.
 - **Suppression** : confirmation par saisie du nom, refus si le domaine est verrouillé.
 
 Pour exposer l'outil au-delà du poste local, placez-le derrière un reverse-proxy HTTPS, avec `SECURE_COOKIES=true` et un filtrage IP.

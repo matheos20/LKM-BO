@@ -1,0 +1,40 @@
+{
+  "defaults": {
+    "port": 22,
+    "username": "deploy",
+    "auth": { "type": "key", "keyPathEnv": "SSH_KEY_PATH", "passphraseEnv": "SSH_KEY_PASSPHRASE" },
+    "wwwRoot": "/srv/www",
+    "registry": "/etc/parc/sites.tsv",
+    "canonFile": null,
+    "phpSocketDir": "/run/php",
+    "commands": {
+      "create": "sudo -n /usr/local/sbin/add-site {domain} --reload",
+      "fixPerms": "sudo -n /usr/local/sbin/fixdroits {domain}",
+      "delete": "sudo -n /usr/local/sbin/del-site {domain} --reload"
+    },
+    "lockop": null
+  },
+  "servers": [
+    { "id": "web-01", "label": "Web 01", "group": "Production", "host": "203.0.113.10" },
+    {
+      "id": "web-02",
+      "label": "Web 02 (mot de passe)",
+      "group": "Production",
+      "host": "203.0.113.11",
+      "auth": { "type": "password", "passwordEnv": "WEB02_PASSWORD" }
+    },
+    {
+      "id": "staging",
+      "label": "Staging",
+      "group": "Tests",
+      "host": "203.0.113.20",
+      "lockop": {
+        "port": 2278,
+        "username": "lockop",
+        "auth": { "type": "key", "keyPathEnv": "SSH_KEY_PATH" },
+        "lock": "lock {domain}",
+        "unlock": "unlock {domain}"
+      }
+    }
+  ]
+}

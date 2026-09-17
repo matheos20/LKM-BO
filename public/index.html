@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="fr" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LKM Back-Office</title>
+    <link rel="icon" href="/img/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <script type="module" src="/js/app.js"></script>
+  </head>
+  <body class="h-full bg-surface text-ink antialiased">
+    <!-- ─────────────── Connexion ─────────────── -->
+    <section id="view-login" hidden class="relative flex min-h-full items-center justify-center overflow-hidden bg-ink px-4 py-12">
+      <div class="pointer-events-none absolute -top-40 -right-40 size-[28rem] rounded-full bg-accent/10 blur-3xl"></div>
+      <div class="pointer-events-none absolute -bottom-48 -left-32 size-[30rem] rounded-full bg-accent/5 blur-3xl"></div>
+
+      <form id="login-form" class="relative w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl" novalidate>
+        <div class="mb-8 flex items-center gap-3">
+          <span class="flex size-11 items-center justify-center rounded-xl bg-ink text-sm font-black tracking-tight text-accent">LKM</span>
+          <div>
+            <h1 class="text-lg font-bold text-ink" data-i18n="app.title">LKM Back-Office</h1>
+            <p class="text-sm text-ink-500" data-i18n="app.subtitle"></p>
+          </div>
+        </div>
+
+        <h2 class="text-xl font-semibold" data-i18n="auth.title"></h2>
+        <p class="mt-1 mb-6 text-sm text-ink-500" data-i18n="auth.subtitle"></p>
+
+        <label class="label" for="login-user" data-i18n="auth.username"></label>
+        <input id="login-user" class="input mb-4" autocomplete="username" required />
+
+        <label class="label" for="login-pass" data-i18n="auth.password"></label>
+        <input id="login-pass" class="input" type="password" autocomplete="current-password" required />
+
+        <p id="login-error" hidden class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert"></p>
+
+        <button id="login-submit" type="submit" class="btn btn-primary mt-6 w-full py-2.5" data-i18n="auth.submit"></button>
+
+        <div class="mt-6 flex items-center justify-center gap-2 text-sm text-ink-500">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>
+          <select id="login-lang" class="rounded-md border-0 bg-transparent py-1 text-sm text-ink-600 focus:ring-2 focus:ring-accent/40" data-i18n-aria-label="nav.language"></select>
+        </div>
+      </form>
+    </section>
+
+    <!-- ─────────────── Application ─────────────── -->
+    <div id="view-app" hidden class="flex h-full">
+      <div id="sidebar-backdrop" hidden class="fixed inset-0 z-30 bg-ink/60 lg:hidden"></div>
+
+      <!-- Barre latérale -->
+      <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col bg-ink text-white transition-transform duration-200 lg:static lg:translate-x-0">
+        <div class="flex items-center gap-3 px-6 pt-6 pb-8">
+          <span class="flex size-10 items-center justify-center rounded-xl bg-accent text-xs font-black tracking-tight text-ink">LKM</span>
+          <div class="min-w-0">
+            <p class="font-bold leading-tight">Back-Office</p>
+            <p class="truncate text-xs text-ink-300" data-i18n="app.subtitle"></p>
+          </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto px-3 pb-4">
+          <button id="nav-all" type="button" class="group mb-5 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-200 transition hover:bg-white/5 hover:text-white aria-[current=true]:bg-accent aria-[current=true]:text-ink">
+            <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5" /><rect x="3" y="14" width="18" height="6" rx="1.5" /><path d="M7 7h.01M7 17h.01" /></svg>
+            <span class="flex-1" data-i18n="nav.all_servers"></span>
+            <span id="all-count" class="rounded-full bg-white/10 px-2 py-0.5 text-xs tabular-nums group-aria-[current=true]:bg-ink/15"></span>
+          </button>
+
+          <button id="nav-admin" type="button" hidden class="mb-5 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-200 transition hover:bg-white/5 hover:text-white aria-[current=true]:bg-accent aria-[current=true]:text-ink">
+            <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 7.9-8 9-4.8-1.1-8-4.5-8-9V6l8-3Z" /><path d="m9 12 2 2 4-4" /></svg>
+            <span data-i18n="admin.title"></span>
+          </button>
+
+          <div class="mb-2 flex items-center justify-between px-3">
+            <p class="text-xs font-semibold tracking-wider text-ink-400 uppercase" data-i18n="nav.servers"></p>
+            <button id="btn-connect-all" type="button" class="rounded-md px-2 py-1 text-xs font-medium text-accent transition hover:bg-white/5" data-i18n="server.connect_all"></button>
+          </div>
+          <div id="server-list" class="space-y-5"></div>
+        </nav>
+
+        <div class="space-y-3 border-t border-white/10 px-5 py-4">
+          <label class="flex items-center gap-2 text-sm text-ink-300">
+            <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>
+            <select id="lang-select" class="w-full rounded-md border border-white/10 bg-ink-800 px-2 py-1.5 text-sm text-white focus:border-accent focus:outline-none" data-i18n-aria-label="nav.language"></select>
+          </label>
+          <div class="flex items-center justify-between gap-2">
+            <button id="btn-account" type="button" class="min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-xs text-ink-300 transition hover:bg-white/10 hover:text-white">
+              <span id="user-name"></span>
+            </button>
+            <button id="btn-logout" type="button" class="rounded-md px-2 py-1 text-xs font-medium text-ink-200 transition hover:bg-white/10 hover:text-white" data-i18n="auth.logout"></button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Contenu -->
+      <main class="flex min-w-0 flex-1 flex-col">
+        <header class="flex flex-wrap items-center gap-3 border-b border-ink-100 bg-white px-4 py-4 sm:px-8">
+          <button id="btn-menu" type="button" class="icon-btn lg:hidden" data-i18n-aria-label="nav.menu">
+            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </button>
+          <div class="min-w-0 flex-1 basis-48">
+            <div class="flex flex-wrap items-center gap-3">
+              <h1 id="page-title" class="truncate text-xl font-bold"></h1>
+              <span id="page-state"></span>
+            </div>
+            <p id="page-sub" class="mt-0.5 truncate font-mono text-xs text-ink-400"></p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="btn-back" type="button" class="btn btn-outline" hidden>
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6" /></svg>
+              <span data-i18n="files.back"></span>
+            </button>
+            <button id="btn-conn" type="button" class="btn btn-outline" hidden></button>
+            <button id="btn-refresh" type="button" class="btn btn-ghost">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
+              <span data-i18n="domains.refresh"></span>
+            </button>
+            <button id="btn-add" type="button" class="btn btn-primary">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+              <span data-i18n="domains.add"></span>
+            </button>
+          </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+          <section id="files-view" hidden class="space-y-4"></section>
+          <section id="admin-view" hidden class="space-y-4"></section>
+          <section id="design-view" hidden class="space-y-4"></section>
+          <div id="domains-view" class="space-y-6">
+          <div id="stats" class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5"></div>
+
+          <p id="partial" hidden class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"></p>
+
+          <div id="notice" hidden class="card flex flex-col items-center px-6 py-16 text-center">
+            <span class="mb-4 flex size-14 items-center justify-center rounded-2xl bg-accent-50 text-accent-700">
+              <svg class="size-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5" /><rect x="3" y="14" width="18" height="6" rx="1.5" /><path d="M7 7h.01M7 17h.01" /></svg>
+            </span>
+            <h2 id="notice-title" class="text-lg font-semibold"></h2>
+            <p id="notice-body" class="mt-1 max-w-md text-sm text-ink-500"></p>
+            <p id="notice-error" hidden class="mt-4 max-w-lg rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+            <button id="notice-action" type="button" class="btn btn-primary mt-6" hidden></button>
+          </div>
+
+          <section id="domains-card" class="card overflow-hidden">
+            <div class="flex flex-wrap items-center gap-3 border-b border-ink-100 px-4 py-3 sm:px-5">
+              <div class="relative min-w-52 flex-1">
+                <svg class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                <input id="search" type="search" class="input pl-9" data-i18n-placeholder="domains.search" autocomplete="off" spellcheck="false" />
+              </div>
+              <div id="filter" class="flex max-w-full overflow-x-auto rounded-lg bg-ink-50 p-1" role="group">
+                <button type="button" class="seg" data-status="all" aria-pressed="true" data-i18n="filter.all"></button>
+                <button type="button" class="seg" data-status="locked" aria-pressed="false" data-i18n="filter.locked"></button>
+                <button type="button" class="seg" data-status="unlocked" aria-pressed="false" data-i18n="filter.unlocked"></button>
+                <button type="button" class="seg" data-status="incomplete" aria-pressed="false" data-i18n="filter.incomplete"></button>
+              </div>
+              <label class="flex items-center gap-2 text-sm text-ink-500">
+                <span data-i18n="sort.label"></span>
+                <select id="sort" class="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-sm text-ink focus:border-accent focus:outline-none">
+                  <option value="name" data-i18n="sort.name"></option>
+                  <option value="mtime" data-i18n="sort.mtime"></option>
+                </select>
+              </label>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-ink-50/60 text-xs tracking-wide text-ink-500 uppercase">
+                  <tr>
+                    <th class="px-5 py-3 font-semibold" data-i18n="col.domain"></th>
+                    <th id="col-server" class="px-4 py-3 font-semibold" data-i18n="col.server"></th>
+                    <th class="px-4 py-3 font-semibold" data-i18n="col.status"></th>
+                    <th class="hidden px-4 py-3 font-semibold md:table-cell" data-i18n="col.storage"></th>
+                    <th class="hidden px-4 py-3 font-semibold lg:table-cell" data-i18n="col.modified"></th>
+                    <th class="px-5 py-3 text-right font-semibold" data-i18n="col.actions"></th>
+                  </tr>
+                </thead>
+                <tbody id="rows" class="divide-y divide-ink-100"></tbody>
+              </table>
+            </div>
+
+            <footer class="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 px-4 py-3 text-sm text-ink-500 sm:px-5">
+              <div class="flex items-center gap-3">
+                <span id="pager-info" class="tabular-nums"></span>
+                <select id="size" class="rounded-md border border-ink-200 bg-white px-2 py-1 text-sm focus:border-accent focus:outline-none">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+                <span data-i18n="domains.per_page"></span>
+              </div>
+              <span id="updated" class="text-xs text-ink-400"></span>
+              <div class="flex gap-2">
+                <button id="btn-prev" type="button" class="btn btn-outline px-3 py-1.5" data-i18n="domains.prev"></button>
+                <button id="btn-next" type="button" class="btn btn-outline px-3 py-1.5" data-i18n="domains.next"></button>
+              </div>
+            </footer>
+          </section>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- ─────────────── Panneau de détails ─────────────── -->
+    <div id="drawer" hidden class="fixed inset-0 z-50">
+      <div id="drawer-backdrop" class="absolute inset-0 bg-ink/50"></div>
+      <aside class="absolute inset-y-0 right-0 flex w-full max-w-lg flex-col bg-white shadow-2xl">
+        <header class="flex items-start gap-3 bg-ink px-6 py-5 text-white">
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-semibold tracking-wider text-accent uppercase" data-i18n="details.title"></p>
+            <h2 id="drawer-title" class="mt-1 truncate text-lg font-bold"></h2>
+            <p id="drawer-server" class="mt-0.5 text-xs text-ink-300"></p>
+          </div>
+          <button id="drawer-close" type="button" class="rounded-lg p-1.5 text-ink-300 transition hover:bg-white/10 hover:text-white" data-i18n-aria-label="action.close">
+            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </header>
+        <div id="drawer-body" class="flex-1 overflow-y-auto px-6 py-5"></div>
+        <footer id="drawer-actions" class="flex flex-wrap gap-2 border-t border-ink-100 px-6 py-4"></footer>
+      </aside>
+    </div>
+
+    <!-- ─────────────── Fenêtre modale ─────────────── -->
+    <div id="modal" hidden class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div id="modal-backdrop" class="absolute inset-0 bg-ink/60"></div>
+      <div id="modal-panel" class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true"></div>
+    </div>
+
+    <!-- ─────────────── Notifications ─────────────── -->
+    <div id="toasts" class="pointer-events-none fixed right-4 bottom-4 z-[60] flex w-full max-w-sm flex-col gap-2" aria-live="polite"></div>
+  </body>
+</html>

@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# del-site — inverse de add-site (modèle « durci » du conteneur parc).
+# ⚠ Script de RÉFÉRENCE fourni avec LKM-BO : à relire et adapter avant installation.
+#
+# Installation (root, DANS le conteneur parc de chaque VPS) :
+#   install -m 755 del-site /usr/local/sbin/del-site
+#   echo 'tech ALL=(root) NOPASSWD: /usr/local/sbin/del-site' > /etc/sudoers.d/lkm-del-site
+#   chmod 440 /etc/sudoers.d/lkm-del-site && visudo -c
+# Puis dans config/servers.json :  "delete": "sudo -n /usr/local/sbin/del-site {domain} --reload"
+#
+# Usage : del-site <domaine> [--reload]
+# Sécurité :
+#   - domaine validé (même règle que add-site) ; refus si le site est verrouillé (chattr +i) ;
+#   - RIEN n'est détruit : le dossier part en corbeille /srv/.parc-trash/<domaine>.<date> (purge manuelle) ;
+#   - la ligne éventuelle de 05-www-canon.conf n'est pas modifiée (sans effet si le dossier n'existe plus).
+set -euo pipefail
+
+PHPV=8.5
+POOLDIR="/etc/php/${PHPV}/fpm/pool.d"
+WWW=/srv/www
+REG=/etc/parc/sites.tsv
+TRASH=/srv/.parc-trash
+RELOAD=0
+
+die(){ echo "[!] $1" >&2; exit "${2:-1}"; }
+
+dom="${1:-}"; [ "${2:-}" = "--reload" ] && RELOAD=1
+[ -n "$dom" ] || die "usage: del-site <domaine> [--reload]" 2
+echo "$dom" | grep -qE '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$' \
+  || die "domaine invalide: $dom" 2
+[ -e "$WWW/$dom" ] || die "domaine inconnu: $dom" 3
+
+if lsattr -d "$WWW/$dom/public_html" 2>/dev/null | cut -d' ' -f1 | grep -q i; then
+  die "$dom est verrouillé : lancez 'unlock $dom' via lockop avant suppression" 4
+fi
+
+real=$(readlink -f -- "$WWW/$dom")
+case "$real" in
+  /srv/www/?*|/data/www/?*) ;;
+  *) die "chemin réel inattendu: $real" 5 ;;
+esac
+user=$(awk -F'\t' -v d="$dom" '$1==d{print $2; exit}' "$REG" 2>/dev/null || true)
+
+ts=$(date +%Y%m%d-%H%M%S)
+install -d -m 700 "$TRASH"
+mv -T -- "$real" "$TRASH/$dom.$ts"
+[ -L "$WWW/$dom" ] && rm -f -- "$WWW/$dom"
+
+if [ -n "$user" ]; then
+  rm -f -- "$POOLDIR/$user.conf"
+  userdel "$user" 2>/dev/null || true
+fi
+
+if [ -f "$REG" ]; then
+  tmp=$(mktemp "$REG.XXXXXX")
+  awk -F'\t' -v d="$dom" '$1!=d' "$REG" > "$tmp"
+  chmod 644 "$tmp"
+  mv -f -- "$tmp" "$REG"
+fi
+
+echo "[-] $dom supprimé (corbeille : $TRASH/$dom.$ts)"
+if [ "$RELOAD" = 1 ]; then
+  systemctl reload "php${PHPV}-fpm" && echo "[+] php-fpm rechargé"
+fi

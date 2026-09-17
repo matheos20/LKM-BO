@@ -1,0 +1,33 @@
+{
+  "name": "lkm-bo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LKM-BO — back-office de gestion des domaines du parc via SSH",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "build:css": "tailwindcss -i src/styles/tailwind.css -o public/css/app.css --minify",
+    "watch:css": "tailwindcss -i src/styles/tailwind.css -o public/css/app.css --watch",
+    "set-password": "node scripts/set-password.js",
+    "check": "node scripts/check-ssh.js",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "user": "node scripts/user.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  }
+}

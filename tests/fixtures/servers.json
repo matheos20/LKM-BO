@@ -1,0 +1,16 @@
+{
+  "defaults": {
+    "port": 2279,
+    "username": "tech",
+    "auth": { "type": "key", "keyPathEnv": "SSH_KEY_PATH" },
+    "wwwRoot": "/srv/www",
+    "registry": "/etc/parc/sites.tsv",
+    "commands": { "create": "sudo -n /usr/local/sbin/add-site {domain}", "fixPerms": "sudo -n /usr/local/sbin/fixdroits {domain}", "delete": null },
+    "lockop": { "port": 2278, "username": "lockop", "auth": { "type": "key", "keyPathEnv": "LOCKOP_KEY_PATH" }, "lock": "lock {domain}", "unlock": "unlock {domain}" }
+  },
+  "servers": [
+    { "id": "alpha", "label": "Alpha", "group": "G1", "host": "10.0.0.1" },
+    { "id": "beta", "label": "Beta", "group": "G1", "host": "10.0.0.2" },
+    { "id": "gamma", "label": "Gamma", "group": "G2", "host": "10.0.0.3", "commands": { "create": null }, "lockop": null }
+  ]
+}

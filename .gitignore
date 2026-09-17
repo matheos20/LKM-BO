@@ -1,0 +1,10 @@
+node_modules/
+.env
+config/servers.json
+config/known_hosts.json
+logs/
+data/
+public/css/app.css
+
+# Relevé des accès du parc : IP, ports et comptes SSH réels — ne doit jamais être publié
+info.md
