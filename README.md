@@ -235,7 +235,7 @@ L'éditeur agit exactement sur ces points, sans jamais toucher au moteur.
 
 | Onglet | Contenu |
 |---|---|
-| **Page d'accueil** | ordonner, ajouter et retirer les blocs ; choisir la disposition de chaque bloc ; saisir tous les textes, images, boutons, listes (chiffres, témoignages, questions) ; description pour les moteurs de recherche |
+| **Page d'accueil** | ordonner, ajouter et retirer les blocs ; choisir la disposition de chaque bloc ; saisir tous les textes, images, boutons, listes (chiffres, témoignages, questions) ; import d'images depuis le poste ; description pour les moteurs de recherche |
 | **Couleurs** | les 9 couleurs de la charte, avec aperçu immédiat |
 | **Identité** | nom, slogan, émoji, langue, présets d'en-tête, de pied de page, de rubriques et d'articles |
 | **Articles** | compteurs par rubrique, recherche par titre ou par adresse, filtre par rubrique, puis édition du titre, du chapeau, de l'image, de l'auteur, de la date, et du corps de l'article, en mode visuel ou directement en HTML |
@@ -253,6 +253,14 @@ L'écran est prévu pour un agent qui n'a pas de culture technique, et pour une 
 - **Deux façons de voir le même contenu.** Un commutateur **Visuel / Texte** est posé sur chaque champ mis en forme et sur le corps des articles. « Visuel » montre le résultat, « Texte » montre le code HTML — une balise de bloc par ligne pour un article. Le passage d'un mode à l'autre repasse par le même filtre que l'enregistrement : ce qui est affiché est exactement ce qui sera écrit, et regarder le code sans y toucher ne marque pas le brouillon comme modifié. Une balise que le site ne sait pas rendre, saisie en mode texte, disparaît au retour en visuel — son texte, lui, est conservé.
 - **Rien à penser à enregistrer.** Chaque modification part en brouillon toute seule après deux secondes ; la barre d'action, toujours visible, indique l'heure du dernier enregistrement et rappelle que rien n'est en ligne avant « Publier ». Le bouton d'enregistrement manuel reste disponible.
 - **Le seul réglage technique**, la description pour les moteurs de recherche, est rangé à part sous « Référencement ».
+
+### Images du site
+
+Le moteur du parc n'affiche jamais le fichier d'origine : il ne connaît que des déclinaisons `<identifiant>-<largeur>.<extension>`, en **400, 600, 900 et 1920 pixels**, chacune en **WebP et en JPEG** — huit fichiers par image, indexés dans `images/manifest.json`.
+
+Le sélecteur d'images propose donc, à côté des images déjà présentes, un bouton **Importer une image** : l'agent dépose un JPEG, un PNG, un WebP ou un GIF, et les huit déclinaisons sont fabriquées **sur le serveur du site**, par son propre PHP (GD), aux dimensions et à la qualité relevées sur le parc. L'identifiant reprend le nom du fichier déposé, ramené à la forme du parc (`Ma Photo Été.JPG` → `ma-photo-ete`) et décliné en `-2`, `-3`… s'il est déjà pris. Aucune image n'est agrandie : une source large de 900 pixels donne huit fichiers dont le plus grand fait 900 pixels.
+
+Le format est reconnu aux **premiers octets**, jamais à l'extension : un script renommé en `.jpg` est refusé avant d'atteindre le serveur. Sur un domaine verrouillé, le bouton est désactivé.
 
 ### L'onglet « Articles »
 

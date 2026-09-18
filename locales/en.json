@@ -238,7 +238,9 @@
     "design_no_draft": "No draft to publish.",
     "design_verify_failed": "Post-write verification failed on {domain}: the backup was restored.",
     "design_article_unsupported": "This article does not have the expected structure: {file}.",
-    "design_preview_expired": "This preview has expired. Start it again from the editor."
+    "design_preview_expired": "This preview has expired. Start it again from the editor.",
+    "design_image_invalid": "This file is not a recognised image (JPEG, PNG, WebP or GIF).",
+    "design_image_failed": "The image could not be prepared on {server}."
   },
   "files": {
     "title": "Files",
@@ -637,6 +639,12 @@
     "articles_reset": "Reset the search",
     "articles_pick": "Pick an article to edit.",
     "titles_loading": "titles {done}/{total}",
-    "titles_resume": "titles {done}/{total} · resume"
+    "titles_resume": "titles {done}/{total} · resume",
+    "image_import": "Import an image",
+    "image_import_hint": "JPEG, PNG, WebP or GIF. The 400, 600, 900 and 1920 pixel versions are created automatically, in WebP and JPEG.",
+    "image_importing": "Importing “{name}”…",
+    "image_imported": "{count} files created from a {width} × {height} pixel image.",
+    "image_imported_toast": "Image “{id}” added to the site",
+    "image_none_found": "No image matches."
   }
 }

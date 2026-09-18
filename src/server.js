@@ -88,7 +88,7 @@ app.use('/api/auth', authRouter({ audit }));
 app.use('/api', requireAuth);
 app.use('/api/admin', adminRouter({ audit, ssh }));
 app.use('/api/design', designCatalogRouter());
-app.use('/api/servers/:id/domains/:domain/design', designRouter({ ssh, sites, audit }));
+app.use('/api/servers/:id/domains/:domain/design', designRouter({ ssh, sites, audit, uploadLimit: config.files.maxUploadBytes }));
 app.use('/api/servers/:id/domains/:domain/files', filesRouter({ ssh, files, audit, uploadLimit: config.files.maxUploadBytes }));
 app.use('/api/servers', serversRouter({ ssh, domains, audit }));
 app.use('/api/domains', domainsRouter({ ssh, domains }));

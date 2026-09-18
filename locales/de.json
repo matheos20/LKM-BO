@@ -238,7 +238,9 @@
     "design_no_draft": "Kein Entwurf zum Veröffentlichen.",
     "design_verify_failed": "Prüfung nach dem Schreiben auf {domain} fehlgeschlagen: die Sicherung wurde wiederhergestellt.",
     "design_article_unsupported": "Dieser Artikel hat nicht die erwartete Struktur: {file}.",
-    "design_preview_expired": "Diese Vorschau ist abgelaufen. Starten Sie sie erneut im Editor."
+    "design_preview_expired": "Diese Vorschau ist abgelaufen. Starten Sie sie erneut im Editor.",
+    "design_image_invalid": "Diese Datei ist kein erkanntes Bild (JPEG, PNG, WebP oder GIF).",
+    "design_image_failed": "Das Bild konnte auf {server} nicht aufbereitet werden."
   },
   "files": {
     "title": "Dateien",
@@ -637,6 +639,12 @@
     "articles_reset": "Suche zurücksetzen",
     "articles_pick": "Wählen Sie einen Artikel zum Bearbeiten.",
     "titles_loading": "Titel {done}/{total}",
-    "titles_resume": "Titel {done}/{total} · fortsetzen"
+    "titles_resume": "Titel {done}/{total} · fortsetzen",
+    "image_import": "Bild importieren",
+    "image_import_hint": "JPEG, PNG, WebP oder GIF. Die Größen 400, 600, 900 und 1920 Pixel werden automatisch erzeugt, als WebP und JPEG.",
+    "image_importing": "„{name}“ wird importiert…",
+    "image_imported": "{count} Dateien aus einem Bild von {width} × {height} Pixeln erzeugt.",
+    "image_imported_toast": "Bild „{id}“ zur Website hinzugefügt",
+    "image_none_found": "Kein Bild entspricht der Suche."
   }
 }

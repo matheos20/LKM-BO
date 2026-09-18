@@ -238,7 +238,9 @@
     "design_no_draft": "Nenhum rascunho para publicar.",
     "design_verify_failed": "Verificação após escrita falhou em {domain}: a cópia foi restaurada.",
     "design_article_unsupported": "Este artigo não tem a estrutura esperada: {file}.",
-    "design_preview_expired": "Esta pré-visualização expirou. Inicie-a novamente no editor."
+    "design_preview_expired": "Esta pré-visualização expirou. Inicie-a novamente no editor.",
+    "design_image_invalid": "Este ficheiro não é uma imagem reconhecida (JPEG, PNG, WebP ou GIF).",
+    "design_image_failed": "A imagem não pôde ser preparada em {server}."
   },
   "files": {
     "title": "Ficheiros",
@@ -637,6 +639,12 @@
     "articles_reset": "Repor a pesquisa",
     "articles_pick": "Escolha um artigo para modificar.",
     "titles_loading": "títulos {done}/{total}",
-    "titles_resume": "títulos {done}/{total} · retomar"
+    "titles_resume": "títulos {done}/{total} · retomar",
+    "image_import": "Importar uma imagem",
+    "image_import_hint": "JPEG, PNG, WebP ou GIF. As versões de 400, 600, 900 e 1920 píxeis são criadas automaticamente, em WebP e JPEG.",
+    "image_importing": "A importar «{name}»…",
+    "image_imported": "{count} ficheiros criados a partir de uma imagem de {width} × {height} píxeis.",
+    "image_imported_toast": "Imagem «{id}» adicionada ao site",
+    "image_none_found": "Nenhuma imagem corresponde."
   }
 }

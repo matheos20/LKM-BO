@@ -2,24 +2,55 @@ import crypto from 'node:crypto';
 import { AppError } from '../errors.js';
 import { assertDomain } from '../ssh/shell.js';
 import { deleteDraft, getDraft, saveDraft, setDraftPreview } from '../db/drafts.js';
-import { READ_ARTICLE, READ_ARTICLE_METAS, READ_SITE, RENDER_PAGE } from './phpScripts.js';
+import { READ_ARTICLE, READ_ARTICLE_METAS, READ_SITE, RENDER_PAGE, WRITE_IMAGE } from './phpScripts.js';
 import {
   EXIT_MESSAGES,
+  dropImageCommand,
   dropRenderCommand,
+  imageTmpPath,
   listBackupsCommand,
   phpCommand,
   prepareRenderCommand,
   publishCommand,
   renderPageCommand,
   restoreCommand,
+  stageImageCommand,
   writeArticleCommand,
 } from './siteDriver.js';
 import { buildArticleMetaBlock, buildConfigPhp, buildStyleCss, spliceArticle } from './phpWriter.js';
 import { validateArticleContent, validateArticleMeta, validateConfig, validateStyle } from './siteCatalog.js';
 
 const LONG = 120000;
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const PREVIEW_TTL_MS = 20 * 60 * 1000;
 const b64 = (text) => Buffer.from(text, 'utf8').toString('base64');
+
+/** Reconnaissance par les premiers octets : l'extension d'un fichier ne prouve rien. */
+export function imageKind(buf) {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpeg';
+  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (buf.subarray(0, 4).toString('latin1') === 'RIFF' && buf.subarray(8, 12).toString('latin1') === 'WEBP') return 'webp';
+  if (buf.subarray(0, 4).toString('latin1') === 'GIF8') return 'gif';
+  return null;
+}
+
+/** Identifiant tiré du nom d'origine, dans la forme utilisée par le parc, et libre. */
+export function uniqueImageId(name, existing) {
+  const base = String(name ?? '')
+    .replace(/.[a-z0-9]{1,8}$/i, '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 70);
+  const root = base || `image-${Date.now().toString(36)}`;
+  const taken = new Set(existing);
+  if (!taken.has(root)) return root;
+  for (let n = 2; n < 500; n += 1) if (!taken.has(`${root}-${n}`)) return `${root}-${n}`;
+  return `${root}-${Date.now().toString(36)}`;
+}
 
 const FONT_MIME = { woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf' };
 
@@ -167,6 +198,36 @@ export class SiteService {
       extraVars: Object.keys(site.extraVars ?? {}),
       meta: { config: site.configMeta, style: site.styleMeta },
     };
+  }
+
+  // ───────────────────────── Images ─────────────────────────
+
+  /**
+   * Import d'une image depuis le poste de l'agent.
+   *
+   * Le moteur du parc n'affiche jamais le fichier d'origine : il ne connaît que des
+   * déclinaisons `<id>-<largeur>.<ext>`, en 400, 600, 900 et 1920, WebP et JPEG. Elles
+   * sont fabriquées par le PHP du site lui-même, et `manifest.json` en garde l'index.
+   */
+  async uploadImage(serverId, domain, { name, data }) {
+    const { server, docroot } = this.context(serverId, domain);
+    if (!Buffer.isBuffer(data) || data.length === 0) throw new AppError('errors.file_upload_empty', { status: 400 });
+    if (data.length > MAX_IMAGE_BYTES) throw new AppError('errors.file_too_big', { status: 413 });
+    // Le nom d'un fichier ne prouve rien : c'est son contenu qui décide.
+    if (!imageKind(data)) throw new AppError('errors.design_image_invalid', { status: 400 });
+
+    const site = await this.readSite(serverId, domain);
+    const id = uniqueImageId(name, site.images ?? []);
+    const token = crypto.randomBytes(8).toString('hex');
+    try {
+      this.#check(await this.#run(serverId, stageImageCommand(token), { stdin: data, timeout: LONG }), server);
+      const out = await this.#php(serverId, docroot, WRITE_IMAGE, { LKM_SRC: imageTmpPath(token), LKM_ID: id });
+      if (out.error) throw new AppError('errors.design_image_failed', { status: 502, vars: { server: server.label }, detail: out.error });
+      return out;
+    } finally {
+      // Le fichier déposé ne sert qu'à la fabrication : il ne doit pas traîner.
+      await this.#run(serverId, dropImageCommand(token)).catch(() => {});
+    }
   }
 
   async listArticles(serverId, domain) {

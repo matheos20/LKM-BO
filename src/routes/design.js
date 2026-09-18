@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { requireConnection, requirePermission, requireServerAccess } from '../middleware/index.js';
 import { PRESETS, SECTION_FAMILIES, SITE_LANGS } from '../services/siteCatalog.js';
 
@@ -9,6 +9,7 @@ import { PRESETS, SECTION_FAMILIES, SITE_LANGS } from '../services/siteCatalog.j
  *  GET    /                   état de l'éditeur : publié + brouillon + catalogue du site
  *  PUT    /draft              enregistre le brouillon { config, style }
  *  DELETE /draft              abandonne le brouillon
+ *  POST   /images             importe une image (corps binaire) ?name=  → déclinaisons créées
  *  POST   /preview            crée la prévisualisation { article? } → adresse à ouvrir
  *  DELETE /preview            supprime les prévisualisations
  *  POST   /publish            publie le brouillon (sauvegarde + vérification)
@@ -21,7 +22,7 @@ import { PRESETS, SECTION_FAMILIES, SITE_LANGS } from '../services/siteCatalog.j
  *  GET    /backups            sauvegardes disponibles
  *  POST   /backups/restore    restaure une sauvegarde { name }
  */
-export function designRouter({ ssh, sites, audit }) {
+export function designRouter({ ssh, sites, audit, uploadLimit }) {
   const r = Router({ mergeParams: true });
   const canRead = requirePermission('design.read');
   const canEdit = requirePermission('design.edit');
@@ -56,6 +57,18 @@ export function designRouter({ ssh, sites, audit }) {
   r.delete('/draft', canEdit, (req, res) => {
     const { id, domain } = ctx(req);
     res.json(sites.discardDraft(id, domain));
+  });
+
+  // ── Images du site
+  /**
+   * L'image arrive telle quelle dans le corps de la requête, comme pour le gestionnaire
+   * de fichiers : ni formulaire multipart ni fichier temporaire côté back-office.
+   */
+  r.post('/images', canEdit, express.raw({ type: () => true, limit: uploadLimit }), async (req, res) => {
+    const { id, domain } = ctx(req);
+    const name = String(req.query.name ?? '');
+    const out = await audited(req, 'design.image', name, () => sites.uploadImage(id, domain, { name, data: req.body }));
+    res.status(201).json(out);
   });
 
   // ── Prévisualisation

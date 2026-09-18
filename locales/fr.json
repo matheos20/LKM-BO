@@ -238,7 +238,9 @@
     "design_no_draft": "Aucun brouillon à publier.",
     "design_verify_failed": "Vérification après écriture échouée sur {domain} : la sauvegarde a été restaurée.",
     "design_article_unsupported": "Cet article n'a pas la structure attendue : {file}.",
-    "design_preview_expired": "Cette prévisualisation a expiré. Relancez-la depuis l'éditeur."
+    "design_preview_expired": "Cette prévisualisation a expiré. Relancez-la depuis l'éditeur.",
+    "design_image_invalid": "Ce fichier n’est pas une image reconnue (JPEG, PNG, WebP ou GIF).",
+    "design_image_failed": "L’image n’a pas pu être préparée sur {server}."
   },
   "files": {
     "title": "Fichiers",
@@ -637,6 +639,12 @@
     "articles_reset": "Réinitialiser la recherche",
     "articles_pick": "Choisissez un article à modifier.",
     "titles_loading": "titres {done}/{total}",
-    "titles_resume": "titres {done}/{total} · reprendre"
+    "titles_resume": "titres {done}/{total} · reprendre",
+    "image_import": "Importer une image",
+    "image_import_hint": "JPEG, PNG, WebP ou GIF. Les déclinaisons 400, 600, 900 et 1920 pixels sont créées automatiquement, en WebP et en JPEG.",
+    "image_importing": "Import de « {name} » en cours…",
+    "image_imported": "{count} fichiers créés à partir d’une image de {width} × {height} pixels.",
+    "image_imported_toast": "Image « {id} » ajoutée au site",
+    "image_none_found": "Aucune image ne correspond."
   }
 }

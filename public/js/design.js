@@ -1,7 +1,7 @@
-import { api } from './api.js';
+import { ApiError, api } from './api.js';
 import { colorTool, normalizeColor } from './colors.js';
 import { layoutLabel, wireframe } from './blocks.js';
-import { t } from './i18n.js';
+import { getLang, t } from './i18n.js';
 import { $, closeModal, enc, fmtDate, formError, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
 
 /**
@@ -324,26 +324,110 @@ function imageInput(value, onChange) {
   return preview;
 }
 
+/**
+ * Choix d'une image parmi celles du site, ou import d'une nouvelle depuis le poste.
+ *
+ * Le moteur du parc n'affiche que des déclinaisons `<id>-<largeur>.<ext>` : l'import
+ * les fabrique toutes sur le serveur du site. L'agent, lui, dépose simplement un fichier.
+ */
 function pickImage(onPick) {
-  const images = state.site?.available?.images ?? [];
+  const images = [...(state.site?.available?.images ?? [])];
   const grid = h('div', { class: 'grid max-h-[55vh] grid-cols-4 gap-2 overflow-y-auto' });
-  const paint = (filter = '') => {
+  let filter = '';
+
+  const paint = () => {
     const list = images.filter((id) => id.includes(filter)).slice(0, 200);
     grid.replaceChildren(
-      ...list.map((id) =>
-        h(
-          'button',
-          { type: 'button', class: 'group overflow-hidden rounded-lg border border-ink-100 transition hover:border-accent', onclick: () => { onPick(id); closeModal(); } },
-          h('img', { src: `https://${state.domain}/images/${id}-600.jpg`, alt: id, class: 'h-20 w-full object-cover', loading: 'lazy' }),
-          h('span', { class: 'block truncate px-1 py-0.5 font-mono text-[10px] text-ink-400' }, id),
-        ),
-      ),
-      list.length ? null : h('p', { class: 'col-span-4 py-8 text-center text-sm text-ink-400' }, t('domains.empty')),
+      ...(list.length
+        ? list.map((id) =>
+            h(
+              'button',
+              { type: 'button', class: 'group overflow-hidden rounded-lg border border-ink-100 transition hover:border-accent', onclick: () => { onPick(id); closeModal(); } },
+              h('img', { src: `https://${state.domain}/images/${id}-600.jpg`, alt: id, class: 'h-20 w-full object-cover', loading: 'lazy' }),
+              h('span', { class: 'block truncate px-1 py-0.5 font-mono text-[10px] text-ink-400' }, id),
+            ),
+          )
+        : [h('p', { class: 'col-span-4 py-8 text-center text-sm text-ink-400' }, t('design.image_none_found'))]),
     );
   };
-  const search = textInput('', (v) => paint(v.trim()), { placeholder: t('design.image_search') });
+
+  const search = textInput('', (v) => {
+    filter = v.trim();
+    paint();
+  }, { placeholder: t('design.image_search') });
+
+  // ── Import depuis le poste de l'agent
+  const état = h('p', { class: 'text-xs text-ink-400' });
+  const champ = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp,image/gif', class: 'hidden' });
+  const bouton = h(
+    'button',
+    {
+      type: 'button',
+      class: 'btn btn-outline px-3 py-1.5 whitespace-nowrap',
+      disabled: !can('design.edit') || state.status === 'locked',
+      title: state.status === 'locked' ? t('design.locked') : null,
+      onclick: () => champ.click(),
+    },
+    icon('upload'),
+    t('design.image_import'),
+  );
+
+  champ.addEventListener('change', async () => {
+    const file = champ.files?.[0];
+    champ.value = '';
+    if (!file) return;
+    bouton.disabled = true;
+    état.textContent = t('design.image_importing', { name: file.name });
+    try {
+      const res = await sendImage(file);
+      // L'image devient disponible partout dans l'éditeur, sans recharger la page.
+      state.site.available.images = [...images.filter((id) => id !== res.id), res.id].sort();
+      images.length = 0;
+      images.push(...state.site.available.images);
+      paint();
+      état.textContent = t('design.image_imported', { count: res.files.length, width: res.width, height: res.height });
+      toast(t('design.image_imported_toast', { id: res.id }));
+      onPick(res.id);
+      closeModal();
+    } catch (err) {
+      état.textContent = '';
+      toastError(err);
+    } finally {
+      bouton.disabled = false;
+    }
+  });
+
   paint();
-  openModal(h('div', {}, modalHeader(t('design.image_choose'), 'bg-accent-50 text-accent-700', 'image'), search, h('div', { class: 'mt-3' }, grid)), 'max-w-3xl');
+  openModal(
+    h(
+      'div',
+      {},
+      modalHeader(t('design.image_choose'), 'bg-accent-50 text-accent-700', 'image'),
+      h('div', { class: 'flex flex-wrap items-center gap-2' }, h('div', { class: 'min-w-48 flex-1' }, search), bouton, champ),
+      h('p', { class: 'mt-1 text-xs text-ink-400' }, t('design.image_import_hint')),
+      état,
+      h('div', { class: 'mt-3' }, grid),
+    ),
+    'max-w-3xl',
+  );
+}
+
+/** Envoi de l'image en corps binaire brut, comme le gestionnaire de fichiers. */
+async function sendImage(file) {
+  let res;
+  try {
+    res = await fetch(`${base()}/images?name=${enc(file.name)}`, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'lkm-bo', 'X-Lang': getLang(), 'Content-Type': 'application/octet-stream' },
+      credentials: 'same-origin',
+      body: file,
+    });
+  } catch {
+    throw new ApiError(0, t('errors.network'), 'errors.network');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, data.error?.message ?? t('errors.generic'), data.error?.key, data.error?.detail);
+  return data;
 }
 
 function buttonInput(value, onChange) {

@@ -278,3 +278,64 @@ $data = (function ($f, $known) {
 })($path, $known);
 echo json_encode(['ok' => true, 'config' => $data], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 `;
+
+/**
+ * Import d'une image : produit les déclinaisons attendues par le moteur du parc.
+ *
+ * Convention relevée sur les sites : `<id>-<largeur>.<ext>` pour les largeurs
+ * 400, 600, 900 et 1920, en WebP et en JPEG, plus une entrée dans `manifest.json`
+ * qui sert d'index. L'image source arrive dans un fichier temporaire : elle ne peut
+ * pas passer par l'entrée standard, déjà occupée par ce script.
+ */
+export const WRITE_IMAGE = `<?php
+error_reporting(0);
+$doc = getenv('LKM_DOC');
+$src = getenv('LKM_SRC');
+$id = getenv('LKM_ID');
+$dir = $doc . '/images';
+$fail = function ($message) { echo json_encode(['error' => $message]); exit; };
+
+if (!preg_match('/^[a-z0-9][a-z0-9-]{0,79}$/', (string) $id)) $fail('identifiant invalide');
+if (!is_dir($dir)) $fail('dossier images introuvable');
+if (!is_writable($dir)) $fail('dossier images en lecture seule (domaine verrouille ?)');
+
+$data = @file_get_contents($src);
+if ($data === false || strlen($data) === 0) $fail('image absente');
+$info = @getimagesizefromstring($data);
+if (!$info || empty($info[0])) $fail('fichier illisible comme image');
+$image = @imagecreatefromstring($data);
+if (!$image) $fail('format d image non pris en charge');
+
+// Le JPEG ignore la transparence : on aplatit sur blanc avant toute conversion.
+$w = imagesx($image);
+$h = imagesy($image);
+$flat = imagecreatetruecolor($w, $h);
+imagefill($flat, 0, 0, imagecolorallocate($flat, 255, 255, 255));
+imagecopy($flat, $image, 0, 0, 0, 0, $w, $h);
+imagedestroy($image);
+
+$written = [];
+foreach ([400, 600, 900, 1920] as $width) {
+    $target = min($width, $w); // jamais d'agrandissement : on ne fabrique pas de détail
+    $height = max(1, (int) round($h * $target / $w));
+    $thumb = imagescale($flat, $target, $height, IMG_BICUBIC);
+    if (!$thumb) continue;
+    $base = $dir . '/' . $id . '-' . $width;
+    // WebP d'abord, JPEG ensuite : même ordre que les manifestes déjà en place.
+    if (@imagewebp($thumb, $base . '.webp', 82)) { @chmod($base . '.webp', 0664); $written[] = basename($base) . '.webp'; }
+    if (@imagejpeg($thumb, $base . '.jpg', 82)) { @chmod($base . '.jpg', 0664); $written[] = basename($base) . '.jpg'; }
+    imagedestroy($thumb);
+}
+imagedestroy($flat);
+if (!$written) $fail('aucune declinaison n a pu etre ecrite');
+
+$manifestFile = $dir . '/manifest.json';
+$manifest = is_file($manifestFile) ? json_decode((string) file_get_contents($manifestFile), true) : [];
+if (!is_array($manifest)) $manifest = [];
+$manifest[$id] = ['files' => $written];
+ksort($manifest);
+@file_put_contents($manifestFile, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+
+@unlink($src);
+echo json_encode(['id' => $id, 'files' => $written, 'width' => $w, 'height' => $h], JSON_UNESCAPED_SLASHES);
+`;

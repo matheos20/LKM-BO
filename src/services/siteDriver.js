@@ -164,3 +164,12 @@ export const EXIT_MESSAGES = {
   86: 'errors.file_not_found',
   87: 'errors.file_not_found',
 };
+
+/**
+ * Dépose l'image reçue dans un fichier temporaire du serveur.
+ * Le script PHP qui fabrique les déclinaisons arrive, lui, par l'entrée standard :
+ * l'image ne peut donc pas emprunter le même chemin.
+ */
+export const stageImageCommand = (token) => `cat > ${shq(imageTmpPath(token))}`;
+export const dropImageCommand = (token) => `rm -f ${shq(imageTmpPath(token))}; echo ok`;
+export const imageTmpPath = (token) => `/tmp/lkm-image-${token}`;

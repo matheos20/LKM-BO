@@ -238,7 +238,9 @@
     "design_no_draft": "No hay borrador que publicar.",
     "design_verify_failed": "Verificación posterior a la escritura fallida en {domain}: se restauró la copia.",
     "design_article_unsupported": "Este artículo no tiene la estructura esperada: {file}.",
-    "design_preview_expired": "Esta previsualización ha caducado. Vuelva a lanzarla desde el editor."
+    "design_preview_expired": "Esta previsualización ha caducado. Vuelva a lanzarla desde el editor.",
+    "design_image_invalid": "Este archivo no es una imagen reconocida (JPEG, PNG, WebP o GIF).",
+    "design_image_failed": "La imagen no se pudo preparar en {server}."
   },
   "files": {
     "title": "Archivos",
@@ -637,6 +639,12 @@
     "articles_reset": "Restablecer la búsqueda",
     "articles_pick": "Elija un artículo para modificar.",
     "titles_loading": "títulos {done}/{total}",
-    "titles_resume": "títulos {done}/{total} · reanudar"
+    "titles_resume": "títulos {done}/{total} · reanudar",
+    "image_import": "Importar una imagen",
+    "image_import_hint": "JPEG, PNG, WebP o GIF. Las versiones de 400, 600, 900 y 1920 píxeles se crean automáticamente, en WebP y JPEG.",
+    "image_importing": "Importando «{name}»…",
+    "image_imported": "{count} archivos creados a partir de una imagen de {width} × {height} píxeles.",
+    "image_imported_toast": "Imagen «{id}» añadida al sitio",
+    "image_none_found": "Ninguna imagen coincide."
   }
 }

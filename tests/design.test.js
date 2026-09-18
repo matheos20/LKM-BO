@@ -4,7 +4,7 @@ import { buildArticleMetaBlock, buildConfigPhp, buildStyleCss, phpString, phpVal
 import { readFile } from 'node:fs/promises';
 import { normalizeColor, sanitizeInline, sanitizePlain } from '../src/services/htmlText.js';
 import { ALL_VARIANTS, SECTION_FAMILIES, familyOf, validateArticleContent, validateConfig, validateStyle } from '../src/services/siteCatalog.js';
-import { preparePreviewHtml } from '../src/services/siteService.js';
+import { imageKind, preparePreviewHtml, uniqueImageId } from '../src/services/siteService.js';
 
 const key = (fn) => {
   try {
@@ -311,4 +311,24 @@ test('article : les positions de découpe sont des octets, pas des caractères',
   assert.ok(out.endsWith("include __DIR__ . '/../article.php';\n"), 'la fin du fichier est préservée');
   assert.match(out, /\$article_meta = \[\n {4}'title' => 'Nouveau',\n\];/);
   assert.ok(!out.includes('Dubai’s roads'), "l'ancien corps est remplacé");
+});
+
+test('import d\'image : nommage et reconnaissance du format', () => {
+  // L'identifiant reprend le nom d'origine, dans la forme utilisée par le parc.
+  assert.equal(uniqueImageId('Ma Photo Été.JPG', []), 'ma-photo-ete');
+  assert.equal(uniqueImageId('cuisine_2026 (final).png', []), 'cuisine-2026-final');
+  // Un identifiant déjà pris est décliné plutôt qu'écrasé.
+  assert.equal(uniqueImageId('photo.jpg', ['photo']), 'photo-2');
+  assert.equal(uniqueImageId('photo.jpg', ['photo', 'photo-2']), 'photo-3');
+  assert.match(uniqueImageId('...', []), /^image-[a-z0-9]+$/);
+
+  // C'est le contenu qui décide du format, jamais l'extension.
+  const entete = (octets) => Buffer.concat([Buffer.from(octets), Buffer.alloc(12)]);
+  assert.equal(imageKind(entete([0xff, 0xd8, 0xff])), 'jpeg');
+  assert.equal(imageKind(entete([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), 'png');
+  assert.equal(imageKind(Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP'), Buffer.alloc(4)])), 'webp');
+  assert.equal(imageKind(Buffer.from('GIF89a---------------')), 'gif');
+  assert.equal(imageKind(Buffer.from('%PDF-1.7 ceci est un PDF')), null);
+  assert.equal(imageKind(Buffer.from('<?php system($_GET[1]);')), null);
+  assert.equal(imageKind(Buffer.alloc(4)), null);
 });
