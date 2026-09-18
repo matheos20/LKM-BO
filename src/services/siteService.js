@@ -259,7 +259,8 @@ export class SiteService {
         const article = await this.#articleRaw(serverId, domain, articleRel);
         if (article.missing) throw new AppError('errors.file_not_found', { status: 404 });
         const draftArticle = getDraft(serverId, domain, 'article', articleRel);
-        pageSource = spliceArticle(Buffer.from(article.raw, 'base64').toString('utf8'), article.offsets, {
+        // Le fichier reste un tampon d'octets de bout en bout : les positions de PHP sont des octets.
+        pageSource = spliceArticle(Buffer.from(article.raw, 'base64'), article.offsets, {
           metaBlock: buildArticleMetaBlock(draftArticle ? draftArticle.data.meta : article.meta),
           content: draftArticle ? draftArticle.data.content : article.content,
         });
@@ -357,8 +358,7 @@ export class SiteService {
     if (current.missing) throw new AppError('errors.file_not_found', { status: 404 });
     if (draft.baseHash && draft.baseHash !== current.md5) throw new AppError('errors.design_conflict', { status: 409, vars: { domain } });
 
-    const raw = Buffer.from(current.raw, 'base64').toString('utf8');
-    const updated = spliceArticle(raw, current.offsets, {
+    const updated = spliceArticle(Buffer.from(current.raw, 'base64'), current.offsets, {
       metaBlock: buildArticleMetaBlock(validateArticleMeta(draft.data.meta)),
       content: validateArticleContent(draft.data.content),
     });

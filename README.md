@@ -283,6 +283,7 @@ Un brouillon vit dans la base du back-office, pas sur le serveur. Il mémorise l
 - Le corps d'un article refuse `<script>`, le code PHP, les gestionnaires d'événements et la marque de fin du bloc de texte.
 - Les valeurs de présets et la langue sont vérifiées contre la liste que le moteur sait rendre.
 - Toute variable inconnue présente dans un `config.php` existant est **recopiée telle quelle** : l'éditeur n'appauvrit jamais un fichier.
+- L'article est modifié **par positions d'octets**, celles que PHP calcule, et non par positions de caractères : un texte riche en apostrophes typographiques ou en accents se découpe au bon endroit. Un fichier candidat mal formé serait de toute façon refusé par `php -l` avant écriture.
 
 ### Droits
 
@@ -443,3 +444,4 @@ server-scripts/del-site     script serveur de référence pour la suppression
 | `La clé d'hôte … a changé !` | Serveur réinstallé ? Vérifiez l'empreinte **hors bande**, puis retirez la ligne de `config/known_hosts.json` |
 | `sudo refusé …` | Ajoutez la règle sudoers NOPASSWD correspondante (§ 4) |
 | Interface sans style | `npm run build:css` |
+# LKM-BO

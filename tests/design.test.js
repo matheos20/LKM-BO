@@ -94,7 +94,7 @@ test('article : remplacement chirurgical des métadonnées et du corps', () => {
   const out = spliceArticle(raw, offsets, {
     metaBlock: buildArticleMetaBlock({ title: 'Nouveau titre', tags: ['B'] }),
     content: '<h2>Nouveau</h2>\n<p>Texte</p>',
-  });
+  }).toString('utf8');
 
   assert.match(out, /\$article_meta = \[\n {4}'title' => 'Nouveau titre',\n {4}'tags' => \['B'\],\n\];/);
   assert.ok(out.includes('<h2>Nouveau</h2>\n<p>Texte</p>\nHTML;'));
@@ -273,4 +273,42 @@ test('configuration : chaque champ est filtré selon son contexte d\'affichage',
   assert.ok(!clean.homepage.testimonials.items[0].avatar.includes('<'));
   // La description pour les moteurs est réinjectée dans un attribut : texte brut.
   assert.equal(clean.homepage.meta_description, 'Résumé soigné');
+});
+
+test('article : les positions de découpe sont des octets, pas des caractères', () => {
+  // Cas qui cassait la publication : un texte plein d'apostrophes typographiques.
+  // Chacune pèse trois octets pour un seul caractère — index de caractère et position
+  // d'octet divergent, et la coupe emportait le marqueur de fin du bloc de texte.
+  const tete = [
+    '<?php',
+    '$article_meta = [',
+    "    'title' => 'Dubaï’s rides',",
+    '];',
+    'if (isset($meta_only) && $meta_only) return;',
+    "$category = 'bike';",
+    "$content = <<<'HTML'",
+    '',
+  ].join('\n');
+  const corps = '<p>Dubai’s roads — l’été — demandent un vélo adapté.</p>';
+  const queue = "\nHTML;\ninclude __DIR__ . '/../article.php';\n";
+  const raw = Buffer.from(tete + corps + queue, 'utf8');
+
+  // Positions telles que PHP les calcule : en octets.
+  const offsets = {
+    metaStart: raw.indexOf('$article_meta'),
+    metaEnd: raw.indexOf('\n];') + 3,
+    bodyStart: Buffer.byteLength(tete, 'utf8'),
+    bodyEnd: Buffer.byteLength(tete + corps, 'utf8'),
+  };
+  assert.notEqual(offsets.bodyEnd, (tete + corps).length, 'le cas de test doit bien comporter des caractères multi-octets');
+
+  const out = spliceArticle(raw, offsets, {
+    metaBlock: buildArticleMetaBlock({ title: 'Nouveau' }),
+    content: '<p>Corps réécrit — avec « accents ».</p>',
+  }).toString('utf8');
+
+  assert.ok(out.includes('<p>Corps réécrit — avec « accents ».</p>\nHTML;'), 'le marqueur de fin doit rester intact');
+  assert.ok(out.endsWith("include __DIR__ . '/../article.php';\n"), 'la fin du fichier est préservée');
+  assert.match(out, /\$article_meta = \[\n {4}'title' => 'Nouveau',\n\];/);
+  assert.ok(!out.includes('Dubai’s roads'), "l'ancien corps est remplacé");
 });

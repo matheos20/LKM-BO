@@ -117,15 +117,20 @@ export function buildArticleMetaBlock(meta) {
  */
 export function spliceArticle(raw, offsets, { metaBlock, content }) {
   const { metaStart, metaEnd, bodyStart, bodyEnd } = offsets ?? {};
-  let out = raw;
+  // Les positions viennent de PHP, qui compte en OCTETS. Le découpage se fait donc sur un
+  // tampon d'octets : dans une chaîne JavaScript, une apostrophe typographique (trois
+  // octets pour un seul caractère) décalerait la coupe, et le fichier produit perdrait la
+  // fin de son bloc de texte — PHP refuserait alors de le lire.
+  const bytes = (value) => (Buffer.isBuffer(value) ? value : Buffer.from(String(value), 'utf8'));
+  let out = bytes(raw);
   // Du plus loin vers le plus proche : les positions antérieures restent valides.
   if (content !== undefined) {
     if (!Number.isInteger(bodyStart) || !Number.isInteger(bodyEnd)) throw new Error('Corps de l\'article introuvable');
-    out = out.slice(0, bodyStart) + content + out.slice(bodyEnd);
+    out = Buffer.concat([out.subarray(0, bodyStart), bytes(content), out.subarray(bodyEnd)]);
   }
   if (metaBlock !== undefined) {
     if (!Number.isInteger(metaStart) || !Number.isInteger(metaEnd)) throw new Error('Métadonnées de l\'article introuvables');
-    out = out.slice(0, metaStart) + metaBlock + out.slice(metaEnd);
+    out = Buffer.concat([out.subarray(0, metaStart), bytes(metaBlock), out.subarray(metaEnd)]);
   }
   return out;
 }
