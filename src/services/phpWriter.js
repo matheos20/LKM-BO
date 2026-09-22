@@ -103,10 +103,15 @@ export function buildStyleCss(vars) {
   return `:root {\n${lines.join('\n')}\n}\n`;
 }
 
-/** Bloc $article_meta = [...]; d'un article, mise en forme identique au modèle. */
+/**
+ * Bloc $article_meta = [...]; d'un article, dans la mise en forme du parc.
+ *
+ * Les clés sont écrites dans l'ordre reçu, qui est celui du fichier d'origine (voir
+ * `mergeArticleMeta`). Les versions du moteur ne rangent pas leurs métadonnées de la
+ * même façon : imposer un ordre type déplaçait des lignes que l'agent n'avait pas touchées.
+ */
 export function buildArticleMetaBlock(meta) {
-  const order = ['title', 'image', 'intro', 'date', 'read_time', 'author_name', 'author_bio', 'tags'];
-  const keys = [...order.filter((k) => meta[k] !== undefined), ...Object.keys(meta).filter((k) => !order.includes(k))];
+  const keys = Object.keys(meta).filter((k) => meta[k] !== undefined);
   const lines = keys.map((k) => `${INDENT}${phpString(k)} => ${phpValue(meta[k], 1)},`);
   return `$article_meta = [\n${lines.join('\n')}\n];`;
 }

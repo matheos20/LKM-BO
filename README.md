@@ -293,6 +293,8 @@ Un brouillon vit dans la base du back-office, pas sur le serveur. Il mémorise l
 - Les valeurs de présets et la langue sont vérifiées contre la liste que le moteur sait rendre.
 - Toute variable inconnue présente dans un `config.php` existant est **recopiée telle quelle** : l'éditeur n'appauvrit jamais un fichier.
 - L'article est modifié **par positions d'octets**, celles que PHP calcule, et non par positions de caractères : un texte riche en apostrophes typographiques ou en accents se découpe au bon endroit. Un fichier candidat mal formé serait de toute façon refusé par `php -l` avant écriture.
+- Une publication **ne touche que ce que l'agent a changé** : les métadonnées sont réécrites dans l'ordre du fichier d'origine, et un champ vide que le fichier n'avait pas n'est jamais ajouté. Republier sans rien modifier rend le fichier à l'octet près ; changer une image ne modifie qu'une ligne.
+- La prévisualisation d'un article le rend **depuis le dossier de sa rubrique** : certaines versions du moteur déduisent la rubrique du nom du dossier, et un dossier technique faisait perdre le fil d'Ariane et les liens de rubrique.
 
 ### Droits
 

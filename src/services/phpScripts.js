@@ -231,7 +231,7 @@ if (!is_file($file)) { echo json_encode(['error' => 'page introuvable']); exit; 
 
 $_SERVER['HTTP_HOST'] = $host;
 $_SERVER['SERVER_NAME'] = $host;
-$_SERVER['REQUEST_URI'] = '/';
+$_SERVER['REQUEST_URI'] = getenv('LKM_URI') ?: '/';
 $_SERVER['REQUEST_METHOD'] = 'GET';
 $_SERVER['SCRIPT_FILENAME'] = $file;
 $_SERVER['SCRIPT_NAME'] = '/' . $page;

@@ -55,19 +55,41 @@ export function prepareRenderCommand(docroot, token, { styleB64 = '' } = {}) {
     .join('\n');
 }
 
+const RENDER_DIR_RE = /^[a-z0-9][a-z0-9-]{0,60}$/;
+/** Dossiers du moteur recopiés dans le dossier de travail : une page ne s'y dépose jamais. */
+const RESERVED_DIRS = new Set(['parts', 'images', 'fonts']);
+
 /**
- * Dépose la page à rendre dans le dossier de travail.
- * Les pages vont dans « page/ » : ce dossier n'existe pas dans les permaliens du site,
- * ce qui évite la redirection canonique du moteur vers la page en production.
+ * Dossier dans lequel rendre une page.
+ *
+ * Certaines versions du moteur déduisent la rubrique d'un article du nom de son dossier
+ * (`$category = basename(__DIR__)`). Rendu depuis un dossier technique, l'article perdait
+ * sa rubrique : fil d'Ariane vide, et des liens vers une adresse inexistante que le site
+ * renvoie à l'accueil. L'article est donc rendu dans un dossier qui porte le nom de sa
+ * vraie rubrique ; la page d'accueil, elle, garde « page/ ».
+ *
+ * Aucun risque de redirection canonique : `permalinks.php` n'est jamais recopié dans le
+ * dossier de travail, le moteur n'y trouve donc aucune adresse vers laquelle renvoyer.
  */
-export const renderPageCommand = (token, name) =>
-  [
+export function renderDirFor(articleRel) {
+  const rel = String(articleRel ?? '');
+  const dir = rel.split('/')[0];
+  return rel.includes('/') && RENDER_DIR_RE.test(dir) && !RESERVED_DIRS.has(dir) ? dir : 'page';
+}
+
+/** Dépose la page à rendre dans le dossier de travail, puis en vérifie la syntaxe. */
+export function renderPageCommand(token, name, dir = 'page') {
+  if (!RENDER_DIR_RE.test(dir)) throw new Error('dossier de rendu invalide');
+  const target = `"$TMP/"${shq(`${dir}/${name}`)}`;
+  return [
     `TMP=${shq(`${RENDER_ROOT}-${token}`)}`,
     `[ -d "$TMP" ] || exit 75`,
-    `base64 -d > "$TMP/page/"${shq(name)} || exit 73`,
-    `php -l "$TMP/page/"${shq(name)} > /dev/null || exit 76`,
+    `mkdir -p "$TMP/"${shq(dir)} || exit 70`,
+    `base64 -d > ${target} || exit 73`,
+    `php -l ${target} > /dev/null || exit 76`,
     `echo ok`,
   ].join('\n');
+}
 
 /** Supprime un dossier de rendu temporaire. */
 export const dropRenderCommand = (token) => `rm -rf ${shq(`${RENDER_ROOT}-${token}`)}; echo ok`;

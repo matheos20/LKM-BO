@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildArticleMetaBlock, buildConfigPhp, buildStyleCss, phpString, phpValue, spliceArticle } from '../src/services/phpWriter.js';
 import { readFile } from 'node:fs/promises';
+import { renderDirFor, renderPageCommand } from '../src/services/siteDriver.js';
 import { normalizeColor, sanitizeInline, sanitizePlain } from '../src/services/htmlText.js';
 import { ALL_VARIANTS, SECTION_FAMILIES, familyOf, validateArticleContent, validateConfig, validateStyle } from '../src/services/siteCatalog.js';
-import { imageKind, preparePreviewHtml, uniqueImageId } from '../src/services/siteService.js';
+import { imageKind, mergeArticleMeta, preparePreviewHtml, uniqueImageId } from '../src/services/siteService.js';
 
 const key = (fn) => {
   try {
@@ -331,4 +332,106 @@ test('import d\'image : nommage et reconnaissance du format', () => {
   assert.equal(imageKind(Buffer.from('%PDF-1.7 ceci est un PDF')), null);
   assert.equal(imageKind(Buffer.from('<?php system($_GET[1]);')), null);
   assert.equal(imageKind(Buffer.alloc(4)), null);
+});
+
+test('prévisualisation d\'article : rendue depuis le dossier de sa rubrique', () => {
+  // Certains moteurs déduisent la rubrique du dossier (basename(__DIR__)) : un article de
+  // « business » rendu depuis « page/ » perdait sa rubrique et ses liens menaient à l'accueil.
+  assert.equal(renderDirFor('business/top-strategies.php'), 'business');
+  assert.equal(renderDirFor('good-deal/offre.php'), 'good-deal');
+  // Sans rubrique exploitable, on garde le dossier technique.
+  assert.equal(renderDirFor('article-a-la-racine.php'), 'page');
+  assert.equal(renderDirFor('parts/header.php'), 'page');
+  assert.equal(renderDirFor('../etc/passwd'), 'page');
+  assert.equal(renderDirFor('Rubrique Majuscule/x.php'), 'page');
+
+  const cmd = renderPageCommand('abc123', 'top-strategies.php', 'business');
+  assert.ok(cmd.includes(`mkdir -p "$TMP/"'business'`));
+  assert.ok(cmd.includes(`base64 -d > "$TMP/"'business/top-strategies.php'`));
+  assert.throws(() => renderPageCommand('abc123', 'x.php', '../x'));
+});
+
+test('import d\'image : un nom sans extension reste intact', () => {
+  // Régression : un point non échappé dans l'expression retirait la fin de n'importe quel nom.
+  assert.equal(uniqueImageId('photo', []), 'photo');
+  assert.equal(uniqueImageId('cuisine2026', []), 'cuisine2026');
+  assert.equal(uniqueImageId('archive.tar.gz', []), 'archive-tar');
+});
+
+test('article : une publication ne touche que ce que l\'agent a changé', () => {
+  // Cas relevé sur ukinco.com : changer l'image ajoutait un « intro » vide
+  // et déplaçait meta_title, meta_description et author_avatar en fin de bloc.
+  const original = {
+    title: 'Top stratégies',
+    meta_title: 'Top stratégies',
+    meta_description: 'Résumé',
+    image: 'ancienne-image',
+    date: '27 august 2025',
+    author_name: 'Rayan',
+    author_avatar: '',
+    tags: ['Finance'],
+  };
+  const edite = { ...original, image: 'nouvelle-image', intro: '', read_time: '', author_bio: '' };
+
+  const fusion = mergeArticleMeta(original, edite);
+  assert.deepEqual(Object.keys(fusion), Object.keys(original), 'ordre d\'origine conservé, aucun champ vide ajouté');
+  assert.equal(fusion.image, 'nouvelle-image');
+  assert.equal(fusion.author_avatar, '', 'un champ vide déjà présent reste présent');
+
+  // Un champ nouveau réellement rempli, lui, est ajouté — en fin de bloc.
+  const avecIntro = mergeArticleMeta(original, { ...edite, intro: 'Un chapeau' });
+  assert.deepEqual(Object.keys(avecIntro).at(-1), 'intro');
+  assert.equal(avecIntro.intro, 'Un chapeau');
+});
+
+test('article : republier sans rien changer rend le fichier à l\'octet près', () => {
+  // Disposition d'une autre version du moteur (ukinco.com) : meta_title après le titre,
+  // chargement de parts/picture.php, rubrique déduite du dossier.
+  const tete = [
+    '<?php',
+    '$article_meta = [',
+    "    'title' => 'Top stratégies',",
+    "    'meta_title' => 'Top stratégies',",
+    "    'meta_description' => 'Résumé — clés et conseils',",
+    "    'image' => 'ancienne-image',",
+    "    'author_avatar' => '',",
+    "    'tags' => ['Finance'],",
+    '];',
+    '',
+    "require_once __DIR__ . '/../parts/picture.php';",
+    'if (isset($meta_only) && $meta_only) return;',
+    '$category = basename(__DIR__);',
+    "$content = <<<'HTML'",
+    '',
+  ].join('\n');
+  const corps = '<p>L’essentiel de la digitalisation.</p>';
+  const raw = Buffer.from(`${tete}${corps}\nHTML;\ninclude __DIR__ . '/../article.php';\n`, 'utf8');
+  const meta = {
+    title: 'Top stratégies',
+    meta_title: 'Top stratégies',
+    meta_description: 'Résumé — clés et conseils',
+    image: 'ancienne-image',
+    author_avatar: '',
+    tags: ['Finance'],
+  };
+  const offsets = {
+    metaStart: raw.indexOf('$article_meta'),
+    metaEnd: raw.indexOf('\n];') + 3,
+    bodyStart: Buffer.byteLength(tete, 'utf8'),
+    bodyEnd: Buffer.byteLength(tete + corps, 'utf8'),
+  };
+  // Le formulaire envoie aussi des champs que le fichier n'a pas.
+  const formulaire = { ...meta, intro: '', read_time: '', author_bio: '' };
+
+  const intact = spliceArticle(raw, offsets, { metaBlock: buildArticleMetaBlock(mergeArticleMeta(meta, formulaire)), content: corps });
+  assert.equal(Buffer.compare(intact, raw), 0, 'sans modification, le fichier doit ressortir identique');
+
+  const modifie = spliceArticle(raw, offsets, {
+    metaBlock: buildArticleMetaBlock(mergeArticleMeta(meta, { ...formulaire, image: 'nouvelle-image' })),
+    content: corps,
+  }).toString('utf8');
+  const avant = raw.toString('utf8').split('\n');
+  const apres = modifie.split('\n');
+  const changees = avant.filter((ligne, i) => ligne !== apres[i]);
+  assert.deepEqual(changees, ["    'image' => 'ancienne-image',"], 'seule la ligne de l\'image doit changer');
 });

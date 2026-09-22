@@ -12,6 +12,7 @@ import {
   phpCommand,
   prepareRenderCommand,
   publishCommand,
+  renderDirFor,
   renderPageCommand,
   restoreCommand,
   stageImageCommand,
@@ -38,9 +39,9 @@ export function imageKind(buf) {
 /** Identifiant tiré du nom d'origine, dans la forme utilisée par le parc, et libre. */
 export function uniqueImageId(name, existing) {
   const base = String(name ?? '')
-    .replace(/.[a-z0-9]{1,8}$/i, '')
+    .replace(/\.[a-z0-9]{1,8}$/i, '')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
@@ -50,6 +51,24 @@ export function uniqueImageId(name, existing) {
   if (!taken.has(root)) return root;
   for (let n = 2; n < 500; n += 1) if (!taken.has(`${root}-${n}`)) return `${root}-${n}`;
   return `${root}-${Date.now().toString(36)}`;
+}
+
+/**
+ * Métadonnées à écrire : celles du fichier, dans leur ordre, avec les valeurs modifiées.
+ *
+ * Le formulaire envoie tous ses champs, y compris ceux que le fichier n'avait pas : sans
+ * cette fusion, changer une image ajoutait un « intro » vide et déplaçait des lignes. Une
+ * publication ne doit toucher que ce que l'agent a changé — le reste du fichier, à l'octet
+ * près, reste celui d'origine.
+ */
+export function mergeArticleMeta(original, edited) {
+  const vide = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+  const base = original && typeof original === 'object' ? original : {};
+  const next = edited && typeof edited === 'object' ? edited : {};
+  const out = {};
+  for (const key of Object.keys(base)) out[key] = key in next ? next[key] : base[key];
+  for (const [key, value] of Object.entries(next)) if (!(key in out) && !vide(value)) out[key] = value;
+  return out;
 }
 
 const FONT_MIME = { woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf' };
@@ -315,6 +334,7 @@ export class SiteService {
       );
 
       let pageName = 'home.php';
+      let pageDir = 'page';
       let pageSource = `<?php include __DIR__ . '/../homepage.php';\n`;
       if (articleRel) {
         const article = await this.#articleRaw(serverId, domain, articleRel);
@@ -322,16 +342,19 @@ export class SiteService {
         const draftArticle = getDraft(serverId, domain, 'article', articleRel);
         // Le fichier reste un tampon d'octets de bout en bout : les positions de PHP sont des octets.
         pageSource = spliceArticle(Buffer.from(article.raw, 'base64'), article.offsets, {
-          metaBlock: buildArticleMetaBlock(draftArticle ? draftArticle.data.meta : article.meta),
+          metaBlock: buildArticleMetaBlock(draftArticle ? mergeArticleMeta(article.meta, draftArticle.data.meta) : article.meta),
           content: draftArticle ? draftArticle.data.content : article.content,
         });
         pageName = articleRel.split('/').pop();
+        pageDir = renderDirFor(articleRel);
       }
-      this.#check(await this.#run(serverId, renderPageCommand(token, pageName), { stdin: b64(pageSource) }), server);
+      this.#check(await this.#run(serverId, renderPageCommand(token, pageName, pageDir), { stdin: b64(pageSource) }), server);
 
       const rendered = await this.#php(serverId, docroot, RENDER_PAGE, {
         LKM_TMP: `/tmp/lkm-render-${token}`,
-        LKM_PAGE: `page/${pageName}`,
+        LKM_PAGE: `${pageDir}/${pageName}`,
+        // L'adresse demandée est celle de l'article, comme en production.
+        LKM_URI: articleRel ? `/${articleRel}` : '/',
         LKM_HOST: domain,
       });
       if (!rendered.html) throw new AppError('errors.design_preview_failed', { status: 502, vars: { server: server.label }, detail: rendered.error });
@@ -420,7 +443,7 @@ export class SiteService {
     if (draft.baseHash && draft.baseHash !== current.md5) throw new AppError('errors.design_conflict', { status: 409, vars: { domain } });
 
     const updated = spliceArticle(Buffer.from(current.raw, 'base64'), current.offsets, {
-      metaBlock: buildArticleMetaBlock(validateArticleMeta(draft.data.meta)),
+      metaBlock: buildArticleMetaBlock(mergeArticleMeta(current.meta, validateArticleMeta(draft.data.meta))),
       content: validateArticleContent(draft.data.content),
     });
 
