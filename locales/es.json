@@ -309,7 +309,12 @@
     "upload_progress": "Subiendo… {percent} %",
     "upload_hint": "Hasta {size} por envío. Se rechaza si ya existe un elemento con ese nombre.",
     "toast_uploaded": "{name} subido.",
-    "toast_uploaded_extracted": "{name} subido y descomprimido ({count} archivos)."
+    "toast_uploaded_extracted": "{name} subido y descomprimido ({count} archivos).",
+    "nav_group": "Navegación",
+    "nav_back": "Atrás",
+    "nav_forward": "Adelante",
+    "nav_up": "Carpeta superior",
+    "parent_row": "Subir a la carpeta superior"
   },
   "perm": {
     "servers": {

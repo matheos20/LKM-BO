@@ -18,6 +18,11 @@ const state = {
   filter: '',
   seq: 0,
   onClose: null,
+  // Historique de navigation, comme dans un explorateur de fichiers : les dossiers
+  // quittés (Précédent) et ceux d'où l'on est revenu (Suivant).
+  history: { back: [], forward: [] },
+  // Dossier d'où l'on vient de remonter : mis en évidence pour ne pas perdre le fil.
+  focus: null,
 };
 
 const base = () => `/api/servers/${enc(state.serverId)}/domains/${enc(state.domain)}/files`;
@@ -40,7 +45,7 @@ const isZip = (entry) => entry.type === 'file' && /\.zip$/i.test(entry.name);
 // ───────────────────────── Ouverture / fermeture ─────────────────────────
 
 export async function openFiles({ serverId, serverLabel, domain, status, onClose }) {
-  Object.assign(state, { serverId, serverLabel, domain, status: status ?? null, path: '', data: null, filter: '', onClose });
+  Object.assign(state, { serverId, serverLabel, domain, status: status ?? null, path: '', data: null, filter: '', onClose, focus: null, history: { back: [], forward: [] } });
   state.selection.clear();
   $('#domains-view').hidden = true;
   $('#files-view').hidden = false;
@@ -70,23 +75,113 @@ export function rerenderFiles() {
 
 // ───────────────────────── Chargement ─────────────────────────
 
-async function load(path = state.path, { keepSelection = false } = {}) {
+/**
+ * Charge un dossier. `commit` n'est appelé qu'une fois le dossier obtenu : un dossier
+ * supprimé entre-temps ne laisse donc pas d'entrée fantôme dans l'historique.
+ */
+async function load(path = state.path, { keepSelection = false, commit = null, focus = null } = {}) {
   const seq = ++state.seq;
   render({ loading: true });
   try {
     const data = await api(`${base()}?${qs({ path })}`);
-    if (seq !== state.seq) return;
+    if (seq !== state.seq) return false;
     state.data = data;
     state.path = data.path;
     if (data.status) state.status = data.status;
     if (!keepSelection) state.selection.clear();
+    commit?.();
+    state.focus = focus;
     render();
+    return true;
   } catch (err) {
-    if (seq !== state.seq) return;
+    if (seq !== state.seq) return false;
     toastError(err);
     render({ error: err });
+    return false;
   }
 }
+
+// ───────────────────────── Navigation ─────────────────────────
+
+const parentOf = (path) => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '');
+
+/** Premier dossier de `from` situé sous `to` : celui à mettre en évidence après le retour. */
+function childOf(to, from) {
+  if (from === to) return null;
+  const prefix = to ? `${to}/` : '';
+  if (!from.startsWith(prefix)) return null;
+  return from.slice(prefix.length).split('/')[0] || null;
+}
+
+/** Navigation voulue par l'agent : le dossier quitté rejoint « Précédent ». */
+function navigate(path) {
+  if (path === state.path) return;
+  const leaving = state.path;
+  load(path, {
+    focus: childOf(path, leaving),
+    commit: () => {
+      state.history.back.push(leaving);
+      state.history.forward.length = 0;
+    },
+  });
+}
+
+function goBack() {
+  const target = state.history.back.at(-1);
+  if (target === undefined) return;
+  const leaving = state.path;
+  load(target, {
+    focus: childOf(target, leaving),
+    commit: () => {
+      state.history.back.pop();
+      state.history.forward.push(leaving);
+    },
+  });
+}
+
+function goForward() {
+  const target = state.history.forward.at(-1);
+  if (target === undefined) return;
+  const leaving = state.path;
+  load(target, {
+    focus: childOf(target, leaving),
+    commit: () => {
+      state.history.forward.pop();
+      state.history.back.push(leaving);
+    },
+  });
+}
+
+/** Remonter d'un niveau est une navigation comme une autre : « Précédent » y ramène. */
+const goUp = () => state.path && navigate(parentOf(state.path));
+
+/**
+ * Raccourcis d'un explorateur de fichiers : Alt+← / Alt+→ / Alt+↑, Retour arrière,
+ * et les boutons latéraux de la souris. Inactifs pendant une saisie ou une fenêtre ouverte.
+ */
+const typing = (el) => el?.closest?.('input, textarea, select, [contenteditable="true"]');
+const modalOpen = () => $('#modal') && !$('#modal').hidden;
+
+document.addEventListener('keydown', (e) => {
+  if (!isFilesOpen() || !state.data || modalOpen() || typing(e.target)) return;
+  const action =
+    e.altKey && e.key === 'ArrowLeft' ? goBack
+    : e.altKey && e.key === 'ArrowRight' ? goForward
+    : e.altKey && e.key === 'ArrowUp' ? goUp
+    : !e.altKey && !e.ctrlKey && !e.metaKey && e.key === 'Backspace' ? goBack
+    : null;
+  if (!action) return;
+  // Alt+← est aussi le raccourci « page précédente » du navigateur : on l'intercepte
+  // pour qu'il ramène au dossier précédent au lieu de quitter l'application.
+  e.preventDefault();
+  action();
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (!isFilesOpen() || !state.data || modalOpen() || (e.button !== 3 && e.button !== 4)) return;
+  e.preventDefault();
+  (e.button === 3 ? goBack : goForward)();
+});
 
 const reload = () => load(state.path, { keepSelection: false });
 
@@ -102,6 +197,30 @@ function render({ loading = false, error = null } = {}) {
   );
   // replaceChildren() n'ignore pas les valeurs nulles (il insère « null ») : on filtre.
   $('#files-view').replaceChildren(...[breadcrumb(), isLocked() ? lockedBanner() : null, toolbar(), table(loading, error)].filter(Boolean));
+
+  const focused = !loading && $('#files-view tr[data-focus]');
+  if (focused) {
+    focused.scrollIntoView({ block: 'nearest' });
+    setTimeout(() => focused.removeAttribute('data-focus'), 1800);
+    state.focus = null;
+  }
+}
+
+/** Précédent, Suivant, Dossier parent : l'infobulle rappelle le raccourci clavier. */
+function navButtons() {
+  const btn = (name, label, keys, onclick, disabled) =>
+    h(
+      'button',
+      { type: 'button', class: 'icon-btn size-7', title: `${label} (${keys})`, 'aria-label': label, disabled, onclick },
+      icon(name, 'size-4'),
+    );
+  return h(
+    'div',
+    { class: 'flex shrink-0 items-center gap-0.5 rounded-lg border border-ink-200 bg-white p-0.5', role: 'group', 'aria-label': t('files.nav_group') },
+    btn('arrowLeft', t('files.nav_back'), 'Alt+←', goBack, !state.history.back.length),
+    btn('arrowRight', t('files.nav_forward'), 'Alt+→', goForward, !state.history.forward.length),
+    btn('arrowUp', t('files.nav_up'), 'Alt+↑', goUp, !state.path),
+  );
 }
 
 function breadcrumb() {
@@ -109,13 +228,18 @@ function breadcrumb() {
   const crumb = (label, path, last) =>
     last
       ? h('span', { class: 'font-semibold text-ink' }, label)
-      : h('button', { type: 'button', class: 'text-ink-500 transition hover:text-accent-700 hover:underline', onclick: () => load(path) }, label);
+      : h('button', { type: 'button', class: 'text-ink-500 transition hover:text-accent-700 hover:underline', onclick: () => navigate(path) }, label);
   const items = [h('span', { class: 'flex items-center gap-1.5' }, icon('home', 'size-4 text-ink-400'), crumb(t('files.root'), '', parts.length === 0))];
   parts.forEach((part, i) => {
     items.push(icon('chevronRight', 'size-3.5 shrink-0 text-ink-300'));
     items.push(crumb(part, parts.slice(0, i + 1).join('/'), i === parts.length - 1));
   });
-  return h('nav', { class: 'flex flex-wrap items-center gap-1.5 overflow-x-auto text-sm', 'aria-label': t('files.title') }, items);
+  return h(
+    'div',
+    { class: 'flex items-center gap-3' },
+    navButtons(),
+    h('nav', { class: 'flex min-w-0 flex-wrap items-center gap-1.5 overflow-x-auto text-sm', 'aria-label': t('files.title') }, items),
+  );
 }
 
 const lockedBanner = () =>
@@ -227,10 +351,30 @@ function table(loading, error) {
   );
 
   const message = (text) => h('tr', {}, h('td', { colspan: 6, class: 'px-5 py-14 text-center text-ink-400' }, text));
+
+  // La ligne « .. » des explorateurs : le geste le plus attendu pour remonter.
+  const parentRow = state.path && state.data && !error
+    ? h(
+        'tr',
+        {
+          class: 'cursor-pointer text-ink-500 transition hover:bg-accent-50/50 focus:bg-accent-50/50 focus:outline-none',
+          tabindex: '0',
+          title: `${t('files.parent_row')} (Alt+↑)`,
+          onclick: goUp,
+          onkeydown: (e) => e.key === 'Enter' && goUp(),
+        },
+        h('td', { class: 'px-4 py-2.5' }),
+        h(
+          'td',
+          { class: 'px-2 py-2.5', colspan: 5 },
+          h('span', { class: 'flex items-center gap-2' }, icon('arrowUp', 'size-4 text-ink-400'), h('span', { class: 'font-mono' }, '..'), h('span', { class: 'text-xs text-ink-400' }, t('files.parent_row'))),
+        ),
+      )
+    : null;
   const body = h(
     'tbody',
     { class: 'divide-y divide-ink-100' },
-    ...(loading && !state.data ? [message(t('files.loading'))] : error ? [message(error.message)] : entries.length ? entries.map(row) : [message(t('files.empty'))]),
+    ...[parentRow, ...(loading && !state.data ? [message(t('files.loading'))] : error ? [message(error.message)] : entries.length ? entries.map(row) : [message(t('files.empty'))])].filter(Boolean),
   );
 
   const footer = h(
@@ -251,7 +395,7 @@ function table(loading, error) {
 function row(entry) {
   const selected = state.selection.has(entry.name);
   const iconCls = entry.type === 'dir' ? 'size-4 shrink-0 text-accent-700' : 'size-4 shrink-0 text-ink-400';
-  const open = () => (entry.type === 'dir' ? load(rel(entry.name)) : openEditor(entry));
+  const open = () => (entry.type === 'dir' ? navigate(rel(entry.name)) : openEditor(entry));
 
   const action = (name, label, onclick, { disabled = false, extra = '' } = {}) =>
     h(
@@ -262,7 +406,12 @@ function row(entry) {
 
   return h(
     'tr',
-    { class: `transition hover:bg-accent-50/50 ${selected ? 'bg-accent-50/60' : ''}`, 'data-name': entry.name },
+    {
+      // data-focus : le dossier d'où l'on revient, surligné le temps de retrouver ses repères.
+      class: `transition-colors duration-700 hover:bg-accent-50/50 data-[focus]:bg-accent-100 ${selected ? 'bg-accent-50/60' : ''}`,
+      'data-name': entry.name,
+      'data-focus': state.focus === entry.name ? '' : null,
+    },
     h(
       'td',
       { class: 'px-4 py-2.5' },

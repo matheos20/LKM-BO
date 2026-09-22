@@ -45,6 +45,8 @@ export const ICONS = {
   home: ['m3 11 9-8 9 8', 'M5 10v10h14V10'],
   chevronRight: ['m9 6 6 6-6 6'],
   arrowLeft: ['M19 12H5', 'm11 6-6 6 6 6'],
+  arrowRight: ['M5 12h14', 'm13 6 6 6-6 6'],
+  arrowUp: ['M12 19V5', 'm6 11 6-6 6 6'],
   refresh: ['M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6'],
   save: ['M5 5h11l3 3v11H5z', 'M8 5v5h7V5M8 19v-6h8v6'],
   plus: ['M12 5v14M5 12h14'],

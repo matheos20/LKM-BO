@@ -309,7 +309,12 @@
     "upload_progress": "Envoi… {percent} %",
     "upload_hint": "Jusqu'à {size} par envoi. L'envoi est refusé si un élément porte déjà ce nom.",
     "toast_uploaded": "{name} téléversé.",
-    "toast_uploaded_extracted": "{name} téléversé et décompressé ({count} fichiers)."
+    "toast_uploaded_extracted": "{name} téléversé et décompressé ({count} fichiers).",
+    "nav_group": "Navigation",
+    "nav_back": "Précédent",
+    "nav_forward": "Suivant",
+    "nav_up": "Dossier parent",
+    "parent_row": "Remonter au dossier parent"
   },
   "perm": {
     "servers": {

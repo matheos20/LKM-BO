@@ -309,7 +309,12 @@
     "upload_progress": "Uploading… {percent}%",
     "upload_hint": "Up to {size} per upload. Rejected if an entry with that name already exists.",
     "toast_uploaded": "{name} uploaded.",
-    "toast_uploaded_extracted": "{name} uploaded and extracted ({count} files)."
+    "toast_uploaded_extracted": "{name} uploaded and extracted ({count} files).",
+    "nav_group": "Navigation",
+    "nav_back": "Back",
+    "nav_forward": "Forward",
+    "nav_up": "Parent folder",
+    "parent_row": "Up to the parent folder"
   },
   "perm": {
     "servers": {

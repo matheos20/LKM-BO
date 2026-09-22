@@ -137,6 +137,7 @@ Il s'ouvre depuis l'icône dossier d'une ligne du tableau, ou depuis le panneau 
 | Fonction | Détail |
 |---|---|
 | **Explorateur** | navigation dossier par dossier, fil d'Ariane, filtre instantané, dossiers en tête, taille / date / droits |
+| **Navigation** | boutons **Précédent**, **Suivant** et **Dossier parent**, ligne `..` en tête de liste ; raccourcis `Alt+←`, `Alt+→`, `Alt+↑`, `Retour arrière`, et boutons latéraux de la souris. En revenant d'un sous-dossier, celui-ci est surligné un instant pour garder ses repères. `Alt+←` est intercepté : il ramène au dossier précédent au lieu de quitter l'application |
 | **Édition** | éditeur intégré (Ctrl+S), refus des fichiers binaires, garde anti-écrasement : si le fichier a changé sur le serveur depuis son ouverture, l'enregistrement est refusé |
 | **Renommage** | dans le dossier courant, refus si le nom est déjà pris |
 | **Suppression** | confirmation listant les éléments ; les dossiers partent avec leur contenu |

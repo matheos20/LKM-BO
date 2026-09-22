@@ -309,7 +309,12 @@
     "upload_progress": "Caricamento… {percent} %",
     "upload_hint": "Fino a {size} per invio. Rifiutato se esiste già un elemento con quel nome.",
     "toast_uploaded": "{name} caricato.",
-    "toast_uploaded_extracted": "{name} caricato ed estratto ({count} file)."
+    "toast_uploaded_extracted": "{name} caricato ed estratto ({count} file).",
+    "nav_group": "Navigazione",
+    "nav_back": "Indietro",
+    "nav_forward": "Avanti",
+    "nav_up": "Cartella superiore",
+    "parent_row": "Risalire alla cartella superiore"
   },
   "perm": {
     "servers": {
