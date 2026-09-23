@@ -534,14 +534,35 @@ analysés, **Publier (n)** les met en ligne après une confirmation qui annonce 
 et de textes. Les deux gestes restent séparés pour qu'une relecture puisse s'intercaler. Sans
 service configuré, l'écran fonctionne à l'identique, l'agent saisissant lui-même les textes.
 
-**Ce que coûte le parc entier.** Relevé du 23/09/2026 sur 2 400 sites (600 par serveur) : 130 sites
-à corriger (**5,4 %**), 175 textes, mais seulement **112 textes distincts pour 5 221 caractères** —
+**Ce que coûte le parc entier.** Relevé du 23/09/2026 sur 2 400 sites (600 par serveur) : 74 sites
+à corriger (**3,1 %**), 138 textes, mais seulement **131 textes distincts pour 5 675 caractères** —
 les phrases éditoriales ne se répètent pas d'un site à l'autre. Rapporté aux 28 176 domaines du
-parc : environ **61 000 caractères**, soit le huitième de l'offre gratuite de DeepL. Un dictionnaire
+parc : environ **66 000 caractères**, soit le huitième de l'offre gratuite de DeepL. Un dictionnaire
 plus fourni, lui, ne gagnerait presque rien : il couvre déjà les expressions qui reviennent.
 
-**Mesures** : 150 sites analysés en 2 s sur vps-003 (6 à corriger, 8 textes) ; 2 400 sites en 76 s ;
-une liste de trois domaines répartis sur vps-001 et vps-002 traitée en un seul lancement.
+### Comment un texte est repéré
+
+Chaque texte est noté sur ses mots outils — « le », « the », « der »… — dans les sept langues du
+parc. Trois règles, toutes nées d'un défaut constaté :
+
+1. **Premier tour, la preuve franche.** Le texte doit devancer d'au moins deux points la langue du
+   site, et pas seulement la deuxième du classement. « Transformer la donnée biologique en levier
+   de longévité » marque 3 en espagnol (`la`, `en`, `de`) contre 2 en français, sans être espagnol.
+2. **Second tour, la preuve de contexte.** Une langue déjà prise en faute sur CE site n'a plus à
+   convaincre autant. « Architectes du code, compilez ! 💻 » ne marque qu'un point (`du`) : beaucoup
+   trop peu pour accuser un site au hasard, largement assez quand deux autres textes de la même page
+   sont du français avéré. Ces textes portent la mention « à vérifier » et ne sont jamais cochés
+   d'office. Sur 2 400 sites, le second tour ajoute 26 textes, tous réels après relecture.
+3. **La marque ne compte pas.** Le nom de domaine et `$site_name` sont retirés du calcul :
+   « Explorez l'univers Be You Tiful » est du français, même si `be` et `you` sont deux mots outils
+   anglais.
+
+Le reste est affaire de listes : elles se complètent quand un relevé montre un trou. « Bleiben Sie
+informiert über… » ne marquait aucun point en allemand — ni `sie` ni `über` n'y figuraient — et
+passait pour du français à cause de son « (DE) » final.
+
+**Mesures** : 150 sites analysés en 2 s sur vps-003 ; 2 400 sites en 81 s ; une liste de trois
+domaines répartis sur deux serveurs traitée en un seul lancement.
 
 > À noter : 51 sites français écrivent « Questions frequentes » sans accent. Ce n'est pas un défaut
 > de langue et l'écran ne le signale plus — mais c'est le genre de correction de masse que le menu

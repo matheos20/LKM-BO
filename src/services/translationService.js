@@ -83,6 +83,9 @@ export class TranslationService {
       // si le constat est net ou s'il demande un coup d'œil.
       gap: item.gap,
       words: item.words,
+      // Repéré au second tour, sur une langue déjà prise en faute ailleurs dans la page :
+      // la preuve est plus faible, l'agent doit y jeter un œil.
+      weak: Boolean(item.weak),
       suggestion: dictionaryLookup(item.text, lang),
       source: 'detected',
     }));

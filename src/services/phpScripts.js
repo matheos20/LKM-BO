@@ -365,12 +365,12 @@ $STOP = [
  // lorsque…). Sans eux, une phrase française courte se faisait prendre pour du
  // néerlandais, dont la liste contient « je », « en » et « de ».
  'FR' => "le la les des une un du de et ou pour avec vous nous votre notre nos est sont plus tous toutes qui que sur aux leur leurs chez sans entre vers quand comment pourquoi dans cette ces mais donc alors aussi tres toujours jamais chaque plusieurs ete etre avoir fait faire peut doit ne pas plus rien tout je moi ma mon mes ta tes ton cet ainsi encore depuis lorsque afin deja meme autre autres beaucoup bien sous selon grace notamment",
- 'UK' => "the and for with your our you this that are all more about best from how why what guide tips have has can will their there when which while each every into over also just because we us it is of to in on",
+ 'UK' => "the and for with your our you this that are all more about best from how why what guide tips have has can will their there when which while each every into over also just because we us it is of to in on an or but if by be was not they them its my one than then now here who out up",
  'ES' => "el la los las una unos unas para con tu tus su sus nuestro nuestra mas todos todas que como sobre donde cuando porque pero tambien siempre nunca cada varios ser estar hacer puede debe desde entre sin no en de",
  'PT' => "os as uma umas para com seu sua nosso nossa mais todos todas que como sobre onde quando porque mas tambem sempre nunca cada varios ser estar fazer pode deve desde entre sem nao voce em de",
  'IT' => "il lo la gli le una uno per con tuo tua nostro nostra piu tutti tutte che come dove quando perche ma anche sempre mai ogni diversi essere fare puo deve da tra senza sono questo questa di in",
- 'DE' => "der die das den dem ein eine einen und oder fur mit ihre ihr unser unsere mehr alle diese dieser wie wo wann warum aber auch immer nie jeder mehrere sein haben kann muss von zwischen ohne nicht ist",
- 'NL' => "de het een en of voor met uw jouw onze meer alle deze hoe waar wanneer waarom maar ook altijd nooit elke verschillende zijn hebben kan moet van tussen zonder niet je is",
+ 'DE' => "der die das den dem ein eine einen und oder fur mit ihre ihr unser unsere mehr alle diese dieser wie wo wann warum aber auch immer nie jeder mehrere sein haben kann muss von zwischen ohne nicht ist sie es wir uns ihnen am im zum zur beim bei nach aus durch uber unter sich noch nur schon sehr wird werden wurde sind hat hatte dass wenn weil damit dann als",
+ 'NL' => "de het een en of voor met uw jouw onze meer alle deze hoe waar wanneer waarom maar ook altijd nooit elke verschillende zijn hebben kan moet van tussen zonder niet je is te dat om aan er wij ons wordt worden naar nog dan zo bij dit die",
 ];
 foreach ($STOP as $k => $v) $STOP[$k] = array_flip(preg_split('/\\s+/', trim($v)));
 
@@ -379,16 +379,25 @@ function sansAccent(string $s): string {
     return $t === false ? $s : strtolower($t);
 }
 
+/**
+ * Mots de la marque du site : ils ne prouvent aucune langue.
+ *
+ * « Explorez l'univers Be You Tiful » est du français sur be-you-tiful.fr, mais « be »
+ * et « you » sont deux mots outils anglais : le texte passait pour de l'anglais sur son
+ * propre site. Le nom de domaine et le nom du site sont donc retirés du calcul.
+ */
+$MARQUE = [];
+
 /** Langue dominante d'un texte : [langue, score, score du suivant, nombre de mots, tous les scores]. */
 function langue(string $s): array {
-    global $STOP;
+    global $STOP, $MARQUE;
     $nu = strip_tags(html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
     $mots = preg_split("/[^\\p{L}']+/u", mb_strtolower($nu), -1, PREG_SPLIT_NO_EMPTY);
     if (count($mots) < 3) return [null, 0, 0, count($mots), []];
     $sc = [];
     foreach ($STOP as $lg => $set) {
         $n = 0;
-        foreach ($mots as $m) if (isset($set[sansAccent($m)])) $n++;
+        foreach ($mots as $m) { $plat = sansAccent($m); if (isset($set[$plat]) && !isset($MARQUE[$plat])) $n++; }
         // Élisions : marqueur propre au français, qu'une liste de mots ne voit pas.
         if ($lg === 'FR') $n += preg_match_all("/(^|[\\s>«\\"'])(l'|d'|qu'|n'|s'|j'|m'|c'est)/iu", $nu);
         $sc[$lg] = $n;
@@ -454,12 +463,21 @@ foreach ($domains as $domain) {
         continue;
     }
 
+    // La marque est établie AVANT toute analyse : elle vaut pour la langue du site
+    // comme pour celle de chaque texte.
+    $MARQUE = [];
+    $nomDomaine = preg_replace('/\\.[a-z]{2,10}$/i', '', $domain);
+    foreach (preg_split("/[^\\p{L}]+/u", mb_strtolower($nomDomaine . ' ' . (string) ($data['site_name'] ?? '')), -1, PREG_SPLIT_NO_EMPTY) as $mot) {
+        $MARQUE[sansAccent($mot)] = true;
+    }
+
     [$lang, $source, $hint] = cible($data, $domain);
     $textes = [];
     foreach (['site_tagline', 'header_cta_text', 'homepage'] as $k) if (isset($data[$k])) aplatir($data[$k], $k, $textes);
 
     $items = [];
     $labels = [];
+    $analyses = [];
     foreach ($textes as $chemin => $texte) {
         [$lg, $s1, $s2, $nbMots, $sc] = langue($texte);
         // Trop court pour être reconnu statistiquement : « Nos articles », « Découvrir »…
@@ -468,18 +486,38 @@ foreach ($domains as $domain) {
             if (mb_strlen($texte) <= 40) $labels[] = ['path' => $chemin, 'text' => $texte];
             continue;
         }
-        if ($lg === $lang || $s1 < $min || $s1 <= $s2) continue;
+        $analyses[$chemin] = ['lg' => $lg, 's1' => $s1, 's2' => $s2, 'mots' => $nbMots, 'site' => $sc[$lang] ?? 0, 'texte' => $texte];
+    }
+
+    // PREMIER TOUR — les intrus francs, ceux qu'on peut affirmer sans rien savoir du site.
+    $retenus = [];
+    $averes = [];
+    foreach ($analyses as $chemin => $a) {
+        if ($a['lg'] === $lang || $a['s1'] < $min || $a['s1'] <= $a['s2']) continue;
         // Le texte doit devancer nettement LA LANGUE DU SITE, pas seulement la deuxième
         // du classement : « Transformer la donnée biologique en levier de longévité »
         // marque 3 en espagnol (la, en, de) contre 2 en français, sans être espagnol
         // pour autant. Les langues latines partagent trop de mots outils pour qu'un
         // écart de un suffise.
-        $ecartSite = $s1 - ($sc[$lang] ?? 0);
+        $ecartSite = $a['s1'] - $a['site'];
         if ($ecartSite < 2) continue;
+        $retenus[$chemin] = true;
+        $averes[$a['lg']] = true;
         // Sur quatre mots, deux mots outils communs à deux langues trompent encore
         // l'analyse : ces cas sont signalés « à vérifier » plutôt qu'écartés, et
         // l'agent n'en voit aucun coché d'office.
-        $items[] = ['path' => $chemin, 'lang' => $lg, 'score' => $s1, 'gap' => min($s1 - $s2, $ecartSite), 'words' => $nbMots, 'text' => $texte];
+        $items[] = ['path' => $chemin, 'lang' => $a['lg'], 'score' => $a['s1'], 'gap' => min($a['s1'] - $a['s2'], $ecartSite), 'words' => $a['mots'], 'text' => $a['texte']];
+    }
+
+    // SECOND TOUR — une langue déjà prise en faute sur CE site n'a plus à convaincre
+    // autant. « Architectes du code, compilez ! » ne marque qu'un point (« du ») :
+    // beaucoup trop peu pour accuser un site au hasard, largement assez quand deux
+    // autres textes de la même page sont déjà du français avéré. Le relevé restait
+    // sinon incomplet là où le travail est justement à faire.
+    foreach ($analyses as $chemin => $a) {
+        if (isset($retenus[$chemin]) || $a['lg'] === $lang) continue;
+        if (!isset($averes[$a['lg']]) || $a['s1'] < 1 || $a['s1'] <= $a['site']) continue;
+        $items[] = ['path' => $chemin, 'lang' => $a['lg'], 'score' => $a['s1'], 'gap' => min($a['s1'] - $a['s2'], $a['s1'] - $a['site']), 'words' => $a['mots'], 'text' => $a['texte'], 'weak' => true];
     }
     $site['labels'] = $labels;
     $site['lang'] = $lang;

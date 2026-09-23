@@ -4,6 +4,10 @@ import { dictionaryLookup, machineTranslate, normalizeLang, pickProvider } from 
 import { readPath, writePath } from '../src/services/siteService.js';
 import { TranslationService } from '../src/services/translationService.js';
 import { SCAN_LANG } from '../src/services/phpScripts.js';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const key = (fn) => fn().then(() => null).catch((err) => err.key ?? err.message);
 
@@ -305,4 +309,113 @@ test('balises : mêmes balises, et autour des mêmes mots', async () => {
   assert.deepEqual(tagSignature('Texte sans balise'), []);
   assert.deepEqual(tagSignature('<A HREF="/x">Lien</A><br>'), ['a', '/a', 'br']);
   assert.deepEqual(innerWords('<em>un mot</em> et <strong>deux mots ici</strong>'), [2, 3]);
+});
+
+// ── Le script d'analyse, exécuté par PHP sur des configurations construites ────
+// Ces cas viennent tous de relevés réels du parc. Ils demandent `php` : sans lui,
+// le reste de la suite tourne quand même.
+const php = spawnSync('php', ['-v'], { encoding: 'utf8' });
+const phpAbsent = php.status !== 0;
+
+function analyser(configPhp, { domain = 'devcodezone.com', min = '2' } = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'lkm-scan-'));
+  try {
+    mkdirSync(join(root, domain, 'public_html'), { recursive: true });
+    writeFileSync(join(root, domain, 'public_html', 'config.php'), configPhp, 'utf8');
+    const res = spawnSync('php', [], {
+      input: SCAN_LANG,
+      encoding: 'utf8',
+      env: { ...process.env, LKM_ROOT: root, LKM_MIN: min, LKM_B64: Buffer.from(JSON.stringify([domain])).toString('base64') },
+    });
+    assert.equal(res.status, 0, res.stderr);
+    return JSON.parse(res.stdout).sites[0];
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const chemins = (site) => (site.items ?? []).map((i) => i.path);
+
+test('analyse PHP : le second tour rattrape ce qu un seul point ne prouve pas', { skip: phpAbsent && 'php absent' }, () => {
+  // Relevé sur devcodezone.com : deux textes français avérés, et un badge qui ne
+  // marque qu'un point (« du ») — trop peu pour accuser un site au hasard.
+  const site = analyser(`<?php
+$site_name = 'Devcodezone';
+$site_lang = 'UK';
+$site_tagline = "L'innovation n'est pas une destination, c'est un <em>algorithme</em> en mouvement.";
+$homepage = [
+    'hero' => [
+        'badge' => 'Architectes du code, compilez ! 💻',
+        'title' => "L'architecture du <em>silicium</em> définit notre réalité.",
+        'text' => 'Devcodezone is your go-to resource for exploring the latest in computing and hardware.',
+    ],
+];
+`);
+  assert.equal(site.lang, 'UK');
+  assert.deepEqual(chemins(site).sort(), ['homepage.hero.badge', 'homepage.hero.title', 'site_tagline']);
+
+  const badge = site.items.find((i) => i.path === 'homepage.hero.badge');
+  assert.equal(badge.lang, 'FR');
+  assert.equal(badge.score, 1);
+  assert.equal(badge.weak, true); // preuve faible : l'agent doit y jeter un œil
+  assert.equal(site.items.find((i) => i.path === 'site_tagline').weak, undefined);
+
+  // Sans français avéré ailleurs, le même badge n'accuse personne.
+  const seul = analyser(`<?php
+$site_name = 'Devcodezone';
+$site_lang = 'UK';
+$homepage = ['hero' => ['badge' => 'Architectes du code, compilez ! 💻', 'text' => 'Devcodezone is your go-to resource for tech insights.']];
+`);
+  assert.deepEqual(chemins(seul), []);
+});
+
+test('analyse PHP : la marque n est pas un indice de langue', { skip: phpAbsent && 'php absent' }, () => {
+  // Relevé sur be-you-tiful.fr : « be » et « you » sont des mots outils anglais,
+  // mais ici c'est le nom du site. Le texte est français, sur un site français.
+  const site = analyser(
+    `<?php
+$site_name = 'Be You Tiful';
+$site_lang = 'FR';
+$site_tagline = 'Votre magazine beauté et bien-être au quotidien.';
+$homepage = [
+    'categories' => ['title' => "Explorez l'univers Be You Tiful"],
+    'faq' => ['items' => [['q' => 'Quel type de contenu trouve-t-on sur Be You Tiful ?', 'a' => 'Des guides et des conseils.']]],
+];
+`,
+    { domain: 'be-you-tiful.fr' },
+  );
+  assert.deepEqual(chemins(site), []);
+});
+
+test('analyse PHP : un allemand courant n est pas pris pour du français', { skip: phpAbsent && 'php absent' }, () => {
+  // « Bleiben Sie informiert über … (DE) » ne marquait aucun point en allemand :
+  // « sie » et « über » manquaient à la liste, et le « (DE) » final en donnait un
+  // au français. Le texte passait pour un intrus sur son propre site.
+  const site = analyser(
+    `<?php
+$site_name = 'Klugergeist';
+$site_lang = 'DE';
+$site_tagline = 'Bleiben Sie informiert über Generalist (DE).';
+$homepage = ['hero' => ['title' => 'Wissen, das Sie weiterbringt', 'text' => 'Hier finden Sie alles über Technik und Wissenschaft.']];
+`,
+    { domain: 'klugergeist.com' },
+  );
+  assert.deepEqual(chemins(site), []);
+});
+
+test('analyse PHP : ni les chemins techniques, ni les fichiers illisibles', { skip: phpAbsent && 'php absent' }, () => {
+  const site = analyser(`<?php
+$site_lang = 'UK';
+$homepage = [
+    'hero' => [
+        'image' => 'le-de-la-les-des-une',
+        'btn' => ['url' => '/les-articles-de-la-semaine/', 'text' => 'Discover'],
+        'title' => 'A clear English headline for the page',
+    ],
+];
+`);
+  assert.deepEqual(chemins(site), []); // adresses et identifiants : jamais de la prose
+
+  const casse = analyser("<?php\n$site_lang = 'UK'\n"); // point-virgule manquant
+  assert.equal(casse.error, 'unreadable'); // le lot entier ne tombe pas pour autant
 });

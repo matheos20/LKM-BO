@@ -80,6 +80,9 @@ export function whereLabel(path) {
  */
 export const uncertainFor = (item) => {
   if (item.source !== 'detected') return false;
+  // Repéré au second tour : la langue était déjà prise en faute ailleurs sur la page,
+  // mais ce texte-ci, seul, n'aurait accusé personne.
+  if (item.weak) return true;
   const words = item.words ?? 9;
   const score = item.score ?? 0;
   const gap = item.gap ?? 9;
