@@ -88,6 +88,15 @@ export function serversRouter({ ssh, domains, audit }) {
     res.json({ ...queryItems(entry.items, req.query), stats: entry.stats, cachedAt: entry.at });
   });
 
+  /**
+   * Noms seuls, sans pagination : un traitement de masse (analyse de langue) doit
+   * connaître d'un coup les domaines du serveur, là où le tableau en affiche 50.
+   */
+  r.get('/:id/domain-names', access, canRead, conn, async (req, res) => {
+    const entry = await domains.list(req.params.id, {});
+    res.json({ domains: entry.items.map((d) => d.name), cachedAt: entry.at });
+  });
+
   r.post('/:id/domains', access, canCreate, conn, async (req, res) => {
     const domain = req.body?.domain;
     res.status(201).json(await audited(req, 'create', domain, () => domains.create(req.params.id, domain)));

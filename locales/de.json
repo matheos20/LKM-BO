@@ -240,7 +240,13 @@
     "design_article_unsupported": "Dieser Artikel hat nicht die erwartete Struktur: {file}.",
     "design_preview_expired": "Diese Vorschau ist abgelaufen. Starten Sie sie erneut im Editor.",
     "design_image_invalid": "Diese Datei ist kein erkanntes Bild (JPEG, PNG, WebP oder GIF).",
-    "design_image_failed": "Das Bild konnte auf {server} nicht aufbereitet werden."
+    "design_image_failed": "Das Bild konnte auf {server} nicht aufbereitet werden.",
+    "translate_no_domain": "Keine Domain zu prüfen.",
+    "translate_batch_too_big": "Zu viele Domains in einem Durchgang (höchstens {max}).",
+    "translate_nothing": "Kein Text zu ändern.",
+    "translate_unavailable": "Die automatische Übersetzung ist in diesem Back-Office nicht eingerichtet.",
+    "translate_lang_unknown": "Unbekannte Sprache: {lang}.",
+    "translate_failed": "Der Übersetzungsdienst hat die Anfrage abgelehnt."
   },
   "files": {
     "title": "Dateien",
@@ -651,5 +657,64 @@
     "image_imported": "{count} Dateien aus einem Bild von {width} × {height} Pixeln erzeugt.",
     "image_imported_toast": "Bild „{id}“ zur Website hinzugefügt",
     "image_none_found": "Kein Bild entspricht der Suche."
+  },
+  "translate": {
+    "title": "Übersetzung",
+    "step_scan": "Startseiten prüfen",
+    "explain": "Das Back-Office liest die Startseite jeder Website des Servers und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",
+    "scope": "{count} Domains zu prüfen",
+    "filter_placeholder": "Domains filtern…",
+    "scan": "Prüfen",
+    "rescan": "Erneut prüfen",
+    "stop": "Anhalten",
+    "progress": "{done} von {total} Websites geprüft",
+    "no_domain": "Keine Domain entspricht diesem Filter.",
+    "scan_done": "Prüfung beendet: {sites} Website(s) zu korrigieren, {texts} Text(e) gefunden.",
+    "stat_scanned": "Geprüfte Websites",
+    "stat_sites": "Zu korrigieren",
+    "stat_texts": "Gefundene Texte",
+    "stat_applied": "Veröffentlichte Texte",
+    "stat_failed": "Unlesbare Websites",
+    "all_clean": "Nichts zu übersetzen",
+    "all_clean_hint": "Alle geprüften Startseiten sind in der Sprache ihrer Website verfasst.",
+    "sites_to_fix": "Zu korrigierende Websites",
+    "texts_count": "{count} Text(e)",
+    "pick_site": "Wählen Sie eine Website aus der Liste.",
+    "apply": "Angehakte Texte veröffentlichen",
+    "autofill": "Automatisch übersetzen",
+    "applied_badge": "Veröffentlicht",
+    "safety_note": "Beim Veröffentlichen wird config.php gesichert, die Syntax der erzeugten Datei geprüft und die Website erneut gelesen: bei einer Abweichung wird die Sicherung automatisch zurückgespielt.",
+    "new_text": "Übersetzung",
+    "keep": "Veröffentlichen",
+    "placeholder": "Text auf {lang} schreiben…",
+    "from_dictionary": "Vorschlag aus dem Wörterbuch des Parks.",
+    "detected": "Verfasst auf {lang}",
+    "source_dictionary": "Bekannte Wendung",
+    "nothing_selected": "Kein Text ist angehakt und ausgefüllt.",
+    "nothing_to_fill": "Für alle Texte liegt bereits ein Vorschlag vor.",
+    "filled": "Übersetzungen vorgeschlagen: bitte vor dem Veröffentlichen prüfen.",
+    "applied": "{count} Text(e) auf {domain} veröffentlicht.",
+    "skipped": "{count} Text(e) unangetastet gelassen: sie haben sich auf dem Server geändert.",
+    "where": {
+      "site_tagline": "Slogan der Website",
+      "header_cta_text": "Schaltfläche im Kopfbereich"
+    },
+    "source": {
+      "config": "Sprache der Website: {hint}, in config.php festgelegt",
+      "tld": "Sprache der Website: aus der Endung .{hint} abgeleitet",
+      "content": "Sprache der Website: aus dem Seiteninhalt abgeleitet",
+      "default": "Sprache der Website: unbestimmt, Französisch angenommen"
+    },
+    "lang": {
+      "FR": "Französisch",
+      "UK": "Englisch",
+      "ES": "Spanisch",
+      "PT": "Portugiesisch",
+      "DE": "Deutsch",
+      "IT": "Italienisch",
+      "NL": "Niederländisch"
+    },
+    "uncertain": "Zu prüfen · {lang}?",
+    "uncertain_hint": "Kurzer Text: die Analyse schwankt zwischen zwei Sprachen. Bitte vor dem Übersetzen prüfen."
   }
 }

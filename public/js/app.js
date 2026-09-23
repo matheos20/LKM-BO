@@ -3,6 +3,7 @@ import { applyI18n, getLang, getLanguages, initI18n, onLangChange, setLang, t } 
 import { closeFiles, isFilesOpen, openFiles, rerenderFiles } from './files.js';
 import { accountDialog, closeAdmin, isAdminOpen, openAdmin, rerenderAdmin } from './admin.js';
 import { closeDesign, isDesignOpen, openDesign, rerenderDesign } from './design.js';
+import { closeTranslate, isTranslateOpen, openTranslate, rerenderTranslate } from './translate.js';
 import { $, closeModal, enc, fmtDate, fmtNum, fmtSize, formError, h, icon, modalHeader, openModal, store, toast, toastError } from './ui.js';
 
 // ───────────────────────── État ─────────────────────────
@@ -55,6 +56,9 @@ function renderSidebar() {
     ),
   );
   $('#nav-all').setAttribute('aria-current', String(isAll()));
+  // La traduction porte sur les sites d'UN serveur : hors « tous les serveurs ».
+  $('#nav-translate').hidden = isAll() || !can('design.read');
+  $('#nav-translate').setAttribute('aria-current', String(isTranslateOpen()));
   $('#all-count').textContent = `${connectedServers().length}/${state.servers.length}`;
 }
 
@@ -86,7 +90,7 @@ function toggleSidebar(open) {
 
 // ───────────────────────── En-tête & états vides ─────────────────────────
 function renderHeader() {
-  if (isFilesOpen() || isAdminOpen() || isDesignOpen()) return; // l'en-tête appartient à l'écran ouvert
+  if (isFilesOpen() || isAdminOpen() || isDesignOpen() || isTranslateOpen()) return; // l'en-tête appartient à l'écran ouvert
   const s = serverById(state.current);
   const conn = $('#btn-conn');
   $('#page-sub').classList.toggle('font-mono', !isAll());
@@ -321,6 +325,7 @@ async function selectServer(id) {
   closeFiles();
   closeAdmin();
   closeDesign();
+  closeTranslate();
   state.current = id;
   state.result = null;
   state.query.page = 1;
@@ -585,6 +590,7 @@ onLangChange(() => {
   if (!state.user) return;
   rerenderFiles();
   rerenderDesign();
+  rerenderTranslate();
   $('#user-name').textContent = t('auth.signed_in_as', { user: state.user.username });
   rerenderAdmin();
   renderSidebar();
@@ -626,11 +632,13 @@ function wireEvents() {
     closeFiles();
     closeAdmin();
     closeDesign();
+    closeTranslate();
   });
   $('#btn-account').addEventListener('click', () => state.user && accountDialog(state.user));
   $('#nav-admin').addEventListener('click', async () => {
     closeFiles();
     closeDesign();
+    closeTranslate();
     $('#nav-admin').setAttribute('aria-current', 'true');
     await openAdmin({
       servers: state.servers,
@@ -640,6 +648,24 @@ function wireEvents() {
         renderNotice();
       },
     });
+  });
+  $('#nav-translate').addEventListener('click', () => {
+    if (isAll()) return;
+    closeFiles();
+    closeAdmin();
+    closeDesign();
+    toggleSidebar(false);
+    openTranslate({
+      serverId: state.current,
+      serverLabel: serverById(state.current)?.label ?? state.current,
+      permissions: state.user?.permissions ?? [],
+      onClose: () => {
+        renderSidebar();
+        renderHeader();
+        renderNotice();
+      },
+    });
+    renderSidebar();
   });
   $('#sidebar-backdrop').addEventListener('click', () => toggleSidebar(false));
 

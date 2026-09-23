@@ -240,7 +240,13 @@
     "design_article_unsupported": "Questo articolo non ha la struttura attesa: {file}.",
     "design_preview_expired": "Questa anteprima è scaduta. Rilanciala dall'editor.",
     "design_image_invalid": "Questo file non è un’immagine riconosciuta (JPEG, PNG, WebP o GIF).",
-    "design_image_failed": "L’immagine non ha potuto essere preparata su {server}."
+    "design_image_failed": "L’immagine non ha potuto essere preparata su {server}.",
+    "translate_no_domain": "Nessun dominio da analizzare.",
+    "translate_batch_too_big": "Troppi domini in un solo lotto (massimo {max}).",
+    "translate_nothing": "Nessun testo da modificare.",
+    "translate_unavailable": "La traduzione automatica non è configurata su questo back-office.",
+    "translate_lang_unknown": "Lingua sconosciuta: {lang}.",
+    "translate_failed": "Il servizio di traduzione ha rifiutato la richiesta."
   },
   "files": {
     "title": "File",
@@ -651,5 +657,64 @@
     "image_imported": "{count} file creati da un’immagine di {width} × {height} pixel.",
     "image_imported_toast": "Immagine «{id}» aggiunta al sito",
     "image_none_found": "Nessuna immagine corrisponde."
+  },
+  "translate": {
+    "title": "Traduzione",
+    "step_scan": "Analizzare le pagine iniziali",
+    "explain": "Il back-office legge la pagina iniziale di ogni sito del server e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
+    "scope": "{count} domini da analizzare",
+    "filter_placeholder": "Filtra i domini…",
+    "scan": "Analizza",
+    "rescan": "Rilancia l’analisi",
+    "stop": "Interrompi",
+    "progress": "{done} siti analizzati su {total}",
+    "no_domain": "Nessun dominio corrisponde a questo filtro.",
+    "scan_done": "Analisi terminata: {sites} sito/i da correggere, {texts} testo/i trovato/i.",
+    "stat_scanned": "Siti analizzati",
+    "stat_sites": "Siti da correggere",
+    "stat_texts": "Testi trovati",
+    "stat_applied": "Testi pubblicati",
+    "stat_failed": "Siti illeggibili",
+    "all_clean": "Niente da tradurre",
+    "all_clean_hint": "Le pagine iniziali analizzate sono nella lingua del loro sito.",
+    "sites_to_fix": "Siti da correggere",
+    "texts_count": "{count} testo/i",
+    "pick_site": "Scegli un sito nell’elenco.",
+    "apply": "Pubblica i testi selezionati",
+    "autofill": "Traduci automaticamente",
+    "applied_badge": "Pubblicato",
+    "safety_note": "La pubblicazione salva una copia di config.php, controlla la sintassi del file prodotto e rilegge il sito: in caso di differenza la copia viene ripristinata automaticamente.",
+    "new_text": "Traduzione",
+    "keep": "Da pubblicare",
+    "placeholder": "Scrivi il testo in {lang}…",
+    "from_dictionary": "Proposta del dizionario del parco.",
+    "detected": "Scritto in {lang}",
+    "source_dictionary": "Espressione nota",
+    "nothing_selected": "Nessun testo selezionato e compilato.",
+    "nothing_to_fill": "Tutti i testi hanno già una traduzione proposta.",
+    "filled": "Traduzioni proposte: rileggile prima di pubblicare.",
+    "applied": "{count} testo/i pubblicato/i su {domain}.",
+    "skipped": "{count} testo/i lasciato/i da parte: sono cambiati sul server.",
+    "where": {
+      "site_tagline": "Slogan del sito",
+      "header_cta_text": "Pulsante dell’intestazione"
+    },
+    "source": {
+      "config": "Lingua del sito: {hint}, dichiarata in config.php",
+      "tld": "Lingua del sito: dedotta dall’estensione .{hint}",
+      "content": "Lingua del sito: dedotta dal contenuto della pagina",
+      "default": "Lingua del sito: indeterminata, francese per impostazione predefinita"
+    },
+    "lang": {
+      "FR": "Francese",
+      "UK": "Inglese",
+      "ES": "Spagnolo",
+      "PT": "Portoghese",
+      "DE": "Tedesco",
+      "IT": "Italiano",
+      "NL": "Olandese"
+    },
+    "uncertain": "Da verificare · {lang}?",
+    "uncertain_hint": "Testo breve: l’analisi esita tra due lingue. Rileggilo prima di tradurlo."
   }
 }

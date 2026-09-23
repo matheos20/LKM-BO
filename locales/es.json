@@ -240,7 +240,13 @@
     "design_article_unsupported": "Este artículo no tiene la estructura esperada: {file}.",
     "design_preview_expired": "Esta previsualización ha caducado. Vuelva a lanzarla desde el editor.",
     "design_image_invalid": "Este archivo no es una imagen reconocida (JPEG, PNG, WebP o GIF).",
-    "design_image_failed": "La imagen no se pudo preparar en {server}."
+    "design_image_failed": "La imagen no se pudo preparar en {server}.",
+    "translate_no_domain": "No hay ningún dominio que analizar.",
+    "translate_batch_too_big": "Demasiados dominios en un mismo lote ({max} como máximo).",
+    "translate_nothing": "No hay ningún texto que modificar.",
+    "translate_unavailable": "La traducción automática no está configurada en este back-office.",
+    "translate_lang_unknown": "Idioma desconocido: {lang}.",
+    "translate_failed": "El servicio de traducción rechazó la solicitud."
   },
   "files": {
     "title": "Archivos",
@@ -651,5 +657,64 @@
     "image_imported": "{count} archivos creados a partir de una imagen de {width} × {height} píxeles.",
     "image_imported_toast": "Imagen «{id}» añadida al sitio",
     "image_none_found": "Ninguna imagen coincide."
+  },
+  "translate": {
+    "title": "Traducción",
+    "step_scan": "Analizar las páginas de inicio",
+    "explain": "El back-office lee la página de inicio de cada sitio del servidor y detecta los textos escritos en un idioma distinto al del sitio. Nada se modifica durante el análisis.",
+    "scope": "{count} dominios por analizar",
+    "filter_placeholder": "Filtrar dominios…",
+    "scan": "Analizar",
+    "rescan": "Volver a analizar",
+    "stop": "Detener",
+    "progress": "{done} sitios analizados de {total}",
+    "no_domain": "Ningún dominio coincide con este filtro.",
+    "scan_done": "Análisis terminado: {sites} sitio(s) por corregir, {texts} texto(s) encontrado(s).",
+    "stat_scanned": "Sitios analizados",
+    "stat_sites": "Sitios por corregir",
+    "stat_texts": "Textos encontrados",
+    "stat_applied": "Textos publicados",
+    "stat_failed": "Sitios ilegibles",
+    "all_clean": "No hay nada que traducir",
+    "all_clean_hint": "Las páginas de inicio analizadas están en el idioma de su sitio.",
+    "sites_to_fix": "Sitios por corregir",
+    "texts_count": "{count} texto(s)",
+    "pick_site": "Elija un sitio en la lista.",
+    "apply": "Publicar los textos marcados",
+    "autofill": "Traducir automáticamente",
+    "applied_badge": "Publicado",
+    "safety_note": "La publicación guarda una copia de config.php, comprueba la sintaxis del archivo generado y vuelve a leer el sitio: ante cualquier diferencia, la copia se restaura automáticamente.",
+    "new_text": "Traducción",
+    "keep": "Publicar",
+    "placeholder": "Escriba el texto en {lang}…",
+    "from_dictionary": "Propuesta del diccionario del parque.",
+    "detected": "Escrito en {lang}",
+    "source_dictionary": "Expresión conocida",
+    "nothing_selected": "Ningún texto marcado y completado.",
+    "nothing_to_fill": "Todos los textos ya tienen una traducción propuesta.",
+    "filled": "Traducciones propuestas: revíselas antes de publicar.",
+    "applied": "{count} texto(s) publicado(s) en {domain}.",
+    "skipped": "{count} texto(s) sin tocar: han cambiado en el servidor.",
+    "where": {
+      "site_tagline": "Eslogan del sitio",
+      "header_cta_text": "Botón de la cabecera"
+    },
+    "source": {
+      "config": "Idioma del sitio: {hint}, declarado en config.php",
+      "tld": "Idioma del sitio: deducido de la extensión .{hint}",
+      "content": "Idioma del sitio: deducido del contenido de la página",
+      "default": "Idioma del sitio: indeterminado, se asume francés"
+    },
+    "lang": {
+      "FR": "Francés",
+      "UK": "Inglés",
+      "ES": "Español",
+      "PT": "Portugués",
+      "DE": "Alemán",
+      "IT": "Italiano",
+      "NL": "Neerlandés"
+    },
+    "uncertain": "Por revisar · ¿{lang}?",
+    "uncertain_hint": "Texto corto: el análisis duda entre dos idiomas. Revíselo antes de traducirlo."
   }
 }

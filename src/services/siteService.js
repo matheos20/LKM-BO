@@ -71,6 +71,58 @@ export function mergeArticleMeta(original, edited) {
   return out;
 }
 
+/**
+ * Chemins de configuration qu'une traduction a le droit de toucher.
+ * Le reste — rubriques, adresses, présélections — n'est pas de la prose : le modifier
+ * changerait des adresses d'articles ou casserait le rendu.
+ */
+export const TRANSLATABLE_ROOTS = ['site_tagline', 'header_cta_text', 'homepage'];
+
+const PATH_SEG = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Découpe « homepage.faq.items.0.q » en segments, ou `null` si le chemin est hors sujet. */
+function pathSegments(path) {
+  const segs = String(path ?? '').split('.');
+  if (!segs.length || !TRANSLATABLE_ROOTS.includes(segs[0])) return null;
+  return segs.every((s) => PATH_SEG.test(s)) ? segs : null;
+}
+
+/**
+ * Lit la valeur désignée par un chemin, sans jamais emprunter la chaîne de prototypes
+ * ni créer de clé : un chemin qui ne correspond à rien renvoie `undefined`.
+ */
+export function readPath(root, path) {
+  const segs = pathSegments(path);
+  if (!segs) return undefined;
+  let cur = root;
+  for (const seg of segs) {
+    if (cur === null || typeof cur !== 'object') return undefined;
+    if (Array.isArray(cur)) {
+      const i = Number(seg);
+      if (!Number.isInteger(i) || i < 0 || i >= cur.length) return undefined;
+      cur = cur[i];
+    } else {
+      if (!Object.hasOwn(cur, seg)) return undefined;
+      cur = cur[seg];
+    }
+  }
+  return cur;
+}
+
+/** Remplace un TEXTE existant à ce chemin. Renvoie false si le chemin n'existe pas ou n'est pas un texte. */
+export function writePath(root, path, value) {
+  const segs = pathSegments(path);
+  if (!segs) return false;
+  const parent = segs.length === 1 ? root : readPath(root, segs.slice(0, -1).join('.'));
+  if (parent === null || typeof parent !== 'object') return false;
+  const last = segs[segs.length - 1];
+  const key = Array.isArray(parent) ? Number(last) : last;
+  const current = Array.isArray(parent) ? parent[key] : Object.hasOwn(parent, last) ? parent[last] : undefined;
+  if (typeof current !== 'string') return false;
+  parent[key] = value;
+  return true;
+}
+
 const FONT_MIME = { woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf' };
 
 /**
@@ -179,9 +231,9 @@ export class SiteService {
   }
 
   /** Lance un script PHP côté site et renvoie le JSON produit. */
-  async #php(serverId, docroot, script, env = {}) {
+  async #php(serverId, docroot, script, env = {}, { timeout = LONG } = {}) {
     const server = this.ssh.server(serverId);
-    const res = await this.#run(serverId, phpCommand(docroot, env), { stdin: script });
+    const res = await this.#run(serverId, phpCommand(docroot, env), { stdin: script, timeout });
     this.#check(res, server);
     const text = res.stdout.trim();
     if (!text.startsWith('{') && !text.startsWith('[')) {
@@ -192,6 +244,14 @@ export class SiteService {
     } catch (err) {
       throw new AppError('errors.design_read_failed', { status: 502, vars: { server: server.label }, detail: err.message });
     }
+  }
+
+  /**
+   * Exécute un script PHP d'un autre service (analyse de langue, par exemple) dans le
+   * contexte d'un serveur, sans passer par un domaine : même transport, mêmes contrôles.
+   */
+  runPhp(serverId, docroot, script, env = {}, options = {}) {
+    return this.#php(serverId, docroot, script, env, options);
   }
 
   // ───────────────────────── Lecture ─────────────────────────
@@ -393,12 +453,74 @@ export class SiteService {
   // ───────────────────────── Publication ─────────────────────────
 
   /**
+   * Écrit `config.php` : sauvegarde horodatée, contrôle de syntaxe, écriture sur place,
+   * puis relecture. Si le site ne relit pas exactement ce qui a été demandé, la
+   * sauvegarde est restaurée et l'opération est déclarée en échec.
+   *
+   * `styleB64` vide laisse `style.css` intact — une traduction ne touche pas à la charte.
+   */
+  async #commitConfig(serverId, domain, { site, config, styleB64 = '' }) {
+    const { server, docroot } = this.context(serverId, domain);
+    const res = await this.#run(serverId, publishCommand(docroot, { styleB64, expectMd5: site.configMeta?.md5 ?? '' }), {
+      stdin: b64(buildConfigPhp(config, site.extraVars)),
+    });
+    this.#check(res, server);
+    const stamp = res.stdout.trim();
+
+    const after = await this.readSite(serverId, domain);
+    if (!sameConfig(after.config, config)) {
+      await this.#run(serverId, restoreCommand(docroot, `config-${stamp}.php`)).catch(() => {});
+      throw new AppError('errors.design_verify_failed', { status: 500, vars: { domain } });
+    }
+    return { stamp, after };
+  }
+
+  /**
+   * Remplace des textes désignés par leur chemin (« homepage.hero.title »), sans passer
+   * par un brouillon : c'est le geste de l'écran de traduction.
+   *
+   * Trois garde-fous : seuls les chemins de prose sont acceptés, la valeur attendue est
+   * comparée à celle du serveur avant remplacement (un texte modifié entre-temps est
+   * laissé intact et signalé), et l'écriture emprunte le circuit de publication complet.
+   */
+  async applyTextChanges(serverId, domain, changes, userId) {
+    this.context(serverId, domain);
+    const site = await this.readSite(serverId, domain);
+    const config = structuredClone(site.config);
+
+    const applied = [];
+    const skipped = [];
+    for (const change of Array.isArray(changes) ? changes : []) {
+      const path = String(change?.path ?? '');
+      const to = typeof change?.to === 'string' ? change.to : '';
+      const current = readPath(config, path);
+      if (typeof current !== 'string') {
+        skipped.push({ path, reason: 'unknown' });
+      } else if (!to.trim() || to === current) {
+        skipped.push({ path, reason: 'unchanged' });
+      } else if (change?.from !== undefined && String(change.from) !== current) {
+        skipped.push({ path, reason: 'modified' });
+      } else if (writePath(config, path, to)) {
+        applied.push({ path, from: current, to });
+      } else {
+        skipped.push({ path, reason: 'unknown' });
+      }
+    }
+    if (!applied.length) throw new AppError('errors.translate_nothing', { status: 400, vars: { domain } });
+
+    // Le même filet que l'éditeur : les textes passent par la liste blanche de balises.
+    const validated = validateConfig(config, { available: site.sections });
+    const { stamp, after } = await this.#commitConfig(serverId, domain, { site, config: validated });
+    return { domain, stamp, applied, skipped, config: after.config };
+  }
+
+  /**
    * Publie le brouillon : sauvegarde, écriture, relecture de contrôle.
    * Si la relecture ne correspond pas à l'intention, la sauvegarde est restaurée
    * immédiatement et la publication est déclarée en échec.
    */
   async publish(serverId, domain, userId) {
-    const { server, docroot } = this.context(serverId, domain);
+    this.context(serverId, domain);
     const draft = getDraft(serverId, domain, 'site', '');
     if (!draft) throw new AppError('errors.design_no_draft', { status: 400 });
 
@@ -409,22 +531,7 @@ export class SiteService {
 
     const config = validateConfig({ ...site.config, ...draft.data.config }, { available: site.sections });
     const style = validateStyle({ ...site.style, ...draft.data.style });
-    const configPhp = buildConfigPhp(config, site.extraVars);
-
-    const res = await this.#run(
-      serverId,
-      publishCommand(docroot, { styleB64: b64(buildStyleCss(style)), expectMd5: site.configMeta?.md5 ?? '' }),
-      { stdin: b64(configPhp) },
-    );
-    this.#check(res, server);
-    const stamp = res.stdout.trim();
-
-    // Contrôle après écriture : ce que le site lit doit être exactement ce qui a été demandé.
-    const after = await this.readSite(serverId, domain);
-    if (!sameConfig(after.config, config)) {
-      await this.#run(serverId, restoreCommand(docroot, `config-${stamp}.php`)).catch(() => {});
-      throw new AppError('errors.design_verify_failed', { status: 500, vars: { domain } });
-    }
+    const { stamp, after } = await this.#commitConfig(serverId, domain, { site, config, styleB64: b64(buildStyleCss(style)) });
 
     deleteDraft(serverId, domain, 'site', '');
     // Les prévisualisations du domaine deviennent caduques : elles montrent un état publié.

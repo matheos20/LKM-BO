@@ -240,7 +240,13 @@
     "design_article_unsupported": "This article does not have the expected structure: {file}.",
     "design_preview_expired": "This preview has expired. Start it again from the editor.",
     "design_image_invalid": "This file is not a recognised image (JPEG, PNG, WebP or GIF).",
-    "design_image_failed": "The image could not be prepared on {server}."
+    "design_image_failed": "The image could not be prepared on {server}.",
+    "translate_no_domain": "No domain to scan.",
+    "translate_batch_too_big": "Too many domains in one batch ({max} maximum).",
+    "translate_nothing": "No text to change.",
+    "translate_unavailable": "Automatic translation is not configured on this back office.",
+    "translate_lang_unknown": "Unknown language: {lang}.",
+    "translate_failed": "The translation service refused the request."
   },
   "files": {
     "title": "Files",
@@ -651,5 +657,64 @@
     "image_imported": "{count} files created from a {width} × {height} pixel image.",
     "image_imported_toast": "Image “{id}” added to the site",
     "image_none_found": "No image matches."
+  },
+  "translate": {
+    "title": "Translation",
+    "step_scan": "Scan the home pages",
+    "explain": "The back office reads the home page of every site on this server and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",
+    "scope": "{count} domains to scan",
+    "filter_placeholder": "Filter domains…",
+    "scan": "Scan",
+    "rescan": "Scan again",
+    "stop": "Stop",
+    "progress": "{done} of {total} sites scanned",
+    "no_domain": "No domain matches this filter.",
+    "scan_done": "Scan finished: {sites} site(s) to fix, {texts} text(s) found.",
+    "stat_scanned": "Sites scanned",
+    "stat_sites": "Sites to fix",
+    "stat_texts": "Texts found",
+    "stat_applied": "Texts published",
+    "stat_failed": "Unreadable sites",
+    "all_clean": "Nothing to translate",
+    "all_clean_hint": "Every home page scanned is written in its own site language.",
+    "sites_to_fix": "Sites to fix",
+    "texts_count": "{count} text(s)",
+    "pick_site": "Pick a site from the list.",
+    "apply": "Publish the ticked texts",
+    "autofill": "Translate automatically",
+    "applied_badge": "Published",
+    "safety_note": "Publishing backs up config.php, checks the syntax of the generated file, then reads the site back: on any mismatch the backup is restored automatically.",
+    "new_text": "Translation",
+    "keep": "Publish",
+    "placeholder": "Write the text in {lang}…",
+    "from_dictionary": "Suggested by the estate dictionary.",
+    "detected": "Written in {lang}",
+    "source_dictionary": "Known phrase",
+    "nothing_selected": "No text is both ticked and filled in.",
+    "nothing_to_fill": "Every text already has a suggested translation.",
+    "filled": "Translations suggested: check them before publishing.",
+    "applied": "{count} text(s) published on {domain}.",
+    "skipped": "{count} text(s) left untouched: they changed on the server.",
+    "where": {
+      "site_tagline": "Site tagline",
+      "header_cta_text": "Header button"
+    },
+    "source": {
+      "config": "Site language: {hint}, declared in config.php",
+      "tld": "Site language: inferred from the .{hint} extension",
+      "content": "Site language: inferred from the page content",
+      "default": "Site language: undetermined, French assumed"
+    },
+    "lang": {
+      "FR": "French",
+      "UK": "English",
+      "ES": "Spanish",
+      "PT": "Portuguese",
+      "DE": "German",
+      "IT": "Italian",
+      "NL": "Dutch"
+    },
+    "uncertain": "To check · {lang}?",
+    "uncertain_hint": "Short text: the analysis hesitates between two languages. Read it before translating."
   }
 }

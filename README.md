@@ -353,6 +353,15 @@ Toutes les routes `/api/*` (sauf i18n et login) exigent une session. Les requêt
 | `POST`/`PATCH`/`DELETE` | `/api/admin/roles[/:id]` · `/api/admin/users[/:id]` | Gestion des rôles et des comptes |
 | `POST` | `/api/admin/users/:id/password` | Réinitialisation d'un mot de passe |
 
+Traduction des pages d'accueil, sous `/api/servers/:id/translation` :
+
+| Méthode | Route | Description |
+|---|---|---|
+| `GET` | `/status` | Traduction automatique disponible ou non, langues reconnues |
+| `POST` | `/scan` `{ domains[] }` | Analyse un lot de domaines (lecture seule, 150 au maximum) |
+| `POST` | `/translate` `{ texts[], from, to }` | Propositions de traduction (clé DeepL requise) |
+| `POST` | `/apply` `{ domain, changes[] }` | Écrit les textes retenus (sauvegarde + vérification) |
+
 Éditeur de design, sous `/api/servers/:id/domains/:domain/design` :
 
 | Méthode | Route | Description |
@@ -429,6 +438,8 @@ src/
   services/siteCatalog.js   familles de blocs, présets, validation
   services/siteService.js   lecture, brouillon, prévisualisation, publication
   services/siteDriver.js    commandes serveur (rendu temporaire, sauvegardes)
+  services/translationService.js  analyse de langue du parc, propositions, application
+  services/langTools.js     langues du parc, dictionnaire d'expressions, DeepL
   services/phpScripts.js    scripts PHP exécutés par le moteur du site lui-même
   services/phpWriter.js     génération de config.php, style.css et articles
   services/parcDriver.js    commandes & parsing propres au modèle « parc »
@@ -436,17 +447,53 @@ src/
   services/fsDriver.js      commandes fichiers + garde-fous anti-évasion de chemin
   services/fileService.js   explorateur, édition, archives, téléchargements
   util/zip.js · util/tar.js formats ZIP et TAR en pur Node (aucun binaire requis)
-  routes/                   auth, i18n, servers (CRUD), domains (agrégé), files
+  routes/                   auth, i18n, servers (CRUD), domains (agrégé), files, design, translation
   styles/tailwind.css       thème Tailwind (#7bc9a9 · #182433 · #ffffff)
-public/                     index.html + js/ (app, files, ui, api, i18n) + css/app.css (généré)
+public/                     index.html + js/ (app, design, translate, files, ui, api, i18n) + css/app.css (généré)
 locales/                    fr, en, es, it, pt, de
 scripts/                    set-password, check-ssh
 tests/                      tests unitaires (npm test) : configuration, chemins, archives, i18n
 server-scripts/del-site     script serveur de référence pour la suppression
-server-scripts/traduire-homepage.sh  traduction des textes de la page d’accueil (voir § 13)
+server-scripts/traduire-homepage.sh  même travail en ligne de commande (voir § 13)
 ```
 
-## 12. Traduction des pages d'accueil du parc
+## 12. L'écran « Traduction »
+
+Sur le parc, quelques pour cent des pages d'accueil gardent un texte dans la langue du modèle
+d'origine : un slogan français sur un site anglais, une question de FAQ oubliée. L'écran
+**Traduction** (barre latérale, serveur par serveur) met ce travail à portée d'un agent, sans
+ligne de commande.
+
+**Trois temps, et rien d'autre**
+
+1. **Analyser.** Le back-office lit la page d'accueil de chaque site du serveur, par lots de 60,
+   et repère les textes écrits dans une autre langue. Une barre de progression avance, un bouton
+   *Arrêter* interrompt. Rien n'est modifié : l'analyse ne fait que lire.
+2. **Relire.** Chaque texte est présenté avec son **emplacement en clair** — « Bannière — Titre »,
+   « Questions fréquentes — Question 3 » — la langue détectée, et un champ de traduction déjà
+   rempli quand le dictionnaire du parc connaît l'expression. L'agent corrige, décoche, complète.
+3. **Publier.** L'écriture emprunte le circuit de publication du site : sauvegarde horodatée dans
+   `.lkm-backups`, contrôle `php -l`, écriture sur place, puis relecture de contrôle — un écart
+   restaure la sauvegarde. Le site suivant s'ouvre automatiquement.
+
+**Ce qui protège le parc**
+
+- Seuls trois champs sont modifiables : `site_tagline`, `header_cta_text` et le tableau `$homepage`.
+  Une demande portant sur une rubrique, une adresse ou un préréglage est refusée, pas ignorée.
+- Le texte d'origine accompagne chaque demande : s'il a changé sur le serveur entre l'analyse et la
+  publication, il est **laissé intact** et l'agent en est averti.
+- Aucune case n'est cochée d'office, sauf quand la traduction vient du dictionnaire. Un texte que
+  l'analyse juge incertain — moins de cinq mots, ou écart faible entre deux langues — porte la
+  mention « à vérifier ».
+- L'analyse demande `design.read`, la publication `design.publish` : les mêmes droits que l'éditeur.
+
+**Traduction automatique (facultative).** Avec une clé DeepL dans `.env` (`DEEPL_KEY=…`), un bouton
+*Traduire automatiquement* remplit les champs restants ; les propositions restent à relire avant
+publication. Sans clé, l'écran fonctionne à l'identique, l'agent saisissant lui-même les textes.
+
+**Mesure** : 150 sites analysés en 2 s sur vps-003 ; 6 sites à corriger, 8 textes.
+
+## 13. Traduction des pages d'accueil du parc (script serveur)
 
 Script autonome à exécuter **sur les serveurs** : [`server-scripts/traduire-homepage.sh`](server-scripts/traduire-homepage.sh). Il complète `traduire-langue.sh`, qui traite les gabarits (`parts/`, `homepage.php`) : celui-ci traite le **contenu**, qui vit dans `config.php` — `$site_tagline`, `$header_cta_text` et le tableau `$homepage`.
 
@@ -470,7 +517,7 @@ Sans clé de traduction, les phrases qu'aucun dictionnaire ne couvre sont **sign
 
 **Mesures sur le parc** (relevé du 23/09/2026, 4 000 sites examinés) : environ **6 % des sites** ont au moins un texte dans la mauvaise langue sur leur page d'accueil, le plus souvent le slogan, l'étiquette ou le titre de la bannière, et les questions de la FAQ. Traitement de 200 sites : 92 s en série, **16 s avec `-j 8`**.
 
-## 13. Dépannage
+## 14. Dépannage
 
 | Symptôme | Piste |
 |---|---|

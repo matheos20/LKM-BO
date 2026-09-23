@@ -339,3 +339,156 @@ ksort($manifest);
 @unlink($src);
 echo json_encode(['id' => $id, 'files' => $written, 'width' => $w, 'height' => $h], JSON_UNESCAPED_SLASHES);
 `;
+
+/**
+ * Repérage des textes rédigés dans une autre langue que celle du site.
+ *
+ * Un lot de domaines est analysé en une seule exécution : sur un parc de plusieurs
+ * milliers de sites, ouvrir une session par domaine coûterait des heures. Chaque site
+ * est lu par PHP lui-même, dans une portée isolée, et une erreur de syntaxe dans un
+ * `config.php` n'interrompt pas le lot (`ParseError` est rattrapable depuis PHP 7).
+ *
+ * Entrées : LKM_ROOT (racine des sites), LKM_B64 (liste JSON de domaines), LKM_MIN (score
+ * minimal). Sortie : { sites: [ { domain, lang, source, texts, items[] } ] }.
+ */
+export const SCAN_LANG = `<?php
+error_reporting(0);
+$root = rtrim((string) getenv('LKM_ROOT'), '/');
+$min = max(1, (int) (getenv('LKM_MIN') ?: 2));
+$domains = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true);
+if (!is_array($domains)) $domains = [];
+
+// Mots outils : ils ne portent pas de sens, mais trahissent la langue d'un texte.
+// Ils sont écrits sans accent ; les textes des sites sont ramenés à la même forme.
+$STOP = [
+ // Le français porte des mots outils que les autres listes ignorent (je, mes, cet,
+ // lorsque…). Sans eux, une phrase française courte se faisait prendre pour du
+ // néerlandais, dont la liste contient « je », « en » et « de ».
+ 'FR' => "le la les des une un du de et ou pour avec vous nous votre notre nos est sont plus tous toutes qui que sur aux leur leurs chez sans entre vers quand comment pourquoi dans cette ces mais donc alors aussi tres toujours jamais chaque plusieurs ete etre avoir fait faire peut doit ne pas plus rien tout je moi ma mon mes ta tes ton cet ainsi encore depuis lorsque afin deja meme autre autres beaucoup bien sous selon grace notamment",
+ 'UK' => "the and for with your our you this that are all more about best from how why what guide tips have has can will their there when which while each every into over also just because we us it is of to in on",
+ 'ES' => "el la los las una unos unas para con tu tus su sus nuestro nuestra mas todos todas que como sobre donde cuando porque pero tambien siempre nunca cada varios ser estar hacer puede debe desde entre sin no en de",
+ 'PT' => "os as uma umas para com seu sua nosso nossa mais todos todas que como sobre onde quando porque mas tambem sempre nunca cada varios ser estar fazer pode deve desde entre sem nao voce em de",
+ 'IT' => "il lo la gli le una uno per con tuo tua nostro nostra piu tutti tutte che come dove quando perche ma anche sempre mai ogni diversi essere fare puo deve da tra senza sono questo questa di in",
+ 'DE' => "der die das den dem ein eine einen und oder fur mit ihre ihr unser unsere mehr alle diese dieser wie wo wann warum aber auch immer nie jeder mehrere sein haben kann muss von zwischen ohne nicht ist",
+ 'NL' => "de het een en of voor met uw jouw onze meer alle deze hoe waar wanneer waarom maar ook altijd nooit elke verschillende zijn hebben kan moet van tussen zonder niet je is",
+];
+foreach ($STOP as $k => $v) $STOP[$k] = array_flip(preg_split('/\\s+/', trim($v)));
+
+function sansAccent(string $s): string {
+    $t = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+    return $t === false ? $s : strtolower($t);
+}
+
+/** Langue dominante d'un texte : [langue, score, score du suivant, nombre de mots, tous les scores]. */
+function langue(string $s): array {
+    global $STOP;
+    $nu = strip_tags(html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $mots = preg_split("/[^\\p{L}']+/u", mb_strtolower($nu), -1, PREG_SPLIT_NO_EMPTY);
+    if (count($mots) < 3) return [null, 0, 0, count($mots), []];
+    $sc = [];
+    foreach ($STOP as $lg => $set) {
+        $n = 0;
+        foreach ($mots as $m) if (isset($set[sansAccent($m)])) $n++;
+        // Élisions : marqueur propre au français, qu'une liste de mots ne voit pas.
+        if ($lg === 'FR') $n += preg_match_all("/(^|[\\s>«\\"'])(l'|d'|qu'|n'|s'|j'|m'|c'est)/iu", $nu);
+        $sc[$lg] = $n;
+    }
+    arsort($sc);
+    $v = array_values($sc);
+    return [array_key_first($sc), $v[0], $v[1] ?? 0, count($mots), $sc];
+}
+
+/** Ces valeurs ne sont pas de la prose : les traduire casserait le site. */
+function technique(string $chemin): bool {
+    $feuille = strtolower((string) substr((string) strrchr('.' . $chemin, '.'), 1));
+    return (bool) preg_match('/^(url|href|link|slug|id|image|img|icon|color|colour|class|style|type|mode|key|name)$/', $feuille);
+}
+
+/** Aplatit une valeur de configuration en chemins « homepage.hero.title ». */
+function aplatir($v, string $chemin, array &$out): void {
+    if (is_string($v)) {
+        if (mb_strlen(trim($v)) > 2 && !technique($chemin)) $out[$chemin] = $v;
+        return;
+    }
+    if (is_array($v)) foreach ($v as $k => $x) aplatir($x, $chemin === '' ? (string) $k : $chemin . '.' . $k, $out);
+}
+
+/** Variables de config.php, lues par PHP lui-même, dans une portée isolée. */
+function config(string $file): array {
+    return (function ($f) { ob_start(); include $f; ob_end_clean(); return get_defined_vars(); })($file);
+}
+
+/** Langue du site : site_lang, puis extension du domaine, puis contenu. */
+function cible(array $data, string $domain): array {
+    global $STOP;
+    $l = strtoupper(trim((string) ($data['site_lang'] ?? '')));
+    $l = ['EN' => 'UK', 'GB' => 'UK', 'US' => 'UK', 'BR' => 'PT', 'MX' => 'ES', 'AT' => 'DE', 'BE' => 'NL'][$l] ?? $l;
+    if (isset($STOP[$l])) return [$l, 'config', $l];
+
+    $tld = strtolower((string) substr((string) strrchr($domain, '.'), 1));
+    $parTld = ['fr' => 'FR', 'es' => 'ES', 'pt' => 'PT', 'br' => 'PT', 'de' => 'DE', 'at' => 'DE',
+               'it' => 'IT', 'nl' => 'NL', 'be' => 'NL', 'uk' => 'UK', 'ie' => 'UK'];
+    if (isset($parTld[$tld])) return [$parTld[$tld], 'tld', $tld];
+
+    $textes = [];
+    foreach (['site_tagline', 'homepage'] as $k) if (isset($data[$k])) aplatir($data[$k], $k, $textes);
+    $votes = [];
+    foreach ($textes as $t) { [$lg, $s1] = langue($t); if ($lg) $votes[$lg] = ($votes[$lg] ?? 0) + $s1; }
+    if ($votes) { arsort($votes); return [array_key_first($votes), 'content', '']; }
+    return ['FR', 'default', ''];
+}
+
+$sites = [];
+foreach ($domains as $domain) {
+    $domain = (string) $domain;
+    if (!preg_match('/^[a-z0-9][a-z0-9.-]{1,252}$/i', $domain)) continue;
+    $file = $root . '/' . $domain . '/public_html/config.php';
+    $site = ['domain' => $domain];
+    if (!is_file($file)) { $site['error'] = 'missing'; $sites[] = $site; continue; }
+    // Un config.php illisible ne doit pas emporter tout le lot avec lui.
+    try {
+        $data = config($file);
+    } catch (\\Throwable $e) {
+        $site['error'] = 'unreadable';
+        $sites[] = $site;
+        continue;
+    }
+
+    [$lang, $source, $hint] = cible($data, $domain);
+    $textes = [];
+    foreach (['site_tagline', 'header_cta_text', 'homepage'] as $k) if (isset($data[$k])) aplatir($data[$k], $k, $textes);
+
+    $items = [];
+    $labels = [];
+    foreach ($textes as $chemin => $texte) {
+        [$lg, $s1, $s2, $nbMots, $sc] = langue($texte);
+        // Trop court pour être reconnu statistiquement : « Nos articles », « Découvrir »…
+        // Ces libellés reviennent partout, le back-office les compare à son dictionnaire.
+        if (!$lg) {
+            if (mb_strlen($texte) <= 40) $labels[] = ['path' => $chemin, 'text' => $texte];
+            continue;
+        }
+        if ($lg === $lang || $s1 < $min || $s1 <= $s2) continue;
+        // Le texte doit devancer nettement LA LANGUE DU SITE, pas seulement la deuxième
+        // du classement : « Transformer la donnée biologique en levier de longévité »
+        // marque 3 en espagnol (la, en, de) contre 2 en français, sans être espagnol
+        // pour autant. Les langues latines partagent trop de mots outils pour qu'un
+        // écart de un suffise.
+        $ecartSite = $s1 - ($sc[$lang] ?? 0);
+        if ($ecartSite < 2) continue;
+        // Sur quatre mots, deux mots outils communs à deux langues trompent encore
+        // l'analyse : ces cas sont signalés « à vérifier » plutôt qu'écartés, et
+        // l'agent n'en voit aucun coché d'office.
+        $items[] = ['path' => $chemin, 'lang' => $lg, 'score' => $s1, 'gap' => min($s1 - $s2, $ecartSite), 'words' => $nbMots, 'text' => $texte];
+    }
+    $site['labels'] = $labels;
+    $site['lang'] = $lang;
+    $site['source'] = $source;
+    $site['hint'] = $hint;
+    $site['texts'] = count($textes);
+    $site['items'] = $items;
+    $sites[] = $site;
+}
+
+echo json_encode(['sites' => $sites], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+`;
