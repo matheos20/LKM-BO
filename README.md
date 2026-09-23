@@ -353,6 +353,9 @@ Toutes les routes `/api/*` (sauf i18n et login) exigent une session. Les requêt
 | `POST`/`PATCH`/`DELETE` | `/api/admin/roles[/:id]` · `/api/admin/users[/:id]` | Gestion des rôles et des comptes |
 | `POST` | `/api/admin/users/:id/password` | Réinitialisation d'un mot de passe |
 
+Traitements de masse — `POST /api/domains/resolve { domains[] }` répartit une liste de domaines
+entre les serveurs, et `GET /api/servers/:id/domain-names` donne les noms d'un serveur sans pagination.
+
 Traduction des pages d'accueil, sous `/api/servers/:id/translation` :
 
 | Méthode | Route | Description |
@@ -449,7 +452,7 @@ src/
   util/zip.js · util/tar.js formats ZIP et TAR en pur Node (aucun binaire requis)
   routes/                   auth, i18n, servers (CRUD), domains (agrégé), files, design, translation
   styles/tailwind.css       thème Tailwind (#7bc9a9 · #182433 · #ffffff)
-public/                     index.html + js/ (app, design, translate, files, ui, api, i18n) + css/app.css (généré)
+public/                     index.html + js/ (app, design, actions, translate, files, ui, api, i18n) + css/app.css (généré)
 locales/                    fr, en, es, it, pt, de
 scripts/                    set-password, check-ssh
 tests/                      tests unitaires (npm test) : configuration, chemins, archives, i18n
@@ -457,21 +460,35 @@ server-scripts/del-site     script serveur de référence pour la suppression
 server-scripts/traduire-homepage.sh  même travail en ligne de commande (voir § 13)
 ```
 
-## 12. L'écran « Traduction »
+## 12. L'écran « Actions »
+
+Les traitements de masse du parc vivent dans un écran unique, accessible depuis la barre
+latérale. Un menu **Action** choisit le traitement — aujourd'hui *Traduction des pages
+d'accueil*, demain les suivants : l'écran apporte ce qui leur est commun (choix des sites,
+avancement, arrêt), chaque action ne rendant que ses propres résultats.
+
+### Choisir les sites
+
+| Périmètre | Usage |
+|---|---|
+| **Tout le serveur** | La tournée de fond sur les milliers de sites d'un VPS. |
+| **Liste de domaines** | Ceux qu'un agent colle depuis un tableur — un par ligne, ou séparés par des virgules ; les adresses complètes (`https://www.exemple.com/page.php`) sont acceptées. |
+
+Une liste collée **peut mélanger les serveurs** : le back-office cherche chaque domaine dans
+les listes déjà en cache (`POST /api/domains/resolve`), annonce « 2 · VPS 002 — 1 · VPS 001 »,
+et nomme ceux qu'il ne trouve pas. Un serveur non connecté est signalé comme tel : c'est la
+première raison pour laquelle un domaine bien réel reste introuvable.
+
+### L'action « Traduction des pages d'accueil »
 
 Sur le parc, quelques pour cent des pages d'accueil gardent un texte dans la langue du modèle
-d'origine : un slogan français sur un site anglais, une question de FAQ oubliée. L'écran
-**Traduction** (barre latérale, serveur par serveur) met ce travail à portée d'un agent, sans
-ligne de commande.
+d'origine : un slogan français sur un site anglais, une question de FAQ oubliée.
 
-**Trois temps, et rien d'autre**
-
-1. **Analyser.** Le back-office lit la page d'accueil de chaque site du serveur, par lots de 60,
-   et repère les textes écrits dans une autre langue. Une barre de progression avance, un bouton
-   *Arrêter* interrompt. Rien n'est modifié : l'analyse ne fait que lire.
+1. **Analyser.** Lecture de la page d'accueil des sites retenus, par lots de 100, progression
+   visible et interruptible. Rien n'est modifié.
 2. **Relire.** Chaque texte est présenté avec son **emplacement en clair** — « Bannière — Titre »,
    « Questions fréquentes — Question 3 » — la langue détectée, et un champ de traduction déjà
-   rempli quand le dictionnaire du parc connaît l'expression. L'agent corrige, décoche, complète.
+   rempli quand le dictionnaire du parc connaît l'expression.
 3. **Publier.** L'écriture emprunte le circuit de publication du site : sauvegarde horodatée dans
    `.lkm-backups`, contrôle `php -l`, écriture sur place, puis relecture de contrôle — un écart
    restaure la sauvegarde. Le site suivant s'ouvre automatiquement.
@@ -491,7 +508,8 @@ ligne de commande.
 *Traduire automatiquement* remplit les champs restants ; les propositions restent à relire avant
 publication. Sans clé, l'écran fonctionne à l'identique, l'agent saisissant lui-même les textes.
 
-**Mesure** : 150 sites analysés en 2 s sur vps-003 ; 6 sites à corriger, 8 textes.
+**Mesures** : 150 sites analysés en 2 s sur vps-003 (6 à corriger, 8 textes) ; une liste de trois
+domaines répartis sur vps-001 et vps-002 traitée en un seul lancement.
 
 ## 13. Traduction des pages d'accueil du parc (script serveur)
 

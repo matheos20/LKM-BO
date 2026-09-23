@@ -1,105 +1,33 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { $, enc, fmtNum, h, icon, toast, toastError } from './ui.js';
+import { enc, fmtNum, h, icon, toast, toastError } from './ui.js';
 
 /**
- * Écran de traduction des pages d'accueil.
+ * Action « Traduction » : repérer et corriger les textes d'une page d'accueil rédigés
+ * dans une autre langue que celle du site.
  *
- * Il s'adresse à un agent, pas à un développeur. Trois temps, et rien d'autre :
- *   1. ANALYSER — le back-office lit la page d'accueil de chaque site du serveur et
- *      repère les textes rédigés dans une autre langue. Rien n'est modifié.
- *   2. RELIRE  — pour chaque site, l'emplacement du texte est nommé en clair
- *      (« Bannière — Titre »), la traduction connue est déjà proposée, et l'agent
- *      corrige ce qu'il veut avant de décocher ce qu'il ne veut pas.
- *   3. APPLIQUER — l'écriture emprunte le circuit de publication du site : sauvegarde
+ * Elle s'adresse à un agent, pas à un développeur. Trois temps :
+ *   1. ANALYSER — le back-office lit la page d'accueil des sites choisis et repère les
+ *      textes dans la mauvaise langue. Rien n'est modifié.
+ *   2. RELIRE  — l'emplacement du texte est nommé en clair (« Bannière — Titre »), la
+ *      traduction connue est déjà proposée, et l'agent corrige ce qu'il veut.
+ *   3. PUBLIER — l'écriture emprunte le circuit de publication du site : sauvegarde
  *      horodatée, contrôle de syntaxe, relecture de contrôle.
  *
- * L'analyse avance par lots, pour que la progression soit visible et interruptible :
- * un serveur du parc porte plusieurs milliers de domaines.
+ * Le périmètre, la progression et le bouton de lancement appartiennent à l'écran
+ * « Actions » : ce module ne s'occupe que de la traduction elle-même.
  */
 
-/** Taille d'un lot d'analyse : la progression reste visible, le serveur travaille en continu. */
-const BATCH = 100;
-
 const state = {
-  open: false,
-  serverId: null,
-  serverLabel: '',
-  permissions: [],
-  machine: false,
-  domains: [],
-  phase: 'idle', // idle | scanning | done
-  scanned: 0,
-  cancel: false,
-  sites: [], // sites porteurs d'au moins un texte à traduire
+  sites: [], // sites porteurs d'au moins un texte à traduire, dans l'ordre d'analyse
   failed: [], // sites illisibles
-  selected: null,
-  edits: new Map(), // domaine → Map(chemin → { keep, value })
-  doneDomains: new Map(), // domaine → nombre de textes appliqués
-  filter: '',
-  onClose: null,
+  selected: null, // clé « serveur/domaine »
+  edits: new Map(), // clé de site → Map(chemin → { keep, value })
+  doneSites: new Map(), // clé de site → nombre de textes publiés
+  machine: new Map(), // serveur → traduction automatique disponible
 };
 
-export const isTranslateOpen = () => state.open;
-export const rerenderTranslate = () => state.open && render();
-
-const can = (perm) => state.permissions.includes(perm);
-
-export async function openTranslate({ serverId, serverLabel, permissions, onClose }) {
-  Object.assign(state, {
-    open: true,
-    serverId,
-    serverLabel: serverLabel ?? serverId,
-    permissions: permissions ?? [],
-    domains: [],
-    phase: 'idle',
-    scanned: 0,
-    cancel: false,
-    sites: [],
-    failed: [],
-    selected: null,
-    filter: '',
-    onClose,
-  });
-  state.edits.clear();
-  state.doneDomains.clear();
-
-  $('#domains-view').hidden = true;
-  $('#files-view').hidden = true;
-  $('#admin-view').hidden = true;
-  $('#design-view').hidden = true;
-  $('#translate-view').hidden = false;
-  $('#btn-back').hidden = false;
-  for (const sel of ['#btn-conn', '#btn-refresh', '#btn-add']) $(sel).hidden = true;
-
-  render();
-  // La liste complète des domaines du serveur : le tableau n'en montre qu'une page,
-  // mais une analyse de parc doit les connaître tous.
-  try {
-    const [status, list] = await Promise.all([
-      api(`/api/servers/${enc(serverId)}/translation/status`).catch(() => ({ machine: false })),
-      api(`/api/servers/${enc(serverId)}/domain-names`),
-    ]);
-    if (!state.open || state.serverId !== serverId) return;
-    state.machine = Boolean(status.machine);
-    state.domains = list.domains ?? [];
-  } catch (err) {
-    toastError(err);
-  }
-  render();
-}
-
-export function closeTranslate() {
-  if (!state.open) return;
-  state.open = false;
-  state.cancel = true;
-  $('#translate-view').hidden = true;
-  $('#translate-view').replaceChildren();
-  $('#domains-view').hidden = false;
-  $('#btn-back').hidden = true;
-  for (const sel of ['#btn-refresh', '#btn-add']) $(sel).hidden = false;
-  state.onClose?.();
-}
+const keyOf = (site) => `${site.server}/${site.domain}`;
 
 // ───────────────────────── Emplacements lisibles ─────────────────────────
 
@@ -150,64 +78,30 @@ const langName = (code) => {
   return label.startsWith('translate.lang.') ? code : label;
 };
 
-// ───────────────────────── Analyse ─────────────────────────
-
-const editsFor = (domain) => {
-  if (!state.edits.has(domain)) state.edits.set(domain, new Map());
-  return state.edits.get(domain);
-};
-
-async function runScan() {
-  const all = state.domains.filter((d) => !state.filter || d.includes(state.filter));
-  if (!all.length) return toast(t('translate.no_domain'), 'info');
-
-  Object.assign(state, { phase: 'scanning', scanned: 0, cancel: false, sites: [], failed: [], selected: null });
-  state.edits.clear();
-  state.doneDomains.clear();
-  render();
-
-  for (let i = 0; i < all.length; i += BATCH) {
-    if (state.cancel || !state.open) break;
-    const batch = all.slice(i, i + BATCH);
-    try {
-      const { sites } = await api(`/api/servers/${enc(state.serverId)}/translation/scan`, { method: 'POST', body: { domains: batch } });
-      for (const site of sites ?? []) {
-        if (site.error) state.failed.push(site);
-        else if (site.items?.length) state.sites.push(site);
-      }
-    } catch (err) {
-      state.phase = 'done';
-      render();
-      return toastError(err);
-    }
-    state.scanned += batch.length;
-    if (!state.selected && state.sites.length) select(state.sites[0].domain);
-    render();
-  }
-
-  state.phase = 'done';
-  if (!state.selected && state.sites.length) select(state.sites[0].domain);
-  render();
-  if (!state.cancel) toast(t('translate.scan_done', { sites: fmtNum(state.sites.length), texts: fmtNum(countTexts()) }), 'success');
-}
-
 const countTexts = () => state.sites.reduce((n, s) => n + s.items.length, 0);
 
-function select(domain) {
-  state.selected = domain;
-  const site = state.sites.find((s) => s.domain === domain);
-  const edits = editsFor(domain);
+const editsFor = (site) => {
+  const key = keyOf(site);
+  if (!state.edits.has(key)) state.edits.set(key, new Map());
+  return state.edits.get(key);
+};
+
+function select(site) {
+  state.selected = keyOf(site);
+  const edits = editsFor(site);
   // Première ouverture : la proposition connue est pré-remplie, et seuls les textes
   // pour lesquels une traduction existe sont cochés — l'agent complète les autres.
-  for (const item of site?.items ?? []) {
+  for (const item of site.items ?? []) {
     if (!edits.has(item.path)) edits.set(item.path, { keep: Boolean(item.suggestion), value: item.suggestion ?? '' });
   }
 }
 
+const current = () => state.sites.find((s) => keyOf(s) === state.selected) ?? null;
+
 // ───────────────────────── Actions sur un site ─────────────────────────
 
 async function machineTranslateSite(site, button) {
-  const edits = editsFor(site.domain);
+  const edits = editsFor(site);
   const pending = site.items.filter((it) => !edits.get(it.path)?.value.trim());
   if (!pending.length) return toast(t('translate.nothing_to_fill'), 'info');
 
@@ -221,7 +115,7 @@ async function machineTranslateSite(site, button) {
       groups.get(key).push(item);
     }
     for (const [from, items] of groups) {
-      const { translations } = await api(`/api/servers/${enc(state.serverId)}/translation/translate`, {
+      const { translations } = await api(`/api/servers/${enc(site.server)}/translation/translate`, {
         method: 'POST',
         body: { texts: items.map((it) => it.text), from: from || undefined, to: site.lang },
       });
@@ -235,12 +129,12 @@ async function machineTranslateSite(site, button) {
     toastError(err);
   } finally {
     button.disabled = false;
-    render();
+    translateAction.onChange?.();
   }
 }
 
 async function applySite(site, button) {
-  const edits = editsFor(site.domain);
+  const edits = editsFor(site);
   const changes = site.items
     .filter((item) => {
       const edit = edits.get(item.path);
@@ -252,125 +146,22 @@ async function applySite(site, button) {
 
   button.disabled = true;
   try {
-    const out = await api(`/api/servers/${enc(state.serverId)}/translation/apply`, { method: 'POST', body: { domain: site.domain, changes } });
-    state.doneDomains.set(site.domain, out.applied.length);
+    const out = await api(`/api/servers/${enc(site.server)}/translation/apply`, { method: 'POST', body: { domain: site.domain, changes } });
+    state.doneSites.set(keyOf(site), out.applied.length);
     toast(t('translate.applied', { count: fmtNum(out.applied.length), domain: site.domain }), 'success');
     if (out.skipped?.length) toast(t('translate.skipped', { count: fmtNum(out.skipped.length) }), 'info');
     // On enchaîne : l'agent passe au site suivant sans chercher où cliquer.
-    const next = state.sites.find((s) => !state.doneDomains.has(s.domain));
-    if (next) select(next.domain);
+    const next = state.sites.find((s) => !state.doneSites.has(keyOf(s)));
+    if (next) select(next);
   } catch (err) {
     toastError(err);
   } finally {
     button.disabled = false;
-    render();
+    translateAction.onChange?.();
   }
 }
 
 // ───────────────────────── Rendu ─────────────────────────
-
-function render() {
-  if (!state.open) return;
-  $('#page-title').textContent = t('translate.title');
-  $('#page-sub').classList.remove('font-mono');
-  $('#page-sub').textContent = state.serverLabel;
-  $('#page-state').replaceChildren();
-
-  const body = [intro(), stats()];
-  if (state.sites.length) body.push(workspace());
-  else if (state.phase === 'done') body.push(emptyResult());
-  $('#translate-view').replaceChildren(...body.filter(Boolean));
-}
-
-/** Bandeau d'explication et commande d'analyse. */
-function intro() {
-  const scanning = state.phase === 'scanning';
-  const total = state.domains.filter((d) => !state.filter || d.includes(state.filter)).length;
-
-  const filter = h('input', {
-    class: 'input sm:w-64',
-    type: 'search',
-    value: state.filter,
-    placeholder: t('translate.filter_placeholder'),
-    disabled: scanning,
-    oninput: (e) => {
-      state.filter = e.target.value.trim().toLowerCase();
-      const counter = $('#translate-scope');
-      if (counter) counter.textContent = t('translate.scope', { count: fmtNum(state.domains.filter((d) => !state.filter || d.includes(state.filter)).length) });
-    },
-  });
-
-  const action = scanning
-    ? h('button', { type: 'button', class: 'btn btn-outline', onclick: () => { state.cancel = true; } }, t('translate.stop'))
-    : h(
-        'button',
-        { type: 'button', class: 'btn btn-primary', disabled: !state.domains.length, onclick: runScan },
-        icon('refresh'),
-        t(state.phase === 'done' ? 'translate.rescan' : 'translate.scan'),
-      );
-
-  return h(
-    'div',
-    { class: 'card p-5' },
-    h(
-      'div',
-      { class: 'flex flex-wrap items-start gap-4' },
-      h('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-700' }, icon('globe', 'size-5')),
-      h(
-        'div',
-        { class: 'min-w-0 flex-1' },
-        h('h2', { class: 'text-base font-semibold' }, t('translate.step_scan')),
-        h('p', { class: 'mt-1 max-w-3xl text-sm text-ink-500' }, t('translate.explain')),
-        h('p', { id: 'translate-scope', class: 'mt-2 text-xs text-ink-400' }, t('translate.scope', { count: fmtNum(total) })),
-      ),
-      h('div', { class: 'flex flex-wrap items-center gap-2' }, filter, action),
-    ),
-    scanning ? progress(total) : null,
-  );
-}
-
-function progress(total) {
-  const pct = total ? Math.min(100, Math.round((state.scanned / total) * 100)) : 0;
-  return h(
-    'div',
-    { class: 'mt-5' },
-    h(
-      'div',
-      { class: 'mb-1.5 flex items-center justify-between text-xs font-medium text-ink-500' },
-      h('span', {}, t('translate.progress', { done: fmtNum(state.scanned), total: fmtNum(total) })),
-      h('span', { class: 'tabular-nums' }, `${pct} %`),
-    ),
-    h(
-      'div',
-      { class: 'h-2 overflow-hidden rounded-full bg-ink-100', role: 'progressbar', 'aria-valuenow': String(pct), 'aria-valuemin': '0', 'aria-valuemax': '100' },
-      h('div', { class: 'h-full rounded-full bg-accent transition-all duration-300', style: `width:${pct}%` }),
-    ),
-  );
-}
-
-function stats() {
-  if (state.phase === 'idle') return null;
-  const done = [...state.doneDomains.values()].reduce((a, b) => a + b, 0);
-  const cells = [
-    ['translate.stat_scanned', fmtNum(state.scanned), 'text-ink'],
-    ['translate.stat_sites', fmtNum(state.sites.length), 'text-accent-700'],
-    ['translate.stat_texts', fmtNum(countTexts()), 'text-ink'],
-    ['translate.stat_applied', fmtNum(done), 'text-accent-700'],
-    ['translate.stat_failed', fmtNum(state.failed.length), state.failed.length ? 'text-red-600' : 'text-ink-300'],
-  ];
-  return h(
-    'div',
-    { class: 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5' },
-    cells.map(([key, value, tone]) =>
-      h(
-        'div',
-        { class: 'card px-4 py-3' },
-        h('p', { class: 'text-xs font-medium tracking-wide text-ink-400 uppercase' }, t(key)),
-        h('p', { class: `mt-1 text-2xl font-bold tabular-nums ${tone}` }, value),
-      ),
-    ),
-  );
-}
 
 function emptyResult() {
   return h(
@@ -383,14 +174,10 @@ function emptyResult() {
 }
 
 /** Liste des sites à gauche, textes du site retenu à droite. */
-function workspace() {
-  return h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(), siteDetail());
-}
-
-function siteList() {
+function siteList(showServer) {
   const rows = state.sites.map((site) => {
-    const applied = state.doneDomains.get(site.domain);
-    const active = state.selected === site.domain;
+    const applied = state.doneSites.get(keyOf(site));
+    const active = state.selected === keyOf(site);
     return h(
       'button',
       {
@@ -398,15 +185,19 @@ function siteList() {
         class: `flex w-full items-center gap-3 border-b border-ink-100 px-4 py-3 text-left transition last:border-0 ${active ? 'bg-accent-50' : 'hover:bg-ink-50'}`,
         'aria-current': String(active),
         onclick: () => {
-          select(site.domain);
-          render();
+          select(site);
+          translateAction.onChange?.();
         },
       },
       h(
         'span',
         { class: 'min-w-0 flex-1' },
         h('span', { class: 'block truncate text-sm font-medium' }, site.domain),
-        h('span', { class: 'mt-0.5 block text-xs text-ink-400' }, `${langName(site.lang)} · ${t('translate.texts_count', { count: fmtNum(site.items.length) })}`),
+        h(
+          'span',
+          { class: 'mt-0.5 block truncate text-xs text-ink-400' },
+          `${langName(site.lang)} · ${t('translate.texts_count', { count: fmtNum(site.items.length) })}${showServer ? ` · ${site.serverLabel}` : ''}`,
+        ),
       ),
       applied != null
         ? h('span', { class: 'badge bg-accent-100 text-accent-700' }, icon('check', 'size-3.5'), fmtNum(applied))
@@ -422,12 +213,13 @@ function siteList() {
   );
 }
 
-function siteDetail() {
-  const site = state.sites.find((s) => s.domain === state.selected);
+function siteDetail(permissions) {
+  const site = current();
   if (!site) return h('div', { class: 'card px-6 py-16 text-center text-ink-400' }, t('translate.pick_site'));
 
-  const edits = editsFor(site.domain);
-  const applied = state.doneDomains.get(site.domain);
+  const can = (perm) => permissions.includes(perm);
+  const edits = editsFor(site);
+  const applied = state.doneSites.get(keyOf(site));
 
   const header = h(
     'div',
@@ -440,11 +232,12 @@ function siteDetail() {
         { class: 'flex flex-wrap items-center gap-2' },
         h('h3', { class: 'truncate font-semibold' }, site.domain),
         h('span', { class: 'badge bg-ink-100 text-ink-700' }, langName(site.lang)),
+        h('span', { class: 'badge bg-ink-50 text-ink-500' }, site.serverLabel),
         applied != null ? h('span', { class: 'badge bg-accent-100 text-accent-700' }, icon('check', 'size-3.5'), t('translate.applied_badge')) : null,
       ),
       h('p', { class: 'mt-1 text-xs text-ink-400' }, t(`translate.source.${site.langSource}`, { hint: site.hint || '—' })),
     ),
-    state.machine && can('design.edit')
+    state.machine.get(site.server) && can('design.edit')
       ? h('button', { type: 'button', class: 'btn btn-outline', onclick: (e) => machineTranslateSite(site, e.currentTarget) }, icon('wrench'), t('translate.autofill'))
       : null,
     h(
@@ -461,18 +254,12 @@ function siteDetail() {
     ),
   );
 
-  const rows = site.items.map((item) => textRow(site, item, edits));
-
   return h(
     'div',
     { class: 'card overflow-hidden' },
     header,
-    h('div', { class: 'divide-y divide-ink-100' }, rows),
-    h(
-      'p',
-      { class: 'border-t border-ink-100 bg-ink-50/60 px-5 py-3 text-xs text-ink-500' },
-      t('translate.safety_note'),
-    ),
+    h('div', { class: 'divide-y divide-ink-100' }, site.items.map((item) => textRow(site, item, edits))),
+    h('p', { class: 'border-t border-ink-100 bg-ink-50/60 px-5 py-3 text-xs text-ink-500' }, t('translate.safety_note')),
   );
 }
 
@@ -487,8 +274,8 @@ function textRow(site, item, edits) {
     value: long ? null : edit.value,
     placeholder: t('translate.placeholder', { lang: langName(site.lang) }),
     oninput: (e) => {
-      const current = edits.get(item.path) ?? { keep: true, value: '' };
-      edits.set(item.path, { keep: current.keep || Boolean(e.target.value.trim()), value: e.target.value });
+      const now = edits.get(item.path) ?? { keep: true, value: '' };
+      edits.set(item.path, { keep: now.keep || Boolean(e.target.value.trim()), value: e.target.value });
       const box = e.target.closest('[data-row]')?.querySelector('input[type=checkbox]');
       if (box && e.target.value.trim()) box.checked = true;
     },
@@ -501,8 +288,8 @@ function textRow(site, item, edits) {
     checked: edit.keep,
     'aria-label': t('translate.keep'),
     onchange: (e) => {
-      const current = edits.get(item.path) ?? { keep: false, value: '' };
-      edits.set(item.path, { ...current, keep: e.target.checked });
+      const now = edits.get(item.path) ?? { keep: false, value: '' };
+      edits.set(item.path, { ...now, keep: e.target.checked });
     },
   });
 
@@ -539,3 +326,69 @@ function textRow(site, item, edits) {
     ),
   );
 }
+
+// ───────────────────────── L'action, telle que l'écran la voit ─────────────────────────
+
+export const translateAction = {
+  key: 'translate',
+  icon: 'globe',
+  labelKey: 'actions.translate',
+  hintKey: 'translate.explain',
+  batch: 100,
+  /** Appelé par l'écran quand le rendu doit être refait. */
+  onChange: null,
+
+  reset() {
+    state.sites = [];
+    state.failed = [];
+    state.selected = null;
+    state.edits.clear();
+    state.doneSites.clear();
+  },
+
+  /** Analyse un lot de domaines d'un même serveur. Ne modifie rien. */
+  async run(server, domains) {
+    if (!state.machine.has(server)) {
+      const status = await api(`/api/servers/${enc(server)}/translation/status`).catch(() => ({ machine: false }));
+      state.machine.set(server, Boolean(status.machine));
+    }
+    const label = server;
+    const { sites } = await api(`/api/servers/${enc(server)}/translation/scan`, { method: 'POST', body: { domains } });
+    for (const site of sites ?? []) {
+      const entry = { ...site, server, serverLabel: label };
+      if (site.error) state.failed.push(entry);
+      else if (site.items?.length) state.sites.push(entry);
+    }
+    if (!state.selected && state.sites.length) select(state.sites[0]);
+  },
+
+  stats() {
+    const published = [...state.doneSites.values()].reduce((a, b) => a + b, 0);
+    return [
+      ['translate.stat_sites', fmtNum(state.sites.length), 'text-accent-700'],
+      ['translate.stat_texts', fmtNum(countTexts()), 'text-ink'],
+      ['translate.stat_applied', fmtNum(published), 'text-accent-700'],
+      ['translate.stat_failed', fmtNum(state.failed.length), state.failed.length ? 'text-red-600' : 'text-ink-300'],
+    ];
+  },
+
+  results({ permissions = [] } = {}) {
+    if (state.sites.length) {
+      const multi = new Set(state.sites.map((s) => s.server)).size > 1;
+      return h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(multi), siteDetail(permissions));
+    }
+    return null;
+  },
+
+  /** Rien trouvé : le dire franchement plutôt que de laisser un écran vide. */
+  emptyState: () => emptyResult(),
+
+  finished() {
+    toast(t('translate.scan_done', { sites: fmtNum(state.sites.length), texts: fmtNum(countTexts()) }), 'success');
+  },
+
+  /** Le libellé du serveur n'est connu que de l'écran : il le pose après coup. */
+  labelServers(labelFor) {
+    for (const site of [...state.sites, ...state.failed]) site.serverLabel = labelFor(site.server);
+  },
+};

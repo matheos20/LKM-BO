@@ -181,3 +181,15 @@ test('emplacements : un chemin de configuration devient une phrase', async () =>
   assert.equal(whereLabel('site_tagline'), 'translate.where.site_tagline');
   assert.equal(whereLabel('inconnu.chose'), 'inconnu.chose');
 });
+
+test('périmètre : une liste collée depuis un tableur est comprise', async () => {
+  const { parseDomains } = await import('../public/js/actions.js');
+  // Séparateurs libres, adresses complètes, doublons, casse, espaces.
+  assert.deepEqual(parseDomains('caswellscoffee.com\ndinemec.com, mandyscarr.com'), ['caswellscoffee.com', 'dinemec.com', 'mandyscarr.com']);
+  assert.deepEqual(parseDomains('https://www.Ukinco.com/business/page.php'), ['ukinco.com']);
+  assert.deepEqual(parseDomains('a.com ; a.com | A.COM'), ['a.com']);
+  assert.deepEqual(parseDomains('  spirotiger.net.  '), ['spirotiger.net']);
+  // Ce qui n'est pas un domaine est écarté sans bruit.
+  assert.deepEqual(parseDomains('domaine\n-\n123\n'), []);
+  assert.deepEqual(parseDomains(''), []);
+});
