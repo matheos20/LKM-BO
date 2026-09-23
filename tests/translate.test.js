@@ -222,3 +222,23 @@ test('périmètre : une liste collée depuis un tableur est comprise', async () 
   assert.deepEqual(parseDomains('domaine\n-\n123\n'), []);
   assert.deepEqual(parseDomains(''), []);
 });
+
+test('certitude : un texte court mais dense ne demande pas de vérification', async () => {
+  const { uncertainFor } = await import('../public/js/translate.js');
+  const cas = (score, words, gap) => uncertainFor({ source: 'detected', score, words, gap });
+
+  // Relevés réels du parc, tous du français sur des sites anglais.
+  assert.equal(cas(3, 3, 3), false); // « S'informer, s'instruire, s'épanouir. »
+  assert.equal(cas(3, 4, 3), false); // « « L'essentiel est une discipline » »
+  assert.equal(cas(3, 5, 1), false); // « L'art de la <em>maîtrise</em> quotidienne »
+  assert.equal(cas(2, 5, 2), false); // « Un avenir aux <em>ressources</em> limitées »
+  assert.equal(cas(5, 10, 3), false); // le slogan de seosoftwareservices.com
+
+  // Les cas réellement douteux restent signalés.
+  assert.equal(cas(2, 4, 1), true); // « Voyageur en van aménagé » — en/van sont aussi néerlandais
+  assert.equal(cas(2, 4, 2), true); // « L'intelligence des usages durables » — court et peu dense
+  assert.equal(cas(2, 8, 1), true); // long mais indécis
+
+  // Une expression reconnue par le dictionnaire ne se discute pas.
+  assert.equal(uncertainFor({ source: 'dictionary' }), false);
+});

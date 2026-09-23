@@ -70,8 +70,23 @@ export function whereLabel(path) {
  * Un texte de quatre mots dont deux sont des mots outils communs à deux langues
  * (« en », « de », « je ») peut être mal classé. Ces cas restent affichés — sinon de
  * vrais oublis passeraient à la trappe — mais signalés comme incertains.
+ *
+ * Deux façons d'être sûr, et il suffit de l'une :
+ *   - le texte est DENSE en mots de cette langue : « S'informer, s'instruire,
+ *     s'épanouir. » marque 3 sur 3 mots, aucun doute possible malgré sa brièveté ;
+ *   - le texte est LONG et devance nettement les autres langues.
+ * À l'inverse, « Voyageur en van aménagé » marque 2 sur 4 avec un écart de 1 : les
+ * mots « en » et « van » appartiennent aussi au néerlandais. Celui-là se vérifie.
  */
-const uncertain = (item) => item.source === 'detected' && ((item.words ?? 9) < 5 || (item.gap ?? 9) < 2);
+export const uncertainFor = (item) => {
+  if (item.source !== 'detected') return false;
+  const words = item.words ?? 9;
+  const score = item.score ?? 0;
+  const gap = item.gap ?? 9;
+  const dense = score >= 3 && score / Math.max(1, words) >= 0.4;
+  const net = gap >= 2 && words >= 5;
+  return !dense && !net;
+};
 
 const langName = (code) => {
   if (!code) return '—';
@@ -401,7 +416,7 @@ function textRow(site, item, edits) {
         h('span', { class: 'text-sm font-semibold' }, whereLabel(item.path)),
         item.source === 'dictionary'
           ? h('span', { class: 'badge bg-accent-50 text-accent-700' }, t('translate.source_dictionary'))
-          : uncertain(item)
+          : uncertainFor(item)
             ? h('span', { class: 'badge bg-ink-100 text-ink-600', title: t('translate.uncertain_hint') }, t('translate.uncertain', { lang: langName(item.lang) }))
             : h('span', { class: 'badge bg-amber-50 text-amber-700' }, t('translate.detected', { lang: langName(item.lang) })),
       ),
