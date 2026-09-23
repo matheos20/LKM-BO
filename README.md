@@ -443,9 +443,34 @@ locales/                    fr, en, es, it, pt, de
 scripts/                    set-password, check-ssh
 tests/                      tests unitaires (npm test) : configuration, chemins, archives, i18n
 server-scripts/del-site     script serveur de référence pour la suppression
+server-scripts/traduire-homepage.sh  traduction des textes de la page d’accueil (voir § 13)
 ```
 
-## 12. Dépannage
+## 12. Traduction des pages d'accueil du parc
+
+Script autonome à exécuter **sur les serveurs** : [`server-scripts/traduire-homepage.sh`](server-scripts/traduire-homepage.sh). Il complète `traduire-langue.sh`, qui traite les gabarits (`parts/`, `homepage.php`) : celui-ci traite le **contenu**, qui vit dans `config.php` — `$site_tagline`, `$header_cta_text` et le tableau `$homepage`.
+
+**Ce qu'il fait**
+
+1. Détermine la langue du site : `$site_lang`, puis l'extension du domaine, puis l'analyse du contenu.
+2. Détermine la langue de **chaque texte** de la page d'accueil et repère ceux qui ne sont pas dans la langue du site — dans les deux sens : du français sur un site allemand comme de l'anglais sur un site espagnol.
+3. Traduit ce qui est sûr : le dictionnaire intégré pour les expressions qui reviennent partout, un service de traduction pour le reste si une clé est fournie.
+4. Réécrit `config.php` **par le lexer de PHP** : seuls les littéraux visés changent, l'indentation et les commentaires restent intacts, et `php -l` valide le fichier avant qu'il ne remplace l'original. Une sauvegarde `.bak-traduire` est posée, comme pour `traduire-langue.sh`.
+
+**Utilisation**
+
+```bash
+./traduire-homepage.sh /srv/www --dry-run              # relevé, n'écrit rien
+./traduire-homepage.sh /srv/www --deepl=CLE -j 8       # traduction réelle, 8 sites à la fois
+./traduire-homepage.sh /srv/www --rapport=/tmp/r.tsv   # relevé exploitable (TSV)
+./traduire-homepage.sh /srv/www --restore              # tout annuler
+```
+
+Sans clé de traduction, les phrases qu'aucun dictionnaire ne couvre sont **signalées** avec leur domaine et leur chemin exact (`homepage.hero.title`…). Le rapport TSV indique alors à un agent quoi corriger, et où, dans le back-office.
+
+**Mesures sur le parc** (relevé du 23/09/2026, 4 000 sites examinés) : environ **6 % des sites** ont au moins un texte dans la mauvaise langue sur leur page d'accueil, le plus souvent le slogan, l'étiquette ou le titre de la bannière, et les questions de la FAQ. Traitement de 200 sites : 92 s en série, **16 s avec `-j 8`**.
+
+## 13. Dépannage
 
 | Symptôme | Piste |
 |---|---|
