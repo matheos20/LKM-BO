@@ -38,6 +38,7 @@ const state = {
   total: 0,
   done: 0,
   cancel: false,
+  suspended: false, // écran mis de côté le temps d'un détour par les fichiers
   onClose: null,
 };
 
@@ -47,6 +48,7 @@ export const rerenderActions = () => state.open && render();
 const serverLabel = (id) => state.servers.find((s) => s.id === id)?.label ?? id;
 
 export async function openActions({ serverId, serverLabel: label, servers, permissions, onClose }) {
+  const serveurPrecedent = state.serverId;
   Object.assign(state, {
     open: true,
     action: ACTIONS[0],
@@ -60,17 +62,18 @@ export async function openActions({ serverId, serverLabel: label, servers, permi
     text: '',
     resolved: null,
     resolving: false,
-    phase: 'idle',
     total: 0,
     done: 0,
     cancel: false,
     onClose,
   });
   if (listArea) listArea.value = '';
-  for (const action of ACTIONS) {
-    action.reset();
-    action.onChange = render;
-  }
+  for (const action of ACTIONS) action.onChange = render;
+  // Les résultats d'une analyse survivent à une sortie d'écran : un relevé sur des
+  // milliers de sites ne doit pas disparaître parce qu'on est allé voir un fichier.
+  // Changer de serveur, en revanche, ouvre un autre sujet : on repart à zéro.
+  if (serveurPrecedent !== state.serverId) for (const action of ACTIONS) action.reset();
+  state.phase = state.action.ready?.() ? 'done' : 'idle';
 
   $('#domains-view').hidden = true;
   $('#files-view').hidden = true;
@@ -84,9 +87,50 @@ export async function openActions({ serverId, serverLabel: label, servers, permi
   await loadServerDomains();
 }
 
+/**
+ * Met l'écran de côté pour en ouvrir un autre — le gestionnaire de fichiers — et le
+ * reprend ensuite tel quel. Sans cela, aller regarder un fichier ferait perdre une
+ * analyse qui a pu coûter plusieurs minutes.
+ */
+export const isActionsSuspended = () => state.open && state.suspended;
+
+function suspendActions() {
+  state.suspended = true;
+  $('#actions-view').hidden = true;
+}
+
+function resumeActions() {
+  if (!state.open) return;
+  state.suspended = false;
+  $('#domains-view').hidden = true;
+  $('#files-view').hidden = true;
+  $('#actions-view').hidden = false;
+  $('#btn-back').hidden = false;
+  for (const sel of ['#btn-conn', '#btn-refresh', '#btn-add']) $(sel).hidden = true;
+  render();
+}
+
+/**
+ * Ouvre le gestionnaire de fichiers sur le domaine, et revient ici en le fermant.
+ * Le module est chargé à la demande : il s'installe des écouteurs sur le document,
+ * ce qui empêcherait de charger cet écran-ci hors d'un navigateur (les tests).
+ */
+async function openFilesFor(site) {
+  const { openFiles } = await import('./files.js');
+  suspendActions();
+  openFiles({
+    serverId: site.server,
+    serverLabel: serverLabel(site.server),
+    domain: site.domain,
+    status: site.lock?.status ?? null,
+    onClose: resumeActions,
+  });
+}
+
 export function closeActions() {
   if (!state.open) return;
   state.open = false;
+  state.suspended = false;
   state.cancel = true;
   $('#actions-view').hidden = true;
   $('#actions-view').replaceChildren();
@@ -217,7 +261,7 @@ function render() {
   $('#page-sub').textContent = state.serverId ? state.serverLabel : t('actions.all_servers');
   $('#page-state').replaceChildren();
 
-  const results = state.action.results({ permissions: state.permissions });
+  const results = state.action.results({ permissions: state.permissions, openFiles: openFilesFor });
   const body = [chooser(), scopeCard(), statsRow(), results ?? (state.phase === 'done' ? state.action.emptyState?.() : null)];
   $('#actions-view').replaceChildren(...body.filter(Boolean));
 }

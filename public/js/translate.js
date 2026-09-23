@@ -439,7 +439,7 @@ function siteList(showServer) {
   );
 }
 
-function siteDetail(permissions) {
+function siteDetail(permissions, openFilesFor) {
   const site = current();
   if (!site) return h('div', { class: 'card px-6 py-16 text-center text-ink-400' }, t('translate.pick_site'));
 
@@ -464,6 +464,16 @@ function siteDetail(permissions) {
       h('p', { class: 'mt-1 text-xs text-ink-400' }, t(`translate.source.${site.langSource}`, { hint: site.hint || '—' })),
     ),
     lockControls(site, permissions),
+    // Les fichiers du domaine, à un clic : l'agent y retrouve les images, les
+    // articles et le config.php du site qu'il est en train de corriger.
+    openFilesFor && permissions.includes('files.read')
+      ? h(
+          'button',
+          { type: 'button', class: 'btn btn-outline px-2.5 py-1.5 text-xs', onclick: () => openFilesFor(site) },
+          icon('folder', 'size-3.5'),
+          t('files.title'),
+        )
+      : null,
     state.machine.get(site.server) && can('design.edit')
       ? h('button', { type: 'button', class: 'btn btn-outline', onclick: (e) => machineTranslateSite(site, e.currentTarget) }, icon('wrench'), h('span', {}, t('translate.autofill')))
       : null,
@@ -658,14 +668,17 @@ export const translateAction = {
     ];
   },
 
-  results({ permissions = [] } = {}) {
+  /** Y a-t-il quelque chose à réafficher ? (retour depuis un autre écran) */
+  ready: () => state.sites.length > 0,
+
+  results({ permissions = [], openFiles = null } = {}) {
     if (!state.sites.length) return null;
     const multi = new Set(state.sites.map((s) => s.server)).size > 1;
     return h(
       'div',
       { class: 'space-y-4' },
       bulkBar(permissions),
-      h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(multi), siteDetail(permissions)),
+      h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(multi), siteDetail(permissions, openFiles)),
     );
   },
 

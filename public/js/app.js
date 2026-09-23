@@ -3,7 +3,7 @@ import { applyI18n, getLang, getLanguages, initI18n, onLangChange, setLang, t } 
 import { closeFiles, isFilesOpen, openFiles, rerenderFiles } from './files.js';
 import { accountDialog, closeAdmin, isAdminOpen, openAdmin, rerenderAdmin } from './admin.js';
 import { closeDesign, isDesignOpen, openDesign, rerenderDesign } from './design.js';
-import { closeActions, isActionsOpen, openActions, rerenderActions } from './actions.js';
+import { closeActions, isActionsOpen, isActionsSuspended, openActions, rerenderActions } from './actions.js';
 import { $, closeModal, enc, fmtDate, fmtNum, fmtSize, formError, h, icon, modalHeader, openModal, store, toast, toastError } from './ui.js';
 
 // ───────────────────────── État ─────────────────────────
@@ -630,6 +630,8 @@ function wireEvents() {
   $('#btn-connect-all').addEventListener('click', connectAll);
   $('#btn-menu').addEventListener('click', () => toggleSidebar(true));
   $('#btn-back').addEventListener('click', () => {
+    // Fichiers ouverts DEPUIS l'écran Actions : on y retourne, analyse intacte.
+    if (isActionsSuspended()) return closeFiles();
     closeFiles();
     closeAdmin();
     closeDesign();

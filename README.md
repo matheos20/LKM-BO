@@ -493,11 +493,15 @@ d'origine : un slogan français sur un site anglais, une question de FAQ oublié
    `.lkm-backups`, contrôle `php -l`, écriture sur place, puis relecture de contrôle — un écart
    restaure la sauvegarde. Le site suivant s'ouvre automatiquement.
 
-**Deux gestes de plus sur la fiche d'un site**
+**Trois gestes de plus sur la fiche d'un site**
 
 - **Verrouiller / déverrouiller** : un domaine verrouillé refuse toute écriture. L'état est lu à
   la sélection et les deux boutons sont dans l'en-tête, pour ne pas envoyer l'agent chercher
   l'écran des domaines au milieu de son travail.
+- **Fichiers** : ouvre le gestionnaire de fichiers sur le domaine — images, articles,
+  `config.php` du site en cours de correction. Le retour ramène à l'écran Actions **avec
+  l'analyse intacte** : un relevé sur des milliers de sites ne doit pas disparaître parce
+  qu'on est allé regarder un fichier.
 - **Contrôle des balises** : la traduction doit porter les mêmes balises que l'original, et
   autour des mêmes mots. « Le hardware, cet `<em>`écosystème`</em>` fragile » rendu par
   « Hardware: That `<em>`Fragile Ecosystem`</em>` » garde bien la balise, mais elle est passée
