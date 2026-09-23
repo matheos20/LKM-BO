@@ -739,6 +739,8 @@
     "publish_all_title": "Publier tous les sites prêts ?",
     "publish_all_body": "{sites} site(s) et {texts} texte(s) seront publiés en production.",
     "publish_all_go": "Publier",
-    "published_all": "{ok} site(s) publié(s), {ko} en échec."
+    "published_all": "{ok} site(s) publié(s), {ko} en échec.",
+    "provider_claude": "Claude",
+    "no_provider": "Traduction automatique non configurée : ajoutez une clé dans .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY ou LIBRETRANSLATE_URL), puis relancez le serveur."
   }
 }

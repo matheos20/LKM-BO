@@ -19,12 +19,14 @@
     "user": "node scripts/user.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
     "helmet": "^8.3.0",
-    "ssh2": "^1.17.0"
+    "ssh2": "^1.17.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",

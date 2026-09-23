@@ -506,13 +506,17 @@ d'origine : un slogan français sur un site anglais, une question de FAQ oublié
 
 ### Traduction automatique (facultative)
 
-Trois services au choix, à renseigner dans `.env` — **le premier configuré est retenu** :
+Quatre services au choix, à renseigner dans `.env` — **le premier configuré est retenu** :
 
 | Service | Variable | Remarque |
 |---|---|---|
-| **DeepL** | `DEEPL_KEY` | Meilleure qualité sur les langues du parc. Offre gratuite : 500 000 caractères par mois. Une clé finissant par `:fx` désigne cette offre. |
+| **DeepL** | `DEEPL_KEY` | Offre gratuite : 500 000 caractères par mois — huit fois le besoin du parc. Une clé finissant par `:fx` désigne cette offre. |
+| **Claude** | `ANTHROPIC_API_KEY` (+ `ANTHROPIC_MODEL`) | Garde le ton d'un slogan et les balises `<em>`, là où un traducteur rend la phrase plate. Le parc entier coûte moins d'un dollar. |
 | **Google** | `GOOGLE_TRANSLATE_KEY` | Cloud Translation v2, facturé au caractère. |
 | **LibreTranslate** | `LIBRETRANSLATE_URL` (+ `LIBRETRANSLATE_KEY`) | Libre et installable sur vos serveurs : aucun texte ne sort du parc. |
+
+Sans clé, l'écran le dit en toutes lettres sous la barre d'actions, en nommant les variables
+attendues — plutôt que de cacher le bouton sans explication.
 
 Deux boutons apparaissent alors : **Traduire tout** remplit les propositions de tous les sites
 analysés, **Publier (n)** les met en ligne après une confirmation qui annonce le nombre de sites

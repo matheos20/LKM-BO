@@ -242,3 +242,42 @@ test('certitude : un texte court mais dense ne demande pas de vérification', as
   // Une expression reconnue par le dictionnaire ne se discute pas.
   assert.equal(uncertainFor({ source: 'dictionary' }), false);
 });
+
+test('Claude : contrainte de forme, balises conservées, décalage refusé', async () => {
+  let vu = null;
+  const client = (reponse) => ({
+    messages: {
+      parse: async (params) => {
+        vu = params;
+        return reponse;
+      },
+    },
+  });
+
+  const provider = pickProvider({ client: client({ parsed_output: { translations: ['The art of daily <em>mastery</em>'] } }) });
+  assert.equal(provider.name, 'claude');
+  const out = await machineTranslate(["L'art de la <em>maîtrise</em> quotidienne"], { from: 'FR', to: 'UK', provider });
+  assert.deepEqual(out, ['The art of daily <em>mastery</em>']);
+
+  // Des NOMS de langue, pas des codes : « UK » ne veut rien dire pour un modèle.
+  assert.match(vu.system, /from French into British English/);
+  assert.match(vu.system, /Keep every inline HTML tag/);
+  // La réponse est contrainte par un schéma, et l'effort reste bas : la tâche est courte.
+  assert.equal(typeof vu.output_config.format, 'object');
+  assert.equal(vu.output_config.effort, 'low');
+  assert.equal(vu.model, 'claude-opus-5');
+  assert.deepEqual(JSON.parse(vu.messages[0].content), ["L'art de la <em>maîtrise</em> quotidienne"]);
+
+  // Un décalage rendrait les traductions à côté de leur texte : refusé plutôt que publié.
+  const bancal = pickProvider({ client: client({ parsed_output: { translations: ['un', 'deux'] } }) });
+  await assert.rejects(() => machineTranslate(['a'], { from: 'FR', to: 'UK', provider: bancal }), /2 traduction\(s\) pour 1 texte/);
+
+  // Réponse illisible : on ne devine pas.
+  const muet = pickProvider({ client: client({ parsed_output: null }) });
+  await assert.rejects(() => machineTranslate(['a'], { from: 'FR', to: 'UK', provider: muet }), /illisible/);
+
+  // Le modèle se choisit : un très gros lot peut préférer Haiku.
+  const haiku = pickProvider({ claudeKey: 'sk', claudeModel: 'claude-haiku-4-5', client: client({ parsed_output: { translations: ['x'] } }) });
+  await machineTranslate(['a'], { from: 'FR', to: 'UK', provider: haiku });
+  assert.equal(vu.model, 'claude-haiku-4-5');
+});

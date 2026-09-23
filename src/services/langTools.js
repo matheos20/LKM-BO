@@ -1,3 +1,7 @@
+import Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+
 /**
  * Outils de langue du parc : langues reconnues, dictionnaire des expressions courantes
  * et traduction automatique facultative.
@@ -92,10 +96,14 @@ export function dictionaryLookup(text, target) {
  * peut contenir <strong> ou un lien, et le remplacement doit les conserver.
  */
 
+/** Claude reçoit des noms de langue : plus sûr qu'un code à deux lettres. */
+const LANG_NAMES = { FR: 'French', UK: 'British English', ES: 'Spanish', PT: 'European Portuguese', DE: 'German', IT: 'Italian', NL: 'Dutch' };
+
 /** Codes par service. La cible accepte une variante régionale, la source rarement. */
 const CODES = {
   deepl: { target: { UK: 'EN-GB', PT: 'PT-PT', FR: 'FR', ES: 'ES', DE: 'DE', IT: 'IT', NL: 'NL' }, source: { UK: 'EN', PT: 'PT', FR: 'FR', ES: 'ES', DE: 'DE', IT: 'IT', NL: 'NL' } },
   google: { target: { UK: 'en', PT: 'pt', FR: 'fr', ES: 'es', DE: 'de', IT: 'it', NL: 'nl' }, source: { UK: 'en', PT: 'pt', FR: 'fr', ES: 'es', DE: 'de', IT: 'it', NL: 'nl' } },
+  claude: { target: LANG_NAMES, source: LANG_NAMES },
   libre: { target: { UK: 'en', PT: 'pt', FR: 'fr', ES: 'es', DE: 'de', IT: 'it', NL: 'nl' }, source: { UK: 'en', PT: 'pt', FR: 'fr', ES: 'es', DE: 'de', IT: 'it', NL: 'nl' } },
 };
 
@@ -150,6 +158,43 @@ const BACKENDS = {
     return (payload.data?.translations ?? []).map((tr) => unescapeHtml(tr?.translatedText ?? ''));
   },
 
+  /**
+   * Claude, par le SDK officiel.
+   *
+   * Les textes du parc sont des slogans et des titres, souvent porteurs de balises
+   * (« L'art de la <em>maîtrise</em> quotidienne ») et de tournures publicitaires que
+   * les traducteurs automatiques rendent plates. Un modèle de langue garde le ton et
+   * les balises, et comprend qu'un titre reste un titre.
+   *
+   * La réponse est contrainte par un schéma : ni préambule, ni explication, ni numéro
+   * — un tableau de chaînes, dans l'ordre reçu. L'effort est réglé bas : traduire une
+   * ligne de vingt mots ne demande pas de longue réflexion.
+   */
+  async claude(texts, { from, to, settings }) {
+    const client = settings.client ?? new Anthropic({ apiKey: settings.key });
+    const schema = z.object({ translations: z.array(z.string()) });
+    const source = from ? `from ${from} ` : '';
+
+    const res = await client.messages.parse({
+      model: settings.model,
+      max_tokens: 8000,
+      system:
+        `You translate short website texts ${source}into ${to}. ` +
+        'Return one translation per input text, in the same order, same count. ' +
+        'Keep every inline HTML tag exactly as it appears (<em>, <strong>, <a href="...">) around the matching words. ' +
+        'Keep emoji, quotation marks and trailing arrows. Keep the register of marketing copy: a headline stays a headline, ' +
+        'never a literal word-for-word rendering. Translate nothing else, add nothing, explain nothing.',
+      output_config: { format: zodOutputFormat(schema), effort: 'low' },
+      messages: [{ role: 'user', content: JSON.stringify(texts) }],
+    });
+
+    const out = res.parsed_output?.translations;
+    if (!Array.isArray(out)) throw new Error('Claude: réponse illisible');
+    // Un décalage de longueur rendrait des traductions à côté de leur texte : on refuse.
+    if (out.length !== texts.length) throw new Error(`Claude: ${out.length} traduction(s) pour ${texts.length} texte(s)`);
+    return out.map((v) => String(v));
+  },
+
   /** LibreTranslate : libre et installable chez soi, quand les textes ne doivent pas sortir. */
   async libre(texts, { from, to, settings, fetchImpl }) {
     const base = String(settings.url).replace(/\/+$/, '');
@@ -168,11 +213,19 @@ const BACKENDS = {
 export const PROVIDERS = Object.keys(BACKENDS);
 
 /**
+ * Modèle par défaut pour Claude. Traduire la page d'accueil de tout le parc coûte
+ * moins d'un dollar ; `ANTHROPIC_MODEL` permet néanmoins de choisir un modèle plus
+ * économique (`claude-haiku-4-5`) pour les très gros lots.
+ */
+export const DEFAULT_CLAUDE_MODEL = 'claude-opus-5';
+
+/**
  * Choisit le service configuré. L'ordre traduit la qualité constatée sur les
  * langues du parc ; il suffit d'effacer une clé pour passer au suivant.
  */
-export function pickProvider({ deeplKey = '', googleKey = '', libreUrl = '', libreKey = '', endpoint = '' } = {}) {
+export function pickProvider({ deeplKey = '', claudeKey = '', claudeModel = '', googleKey = '', libreUrl = '', libreKey = '', endpoint = '', client = null } = {}) {
   if (deeplKey) return { name: 'deepl', settings: { key: deeplKey, endpoint } };
+  if (claudeKey || client) return { name: 'claude', settings: { key: claudeKey, model: claudeModel || DEFAULT_CLAUDE_MODEL, client } };
   if (googleKey) return { name: 'google', settings: { key: googleKey, endpoint } };
   if (libreUrl) return { name: 'libre', settings: { url: libreUrl, key: libreKey } };
   return null;

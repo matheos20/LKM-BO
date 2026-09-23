@@ -16,7 +16,7 @@ import { LANGS, dictionaryLookup, machineTranslate, normalizeLang, pickProvider 
  *     existant : sauvegarde horodatée, contrôle de syntaxe, relecture après écriture.
  *
  * La traduction proposée vient du dictionnaire du parc, et d'un service automatique si
- * l'un est configuré (DeepL, Google, LibreTranslate). À défaut, l'agent saisit lui-même
+ * l'un est configuré (DeepL, Claude, Google, LibreTranslate). À défaut, l'agent saisit lui-même
  * le texte : l'interface reste utilisable sans aucun service extérieur.
  */
 

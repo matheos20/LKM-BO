@@ -30,6 +30,8 @@ export const config = {
   // les expressions courantes, l'agent saisit le reste lui-même.
   translate: {
     deeplKey: env.DEEPL_KEY || '',
+    claudeKey: env.ANTHROPIC_API_KEY || '',
+    claudeModel: env.ANTHROPIC_MODEL || '',
     googleKey: env.GOOGLE_TRANSLATE_KEY || '',
     libreUrl: env.LIBRETRANSLATE_URL || '',
     libreKey: env.LIBRETRANSLATE_KEY || '',

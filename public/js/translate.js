@@ -465,7 +465,8 @@ function bulkBar(permissions) {
           icon('wrench'),
           h('span', {}, t('translate.translate_all')),
         )
-      : null,
+      : // Sans service configuré, l'absence de bouton laissait l'agent sans explication.
+        h('p', { class: 'basis-full text-xs text-ink-400 lg:basis-auto' }, t('translate.no_provider')),
     h(
       'button',
       {
