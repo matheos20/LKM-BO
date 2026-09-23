@@ -741,6 +741,8 @@
     "publish_all_go": "Publicar",
     "published_all": "{ok} site(s) publicado(s), {ko} com erro.",
     "provider_claude": "Claude",
-    "no_provider": "A tradução automática não está configurada: acrescente uma chave no .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY ou LIBRETRANSLATE_URL) e reinicie o servidor."
+    "no_provider": "A tradução automática não está configurada: acrescente uma chave no .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY ou LIBRETRANSLATE_URL) e reinicie o servidor.",
+    "tags_differ": "Etiquetas diferentes do original ({tags}): verifique se envolvem as mesmas palavras.",
+    "tags_moved": "As etiquetas já não envolvem as mesmas palavras ({tags}): o destaque mudou."
   }
 }

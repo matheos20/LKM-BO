@@ -741,6 +741,8 @@
     "publish_all_go": "Veröffentlichen",
     "published_all": "{ok} Website(s) veröffentlicht, {ko} fehlgeschlagen.",
     "provider_claude": "Claude",
-    "no_provider": "Die automatische Übersetzung ist nicht eingerichtet: tragen Sie einen Schlüssel in .env ein (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY oder LIBRETRANSLATE_URL) und starten Sie den Server neu."
+    "no_provider": "Die automatische Übersetzung ist nicht eingerichtet: tragen Sie einen Schlüssel in .env ein (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY oder LIBRETRANSLATE_URL) und starten Sie den Server neu.",
+    "tags_differ": "Andere Tags als im Original ({tags}): prüfen Sie, ob sie dieselben Wörter umschließen.",
+    "tags_moved": "Die Tags umschließen nicht mehr dieselben Wörter ({tags}): die Hervorhebung hat sich verschoben."
   }
 }

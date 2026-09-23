@@ -281,3 +281,28 @@ test('Claude : contrainte de forme, balises conservées, décalage refusé', asy
   await machineTranslate(['a'], { from: 'FR', to: 'UK', provider: haiku });
   assert.equal(vu.model, 'claude-haiku-4-5');
 });
+
+test('balises : mêmes balises, et autour des mêmes mots', async () => {
+  const { tagSignature, innerWords, tagIssue } = await import('../public/js/translate.js');
+
+  const source = 'Le hardware, cet <em>écosystème</em> fragile';
+  assert.deepEqual(tagSignature(source), ['em', '/em']);
+  assert.deepEqual(innerWords(source), [1]);
+
+  // Relevé sur flashkod.com : la balise survit, mais elle a changé de mots — elle
+  // couvrait « écosystème », elle couvre « Fragile Ecosystem ». C'est ce que l'alerte doit voir.
+  assert.equal(tagIssue(source, 'Hardware: That <em>Fragile Ecosystem</em>'), 'translate.tags_moved');
+  // Balise perdue, remplacée, mal fermée ou dédoublée : autre alerte.
+  assert.equal(tagIssue(source, 'Hardware, that fragile ecosystem'), 'translate.tags_differ');
+  assert.equal(tagIssue(source, 'Hardware, that fragile <strong>ecosystem</strong>'), 'translate.tags_differ');
+  assert.equal(tagIssue(source, 'Hardware, that fragile <em>ecosystem'), 'translate.tags_differ');
+  assert.equal(tagIssue(source, '<em>Hardware</em>, that <em>fragile</em> ecosystem'), 'translate.tags_differ');
+  // Bonne traduction : mêmes balises, même mot mis en valeur.
+  assert.equal(tagIssue(source, 'Hardware, that fragile <em>ecosystem</em>'), null);
+  // Champ vide : l'agent n'a pas encore écrit, rien à signaler.
+  assert.equal(tagIssue(source, '   '), null);
+
+  assert.deepEqual(tagSignature('Texte sans balise'), []);
+  assert.deepEqual(tagSignature('<A HREF="/x">Lien</A><br>'), ['a', '/a', 'br']);
+  assert.deepEqual(innerWords('<em>un mot</em> et <strong>deux mots ici</strong>'), [2, 3]);
+});

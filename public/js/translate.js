@@ -88,6 +88,53 @@ export const uncertainFor = (item) => {
   return !dense && !net;
 };
 
+/**
+ * Suite des balises d'un texte, dans l'ordre : ['em', '/em'].
+ *
+ * Une traduction doit porter les mêmes, au même endroit. Sur flashkod.com,
+ * « Le hardware, cet <em>écosystème</em> fragile » traduit par
+ * « Hardware: That <em>Fragile Ecosystem</em> » garde bien la balise, mais elle a
+ * changé de mots : la mise en valeur portait sur un mot, elle en couvre deux, dont
+ * l'adjectif qui était dehors. Le site reste valide, la page ne dit plus la même chose.
+ */
+export const tagSignature = (text) =>
+  [...String(text ?? '').matchAll(/<(\/?)([a-zA-Z][\w-]*)/g)].map((m) => `${m[1]}${m[2].toLowerCase()}`);
+
+const sameTags = (a, b) => {
+  const x = tagSignature(a);
+  const y = tagSignature(b);
+  return x.length === y.length && x.every((tag, i) => tag === y[i]);
+};
+
+/** Nombre de mots à l'intérieur de chaque paire de balises, dans l'ordre. */
+export const innerWords = (text) =>
+  [...String(text ?? '').matchAll(/<([a-zA-Z][\w-]*)[^>]*>([\s\S]*?)<\/\1\s*>/g)].map(
+    (m) => (m[2].replace(/<[^>]*>/g, ' ').match(/[\p{L}\p{N}]+/gu) ?? []).length,
+  );
+
+/**
+ * Ce qui cloche entre un texte et sa traduction, ou `null`.
+ *
+ * Deux défauts se voient sans connaître les deux langues : une balise perdue ou
+ * ajoutée, et une balise qui n'entoure plus le même nombre de mots. Le second est
+ * le cas de flashkod.com, où <em> couvrait « écosystème » et couvre désormais
+ * « Fragile Ecosystem » : la page reste valide, la mise en valeur a changé de sens.
+ */
+/** « <em> <a> » : les balises du texte d'origine, pour les rappeler à l'agent. */
+const tagList = (text) =>
+  tagSignature(text)
+    .filter((x) => !x.startsWith('/'))
+    .map((x) => `<${x}>`)
+    .join(' ') || '—';
+
+export function tagIssue(source, target) {
+  if (!String(target ?? '').trim()) return null;
+  if (!sameTags(source, target)) return 'translate.tags_differ';
+  const avant = innerWords(source);
+  const apres = innerWords(target);
+  return avant.some((n, i) => n !== apres[i]) ? 'translate.tags_moved' : null;
+}
+
 const langName = (code) => {
   if (!code) return '—';
   const label = t(`translate.lang.${code}`);
@@ -104,6 +151,7 @@ const editsFor = (site) => {
 
 function select(site) {
   state.selected = keyOf(site);
+  if (site.lock === undefined) loadLock(site);
   const edits = editsFor(site);
   // Première ouverture : la proposition connue est pré-remplie, et seuls les textes
   // pour lesquels une traduction existe sont cochés — l'agent complète les autres.
@@ -113,6 +161,70 @@ function select(site) {
 }
 
 const current = () => state.sites.find((s) => keyOf(s) === state.selected) ?? null;
+
+/**
+ * État de verrouillage du domaine retenu.
+ *
+ * Un domaine verrouillé refuse toute écriture : publier s'y solderait par une erreur
+ * de droits, et l'agent devrait repartir chercher l'écran des domaines. L'état est
+ * donc lu à la sélection, et les deux boutons sont là où le travail se fait.
+ */
+async function loadLock(site) {
+  site.lock = { status: null, caps: {}, busy: true };
+  try {
+    const d = await api(`/api/servers/${enc(site.server)}/domains/${enc(site.domain)}`);
+    site.lock = { status: d.status, caps: d.capabilities ?? {}, busy: false };
+  } catch {
+    // Un domaine dont l'état reste inconnu n'empêche rien : les boutons restent absents.
+    site.lock = { status: null, caps: {}, busy: false };
+  }
+  if (keyOf(site) === state.selected) translateAction.onChange?.();
+}
+
+async function toggleLock(site, action, button) {
+  button.disabled = true;
+  try {
+    const out = await api(`/api/servers/${enc(site.server)}/domains/${enc(site.domain)}`, { method: 'PATCH', body: { action } });
+    site.lock = { ...site.lock, status: out.status, busy: false };
+    toast(t(action === 'lock' ? 'toast.locked' : 'toast.unlocked', { domain: site.domain }), 'success');
+  } catch (err) {
+    toastError(err);
+  } finally {
+    button.disabled = false;
+    translateAction.onChange?.();
+  }
+}
+
+/** Les deux boutons, ou rien si le compte n'a pas le droit ou le serveur pas la capacité. */
+function lockControls(site, permissions) {
+  const lock = site.lock;
+  if (!lock || lock.busy || !lock.status) return null;
+
+  const badge = h(
+    'span',
+    { class: lock.status === 'locked' ? 'badge bg-amber-50 text-amber-700' : 'badge bg-accent-50 text-accent-700' },
+    icon(lock.status === 'locked' ? 'lock' : 'unlock', 'size-3.5'),
+    t(`status.${lock.status}`),
+  );
+  if (lock.status === 'incomplete') return badge;
+
+  const action = lock.status === 'locked' ? 'unlock' : 'lock';
+  const cap = lock.caps?.[action];
+  const allowed = permissions.includes('domains.lock') && cap?.ok !== false;
+  const button = h(
+    'button',
+    {
+      type: 'button',
+      class: 'btn btn-outline px-2.5 py-1.5 text-xs',
+      disabled: !allowed,
+      title: allowed ? null : t('action.unavailable', { reason: t(`reason.${cap?.reason ?? 'permission_denied'}`) }),
+      onclick: (e) => toggleLock(site, action, e.currentTarget),
+    },
+    icon(action === 'lock' ? 'lock' : 'unlock', 'size-3.5'),
+    t(`action.${action}`),
+  );
+  return h('span', { class: 'flex items-center gap-2' }, badge, button);
+}
 
 // ───────────────────────── Actions sur un site ─────────────────────────
 
@@ -348,6 +460,7 @@ function siteDetail(permissions) {
       ),
       h('p', { class: 'mt-1 text-xs text-ink-400' }, t(`translate.source.${site.langSource}`, { hint: site.hint || '—' })),
     ),
+    lockControls(site, permissions),
     state.machine.get(site.server) && can('design.edit')
       ? h('button', { type: 'button', class: 'btn btn-outline', onclick: (e) => machineTranslateSite(site, e.currentTarget) }, icon('wrench'), h('span', {}, t('translate.autofill')))
       : null,
@@ -387,8 +500,16 @@ function textRow(site, item, edits) {
     oninput: (e) => {
       const now = edits.get(item.path) ?? { keep: true, value: '' };
       edits.set(item.path, { keep: now.keep || Boolean(e.target.value.trim()), value: e.target.value });
-      const box = e.target.closest('[data-row]')?.querySelector('input[type=checkbox]');
+      const row = e.target.closest('[data-row]');
+      const box = row?.querySelector('input[type=checkbox]');
       if (box && e.target.value.trim()) box.checked = true;
+      // Contrôle à la frappe : redessiner la ligne ferait sauter le curseur.
+      const alerte = row?.querySelector('[data-tags]');
+      if (alerte) {
+        const souci = tagIssue(item.text, e.target.value);
+        alerte.hidden = !souci;
+        if (souci) alerte.lastChild.textContent = t(souci, { tags: tagList(item.text) });
+      }
     },
   });
   if (long) field.value = edit.value;
@@ -433,6 +554,12 @@ function textRow(site, item, edits) {
         h('label', { class: 'flex items-center gap-2 text-xs text-ink-500' }, keep, t('translate.keep')),
       ),
       field,
+      h(
+        'p',
+        { class: 'mt-1 flex items-start gap-1.5 text-xs text-amber-700', 'data-tags': '', hidden: !tagIssue(item.text, edit.value) },
+        icon('alert', 'mt-0.5 size-3.5 shrink-0'),
+        h('span', {}, t(tagIssue(item.text, edit.value) ?? 'translate.tags_differ', { tags: tagList(item.text) })),
+      ),
       item.suggestion ? h('p', { class: 'mt-1 text-xs text-accent-700' }, t('translate.from_dictionary')) : null,
     ),
   );

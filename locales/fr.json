@@ -741,6 +741,8 @@
     "publish_all_go": "Publier",
     "published_all": "{ok} site(s) publié(s), {ko} en échec.",
     "provider_claude": "Claude",
-    "no_provider": "Traduction automatique non configurée : ajoutez une clé dans .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY ou LIBRETRANSLATE_URL), puis relancez le serveur."
+    "no_provider": "Traduction automatique non configurée : ajoutez une clé dans .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY ou LIBRETRANSLATE_URL), puis relancez le serveur.",
+    "tags_differ": "Balises différentes de l’original ({tags}) : vérifiez qu’elles entourent les mêmes mots.",
+    "tags_moved": "Les balises n’entourent plus les mêmes mots ({tags}) : la mise en valeur a changé de sens."
   }
 }

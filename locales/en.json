@@ -741,6 +741,8 @@
     "publish_all_go": "Publish",
     "published_all": "{ok} site(s) published, {ko} failed.",
     "provider_claude": "Claude",
-    "no_provider": "Automatic translation is not configured: add a key to .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY or LIBRETRANSLATE_URL), then restart the server."
+    "no_provider": "Automatic translation is not configured: add a key to .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY or LIBRETRANSLATE_URL), then restart the server.",
+    "tags_differ": "Tags differ from the original ({tags}): check they wrap the same words.",
+    "tags_moved": "The tags no longer wrap the same words ({tags}): the emphasis has shifted."
   }
 }
