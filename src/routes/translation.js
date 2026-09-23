@@ -18,7 +18,7 @@ export function translationRouter({ ssh, translation, audit }) {
   r.use(requireServerAccess(ssh), requireConnection(ssh));
 
   r.get('/status', requirePermission('design.read'), (_req, res) => {
-    res.json({ machine: translation.machineAvailable, langs: LANGS });
+    res.json({ machine: translation.machineAvailable, provider: translation.providerName, langs: LANGS });
   });
 
   r.post('/scan', requirePermission('design.read'), async (req, res) => {

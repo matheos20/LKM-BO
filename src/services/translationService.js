@@ -1,6 +1,6 @@
 import { AppError } from '../errors.js';
 import { SCAN_LANG } from './phpScripts.js';
-import { LANGS, dictionaryLookup, machineTranslate, normalizeLang } from './langTools.js';
+import { LANGS, dictionaryLookup, machineTranslate, normalizeLang, pickProvider } from './langTools.js';
 
 /**
  * Traduction des pages d'accueil du parc.
@@ -15,9 +15,9 @@ import { LANGS, dictionaryLookup, machineTranslate, normalizeLang } from './lang
  *   - APPLIQUER des remplacements de texte choisis, par le circuit de publication
  *     existant : sauvegarde horodatée, contrôle de syntaxe, relecture après écriture.
  *
- * La traduction proposée vient du dictionnaire du parc, et de DeepL si une clé est
- * configurée. À défaut, l'agent saisit lui-même le texte : l'interface reste utilisable
- * sans aucun service extérieur.
+ * La traduction proposée vient du dictionnaire du parc, et d'un service automatique si
+ * l'un est configuré (DeepL, Google, LibreTranslate). À défaut, l'agent saisit lui-même
+ * le texte : l'interface reste utilisable sans aucun service extérieur.
  */
 
 /** Au-delà, la ligne de commande et la mémoire de PHP deviennent un sujet. */
@@ -26,14 +26,19 @@ const MAX_CHANGES = 80;
 const SCAN_TIMEOUT = 180000;
 
 export class TranslationService {
-  constructor(ssh, sites, { deeplKey = '' } = {}) {
+  constructor(ssh, sites, settings = {}) {
     this.ssh = ssh;
     this.sites = sites;
-    this.deeplKey = deeplKey;
+    /** Premier service configuré, ou `null` : DeepL, Google, LibreTranslate. */
+    this.provider = pickProvider(settings);
   }
 
   get machineAvailable() {
-    return Boolean(this.deeplKey);
+    return Boolean(this.provider);
+  }
+
+  get providerName() {
+    return this.provider?.name ?? null;
   }
 
   /**
@@ -99,15 +104,15 @@ export class TranslationService {
     };
   }
 
-  /** Traduction automatique d'une liste de textes (DeepL), si une clé est configurée. */
+  /** Traduction automatique d'une liste de textes, si un service est configuré. */
   async translate(texts, { from, to }) {
     if (!this.machineAvailable) throw new AppError('errors.translate_unavailable', { status: 503 });
     const target = normalizeLang(to);
     if (!target) throw new AppError('errors.translate_lang_unknown', { status: 400, vars: { lang: String(to).slice(0, 12) } });
     const list = (Array.isArray(texts) ? texts : []).slice(0, MAX_CHANGES).map((v) => String(v ?? ''));
     try {
-      const out = await machineTranslate(list, { from: normalizeLang(from), to: target, key: this.deeplKey });
-      return { translations: out ?? [] };
+      const out = await machineTranslate(list, { from: normalizeLang(from), to: target, provider: this.provider });
+      return { translations: out ?? [], provider: this.providerName };
     } catch (err) {
       throw new AppError('errors.translate_failed', { status: 502, detail: String(err.message).slice(0, 300) });
     }

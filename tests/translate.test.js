@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { dictionaryLookup, machineTranslate, normalizeLang } from '../src/services/langTools.js';
+import { dictionaryLookup, machineTranslate, normalizeLang, pickProvider } from '../src/services/langTools.js';
 import { readPath, writePath } from '../src/services/siteService.js';
 import { TranslationService } from '../src/services/translationService.js';
 import { SCAN_LANG } from '../src/services/phpScripts.js';
@@ -27,26 +27,54 @@ test('dictionnaire : expressions courantes du parc', () => {
   assert.equal(dictionaryLookup('Our articles', 'UK'), null);
   assert.equal(dictionaryLookup('Un texte éditorial qui ne figure nulle part', 'UK'), null);
   assert.equal(dictionaryLookup('Nos articles', 'ZZ'), null);
+  // Même texte à un accent près : ce n'est pas une traduction. 51 sites français du
+  // parc écrivent « Questions frequentes » ; les proposer noierait le vrai travail.
+  assert.equal(dictionaryLookup('Questions frequentes', 'FR'), null);
+  assert.equal(dictionaryLookup('Questions frequentes', 'UK'), 'Frequently asked questions');
 });
 
-test('traduction automatique : requête formée, et silence sans clé', async () => {
+test('traduction automatique : trois services, une seule interface', async () => {
   let seen = null;
-  const fetchImpl = async (url, init) => {
-    seen = { url, body: new URLSearchParams(init.body) };
-    return { ok: true, json: async () => ({ translations: [{ text: 'Our coffee guide' }] }) };
+  const faux = (reponse) => async (url, init) => {
+    seen = { url, init };
+    return { ok: true, json: async () => reponse };
   };
-  const out = await machineTranslate(['Notre guide du café'], { from: 'FR', to: 'UK', key: 'abc:fx', fetchImpl });
-  assert.deepEqual(out, ['Our coffee guide']);
-  assert.match(seen.url, /api-free\.deepl\.com/);
-  assert.equal(seen.body.get('target_lang'), 'EN-GB'); // la cible accepte la variante régionale…
-  assert.equal(seen.body.get('source_lang'), 'FR');
-  assert.equal(seen.body.get('tag_handling'), 'html');
 
-  // …mais la source non : PT-PT serait refusé.
-  await machineTranslate(['Olá'], { from: 'PT', to: 'FR', key: 'abc:fx', fetchImpl });
-  assert.equal(seen.body.get('source_lang'), 'PT');
+  // DeepL : formulaire, un champ « text » par texte.
+  const deepl = pickProvider({ deeplKey: 'abc:fx' });
+  const a = await machineTranslate(['Notre guide du café'], { from: 'FR', to: 'UK', provider: deepl, fetchImpl: faux({ translations: [{ text: 'Our coffee guide' }] }) });
+  assert.deepEqual(a, ['Our coffee guide']);
+  assert.match(seen.url, /api-free\.deepl\.com/); // la clé « :fx » désigne l'offre gratuite
+  const body = new URLSearchParams(seen.init.body);
+  assert.equal(body.get('target_lang'), 'EN-GB'); // la cible accepte la variante régionale…
+  assert.equal(body.get('source_lang'), 'FR');
+  assert.equal(body.get('tag_handling'), 'html'); // les balises d'un titre doivent survivre
+  await machineTranslate(['Olá'], { from: 'PT', to: 'FR', provider: deepl, fetchImpl: faux({ translations: [] }) });
+  assert.equal(new URLSearchParams(seen.init.body).get('source_lang'), 'PT'); // …la source, non
 
-  assert.equal(await machineTranslate(['x'], { from: 'FR', to: 'UK', key: '', fetchImpl }), null);
+  // Google : JSON, et une réponse échappée en HTML qu'il faut redéchiffrer.
+  const google = pickProvider({ googleKey: 'AIzaXXX' });
+  const b = await machineTranslate(["L'été"], { from: 'FR', to: 'UK', provider: google, fetchImpl: faux({ data: { translations: [{ translatedText: 'Summer &#39;s &amp; heat' }] } }) });
+  assert.deepEqual(b, ["Summer 's & heat"]);
+  assert.match(seen.url, /translation\.googleapis\.com.*key=AIzaXXX/);
+  assert.deepEqual(JSON.parse(seen.init.body), { q: ["L'été"], target: 'en', source: 'fr', format: 'html' });
+
+  // LibreTranslate : installable chez soi, l'adresse vient de la configuration.
+  const libre = pickProvider({ libreUrl: 'https://lt.exemple.net/' });
+  const c = await machineTranslate(['Bonjour'], { from: 'FR', to: 'DE', provider: libre, fetchImpl: faux({ translatedText: ['Guten Tag'] }) });
+  assert.deepEqual(c, ['Guten Tag']);
+  assert.equal(seen.url, 'https://lt.exemple.net/translate'); // pas de double barre oblique
+  assert.equal(JSON.parse(seen.init.body).target, 'de');
+
+  // Aucun service configuré : silence, pas d'erreur.
+  assert.equal(pickProvider({}), null);
+  assert.equal(await machineTranslate(['x'], { from: 'FR', to: 'UK', provider: null }), null);
+});
+
+test('service en panne : le message du service remonte jusqu à l agent', async () => {
+  const provider = pickProvider({ deeplKey: 'abc:fx' });
+  const fetchImpl = async () => ({ ok: false, status: 456, json: async () => ({ message: 'Quota exceeded' }) });
+  await assert.rejects(() => machineTranslate(['x'], { from: 'FR', to: 'UK', provider, fetchImpl }), /Quota exceeded/);
 });
 
 test('chemins de configuration : seule la prose est accessible', () => {
@@ -147,6 +175,7 @@ test('traduction automatique : refusée tant qu aucune clé n est configurée', 
   assert.equal(await key(() => sans.translate(['x'], { from: 'FR', to: 'UK' })), 'errors.translate_unavailable');
 
   const avec = new TranslationService(fakeSsh, fakeSites({ sites: [] }), { deeplKey: 'abc:fx' });
+  assert.equal(avec.providerName, 'deepl');
   assert.equal(avec.machineAvailable, true);
   assert.equal(await key(() => avec.translate(['x'], { from: 'FR', to: 'klingon' })), 'errors.translate_lang_unknown');
 });

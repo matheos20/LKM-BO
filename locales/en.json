@@ -727,6 +727,18 @@
       "NL": "Dutch"
     },
     "uncertain": "To check · {lang}?",
-    "uncertain_hint": "Short text: the analysis hesitates between two languages. Read it before translating."
+    "uncertain_hint": "Short text: the analysis hesitates between two languages. Read it before translating.",
+    "provider_deepl": "DeepL",
+    "provider_google": "Google Translate",
+    "provider_libre": "LibreTranslate",
+    "translate_all": "Translate all",
+    "publish_all": "Publish ({count})",
+    "bulk_hint": "{sites} site(s) left · {ready} ready to publish",
+    "working_site": "{done} / {total}…",
+    "filled_all": "{count} translation(s) suggested. Check them before publishing.",
+    "publish_all_title": "Publish every ready site?",
+    "publish_all_body": "{sites} site(s) and {texts} text(s) will go live.",
+    "publish_all_go": "Publish",
+    "published_all": "{ok} site(s) published, {ko} failed."
   }
 }

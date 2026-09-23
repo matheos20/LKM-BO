@@ -727,6 +727,18 @@
       "NL": "Néerlandais"
     },
     "uncertain": "À vérifier · {lang} ?",
-    "uncertain_hint": "Texte court : l'analyse hésite entre deux langues. Relisez-le avant de le traduire."
+    "uncertain_hint": "Texte court : l'analyse hésite entre deux langues. Relisez-le avant de le traduire.",
+    "provider_deepl": "DeepL",
+    "provider_google": "Google Traduction",
+    "provider_libre": "LibreTranslate",
+    "translate_all": "Traduire tout",
+    "publish_all": "Publier ({count})",
+    "bulk_hint": "{sites} site(s) à traiter · {ready} prêt(s) à publier",
+    "working_site": "{done} / {total}…",
+    "filled_all": "{count} traduction(s) proposée(s). Relisez avant de publier.",
+    "publish_all_title": "Publier tous les sites prêts ?",
+    "publish_all_body": "{sites} site(s) et {texts} texte(s) seront publiés en production.",
+    "publish_all_go": "Publier",
+    "published_all": "{ok} site(s) publié(s), {ko} en échec."
   }
 }

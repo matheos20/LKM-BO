@@ -504,12 +504,33 @@ d'origine : un slogan français sur un site anglais, une question de FAQ oublié
   mention « à vérifier ».
 - L'analyse demande `design.read`, la publication `design.publish` : les mêmes droits que l'éditeur.
 
-**Traduction automatique (facultative).** Avec une clé DeepL dans `.env` (`DEEPL_KEY=…`), un bouton
-*Traduire automatiquement* remplit les champs restants ; les propositions restent à relire avant
-publication. Sans clé, l'écran fonctionne à l'identique, l'agent saisissant lui-même les textes.
+### Traduction automatique (facultative)
 
-**Mesures** : 150 sites analysés en 2 s sur vps-003 (6 à corriger, 8 textes) ; une liste de trois
-domaines répartis sur vps-001 et vps-002 traitée en un seul lancement.
+Trois services au choix, à renseigner dans `.env` — **le premier configuré est retenu** :
+
+| Service | Variable | Remarque |
+|---|---|---|
+| **DeepL** | `DEEPL_KEY` | Meilleure qualité sur les langues du parc. Offre gratuite : 500 000 caractères par mois. Une clé finissant par `:fx` désigne cette offre. |
+| **Google** | `GOOGLE_TRANSLATE_KEY` | Cloud Translation v2, facturé au caractère. |
+| **LibreTranslate** | `LIBRETRANSLATE_URL` (+ `LIBRETRANSLATE_KEY`) | Libre et installable sur vos serveurs : aucun texte ne sort du parc. |
+
+Deux boutons apparaissent alors : **Traduire tout** remplit les propositions de tous les sites
+analysés, **Publier (n)** les met en ligne après une confirmation qui annonce le nombre de sites
+et de textes. Les deux gestes restent séparés pour qu'une relecture puisse s'intercaler. Sans
+service configuré, l'écran fonctionne à l'identique, l'agent saisissant lui-même les textes.
+
+**Ce que coûte le parc entier.** Relevé du 23/09/2026 sur 2 400 sites (600 par serveur) : 130 sites
+à corriger (**5,4 %**), 175 textes, mais seulement **112 textes distincts pour 5 221 caractères** —
+les phrases éditoriales ne se répètent pas d'un site à l'autre. Rapporté aux 28 176 domaines du
+parc : environ **61 000 caractères**, soit le huitième de l'offre gratuite de DeepL. Un dictionnaire
+plus fourni, lui, ne gagnerait presque rien : il couvre déjà les expressions qui reviennent.
+
+**Mesures** : 150 sites analysés en 2 s sur vps-003 (6 à corriger, 8 textes) ; 2 400 sites en 76 s ;
+une liste de trois domaines répartis sur vps-001 et vps-002 traitée en un seul lancement.
+
+> À noter : 51 sites français écrivent « Questions frequentes » sans accent. Ce n'est pas un défaut
+> de langue et l'écran ne le signale plus — mais c'est le genre de correction de masse que le menu
+> **Action** pourra accueillir.
 
 ## 13. Traduction des pages d'accueil du parc (script serveur)
 

@@ -25,9 +25,15 @@ export const config = {
     strictHostKey: bool(env.SSH_STRICT_HOST_KEY, false),
   },
   cacheTtl: int(env.DOMAIN_CACHE_TTL_MS, 120000),
-  // Clé DeepL facultative : sans elle, l'écran de traduction reste utilisable, l'agent
-  // saisissant lui-même les textes que le dictionnaire du parc ne connaît pas.
-  deeplKey: env.DEEPL_KEY || '',
+  // Traduction automatique, facultative : le premier service configuré est retenu.
+  // Sans aucun, l'écran Actions reste utilisable — le dictionnaire du parc propose
+  // les expressions courantes, l'agent saisit le reste lui-même.
+  translate: {
+    deeplKey: env.DEEPL_KEY || '',
+    googleKey: env.GOOGLE_TRANSLATE_KEY || '',
+    libreUrl: env.LIBRETRANSLATE_URL || '',
+    libreKey: env.LIBRETRANSLATE_KEY || '',
+  },
   files: {
     maxEntries: int(env.FILES_MAX_ENTRIES, 2000),
     maxEditBytes: int(env.FILES_MAX_EDIT_BYTES, 2 * 1024 * 1024),

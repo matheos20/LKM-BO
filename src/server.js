@@ -42,7 +42,7 @@ const ssh = new SshManager(servers, { knownHosts: new KnownHosts(config.knownHos
 const domains = new DomainService(ssh, { cacheTtl: config.cacheTtl });
 const files = new FileService(ssh, { limits: config.files });
 const sites = new SiteService(ssh);
-const translation = new TranslationService(ssh, sites, { deeplKey: config.deeplKey });
+const translation = new TranslationService(ssh, sites, config.translate);
 const audit = createAudit(config.auditLog);
 const SESSION_TTL = 8 * 3600 * 1000;
 

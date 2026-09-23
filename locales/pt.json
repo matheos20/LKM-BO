@@ -727,6 +727,18 @@
       "NL": "Neerlandês"
     },
     "uncertain": "A verificar · {lang}?",
-    "uncertain_hint": "Texto curto: a análise hesita entre duas línguas. Releia antes de traduzir."
+    "uncertain_hint": "Texto curto: a análise hesita entre duas línguas. Releia antes de traduzir.",
+    "provider_deepl": "DeepL",
+    "provider_google": "Google Tradutor",
+    "provider_libre": "LibreTranslate",
+    "translate_all": "Traduzir tudo",
+    "publish_all": "Publicar ({count})",
+    "bulk_hint": "{sites} site(s) por tratar · {ready} pronto(s) para publicar",
+    "working_site": "{done} / {total}…",
+    "filled_all": "{count} tradução(ões) proposta(s). Releia antes de publicar.",
+    "publish_all_title": "Publicar todos os sites prontos?",
+    "publish_all_body": "Serão publicados {sites} site(s) e {texts} texto(s) em produção.",
+    "publish_all_go": "Publicar",
+    "published_all": "{ok} site(s) publicado(s), {ko} com erro."
   }
 }

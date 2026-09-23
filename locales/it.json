@@ -727,6 +727,18 @@
       "NL": "Olandese"
     },
     "uncertain": "Da verificare · {lang}?",
-    "uncertain_hint": "Testo breve: l’analisi esita tra due lingue. Rileggilo prima di tradurlo."
+    "uncertain_hint": "Testo breve: l’analisi esita tra due lingue. Rileggilo prima di tradurlo.",
+    "provider_deepl": "DeepL",
+    "provider_google": "Google Traduttore",
+    "provider_libre": "LibreTranslate",
+    "translate_all": "Tradurre tutto",
+    "publish_all": "Pubblicare ({count})",
+    "bulk_hint": "{sites} sito/i da trattare · {ready} pronto/i da pubblicare",
+    "working_site": "{done} / {total}…",
+    "filled_all": "{count} traduzione/i proposta/e. Rileggile prima di pubblicare.",
+    "publish_all_title": "Pubblicare tutti i siti pronti?",
+    "publish_all_body": "Saranno pubblicati {sites} sito/i e {texts} testo/i in produzione.",
+    "publish_all_go": "Pubblicare",
+    "published_all": "{ok} sito/i pubblicato/i, {ko} non riuscito/i."
   }
 }

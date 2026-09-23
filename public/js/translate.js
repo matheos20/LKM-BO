@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { enc, fmtNum, h, icon, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtNum, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
 
 /**
  * Action « Traduction » : repérer et corriger les textes d'une page d'accueil rédigés
@@ -25,6 +25,7 @@ const state = {
   edits: new Map(), // clé de site → Map(chemin → { keep, value })
   doneSites: new Map(), // clé de site → nombre de textes publiés
   machine: new Map(), // serveur → traduction automatique disponible
+  provider: null, // nom du service retenu : deepl, google, libre
 };
 
 const keyOf = (site) => `${site.server}/${site.domain}`;
@@ -100,31 +101,44 @@ const current = () => state.sites.find((s) => keyOf(s) === state.selected) ?? nu
 
 // ───────────────────────── Actions sur un site ─────────────────────────
 
-async function machineTranslateSite(site, button) {
+/**
+ * Remplit les traductions manquantes d'un site. Renvoie le nombre de textes proposés.
+ * Les services de traduction n'acceptent qu'une langue source par appel : les textes
+ * sont donc groupés par langue détectée.
+ */
+async function fillSite(site) {
   const edits = editsFor(site);
   const pending = site.items.filter((it) => !edits.get(it.path)?.value.trim());
-  if (!pending.length) return toast(t('translate.nothing_to_fill'), 'info');
+  if (!pending.length) return 0;
 
+  const groups = new Map();
+  for (const item of pending) {
+    const key = item.lang ?? '';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+
+  let filled = 0;
+  for (const [from, items] of groups) {
+    const { translations } = await api(`/api/servers/${enc(site.server)}/translation/translate`, {
+      method: 'POST',
+      body: { texts: items.map((it) => it.text), from: from || undefined, to: site.lang },
+    });
+    items.forEach((item, i) => {
+      const text = translations?.[i];
+      if (!text) return;
+      edits.set(item.path, { keep: true, value: text });
+      filled += 1;
+    });
+  }
+  return filled;
+}
+
+async function machineTranslateSite(site, button) {
   button.disabled = true;
   try {
-    // DeepL n'accepte qu'une langue source par appel : les textes sont groupés par langue.
-    const groups = new Map();
-    for (const item of pending) {
-      const key = item.lang ?? '';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(item);
-    }
-    for (const [from, items] of groups) {
-      const { translations } = await api(`/api/servers/${enc(site.server)}/translation/translate`, {
-        method: 'POST',
-        body: { texts: items.map((it) => it.text), from: from || undefined, to: site.lang },
-      });
-      items.forEach((item, i) => {
-        const text = translations?.[i];
-        if (text) edits.set(item.path, { keep: true, value: text });
-      });
-    }
-    toast(t('translate.filled'), 'success');
+    const filled = await fillSite(site);
+    toast(filled ? t('translate.filled') : t('translate.nothing_to_fill'), filled ? 'success' : 'info');
   } catch (err) {
     toastError(err);
   } finally {
@@ -133,15 +147,47 @@ async function machineTranslateSite(site, button) {
   }
 }
 
-async function applySite(site, button) {
+/**
+ * Traduit d'un coup tous les sites qui restent à traiter.
+ *
+ * C'est le geste qui évite le travail à la main sur un parc entier : l'agent relit
+ * ensuite, site par site ou d'un bloc. Rien n'est écrit ici — seules les propositions
+ * sont remplies.
+ */
+async function translateAll(button) {
+  const todo = state.sites.filter((s) => !state.doneSites.has(keyOf(s)));
+  const label = button.lastChild;
+  let filled = 0;
+  button.disabled = true;
+  try {
+    for (const [i, site] of todo.entries()) {
+      label.textContent = t('translate.working_site', { done: fmtNum(i + 1), total: fmtNum(todo.length) });
+      filled += await fillSite(site);
+      // Affichage progressif : l'agent voit les traductions arriver.
+      if (keyOf(site) === state.selected) translateAction.onChange?.();
+    }
+    toast(t('translate.filled_all', { count: fmtNum(filled) }), 'success');
+  } catch (err) {
+    toastError(err);
+  } finally {
+    button.disabled = false;
+    translateAction.onChange?.();
+  }
+}
+
+/** Ce qui sera écrit pour un site : coché, rempli, et différent de l'existant. */
+function changesFor(site) {
   const edits = editsFor(site);
-  const changes = site.items
+  return site.items
     .filter((item) => {
       const edit = edits.get(item.path);
       return edit?.keep && edit.value.trim() && edit.value !== item.text;
     })
     .map((item) => ({ path: item.path, from: item.text, to: edits.get(item.path).value.trim() }));
+}
 
+async function applySite(site, button) {
+  const changes = changesFor(site);
   if (!changes.length) return toast(t('translate.nothing_selected'), 'info');
 
   button.disabled = true;
@@ -159,6 +205,56 @@ async function applySite(site, button) {
     button.disabled = false;
     translateAction.onChange?.();
   }
+}
+
+/**
+ * Publie tous les sites prêts, après confirmation.
+ *
+ * Une écriture en production ne se déclenche jamais d'un seul clic : la fenêtre
+ * annonce le nombre de sites et de textes concernés, et rappelle que chaque site est
+ * sauvegardé avant d'être écrit, puis relu. Les sites en échec restent dans la liste.
+ */
+function publishAll() {
+  const todo = state.sites.filter((s) => !state.doneSites.has(keyOf(s)) && changesFor(s).length);
+  if (!todo.length) return toast(t('translate.nothing_selected'), 'info');
+  const texts = todo.reduce((n, s) => n + changesFor(s).length, 0);
+
+  const go = h('button', { type: 'button', class: 'btn btn-primary' }, icon('save'), t('translate.publish_all_go'));
+  go.addEventListener('click', async () => {
+    go.disabled = true;
+    let ok = 0;
+    let ko = 0;
+    for (const [i, site] of todo.entries()) {
+      go.lastChild.textContent = t('translate.working_site', { done: fmtNum(i + 1), total: fmtNum(todo.length) });
+      try {
+        const out = await api(`/api/servers/${enc(site.server)}/translation/apply`, { method: 'POST', body: { domain: site.domain, changes: changesFor(site) } });
+        state.doneSites.set(keyOf(site), out.applied.length);
+        ok += 1;
+      } catch (err) {
+        ko += 1;
+        toastError(err);
+      }
+    }
+    closeModal();
+    toast(t('translate.published_all', { ok: fmtNum(ok), ko: fmtNum(ko) }), ko ? 'info' : 'success');
+    translateAction.onChange?.();
+  });
+
+  openModal(
+    h(
+      'div',
+      {},
+      modalHeader(t('translate.publish_all_title'), 'bg-accent-50 text-accent-700', 'save'),
+      h('p', { class: 'text-sm text-ink-600' }, t('translate.publish_all_body', { sites: fmtNum(todo.length), texts: fmtNum(texts) })),
+      h('p', { class: 'mt-2 text-sm text-ink-500' }, t('translate.safety_note')),
+      h(
+        'div',
+        { class: 'mt-6 flex justify-end gap-2' },
+        h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')),
+        go,
+      ),
+    ),
+  );
 }
 
 // ───────────────────────── Rendu ─────────────────────────
@@ -238,7 +334,7 @@ function siteDetail(permissions) {
       h('p', { class: 'mt-1 text-xs text-ink-400' }, t(`translate.source.${site.langSource}`, { hint: site.hint || '—' })),
     ),
     state.machine.get(site.server) && can('design.edit')
-      ? h('button', { type: 'button', class: 'btn btn-outline', onclick: (e) => machineTranslateSite(site, e.currentTarget) }, icon('wrench'), t('translate.autofill'))
+      ? h('button', { type: 'button', class: 'btn btn-outline', onclick: (e) => machineTranslateSite(site, e.currentTarget) }, icon('wrench'), h('span', {}, t('translate.autofill')))
       : null,
     h(
       'button',
@@ -327,6 +423,49 @@ function textRow(site, item, edits) {
   );
 }
 
+/**
+ * Traiter tout le lot d'un coup : c'est ce qui distingue un outil de parc d'un
+ * éditeur. Les deux gestes restent séparés — proposer les traductions, puis les
+ * publier — pour qu'une relecture puisse s'intercaler.
+ */
+function bulkBar(permissions) {
+  const can = (perm) => permissions.includes(perm);
+  const reste = state.sites.filter((s) => !state.doneSites.has(keyOf(s)));
+  const prets = reste.filter((s) => changesFor(s).length);
+  const machine = [...state.machine.values()].some(Boolean);
+
+  return h(
+    'div',
+    { class: 'card flex flex-wrap items-center gap-3 px-5 py-3' },
+    h(
+      'p',
+      { class: 'min-w-0 flex-1 text-sm text-ink-500' },
+      t('translate.bulk_hint', { sites: fmtNum(reste.length), ready: fmtNum(prets.length) }),
+      state.provider ? h('span', { class: 'badge ml-2 bg-ink-100 text-ink-600' }, t(`translate.provider_${state.provider}`)) : null,
+    ),
+    machine && can('design.edit')
+      ? h(
+          'button',
+          { type: 'button', class: 'btn btn-outline', disabled: !reste.length, onclick: (e) => translateAll(e.currentTarget) },
+          icon('wrench'),
+          h('span', {}, t('translate.translate_all')),
+        )
+      : null,
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-primary',
+        disabled: !prets.length || !can('design.publish'),
+        title: can('design.publish') ? null : t('reason.permission_denied'),
+        onclick: publishAll,
+      },
+      icon('save'),
+      h('span', {}, t('translate.publish_all', { count: fmtNum(prets.length) })),
+    ),
+  );
+}
+
 // ───────────────────────── L'action, telle que l'écran la voit ─────────────────────────
 
 export const translateAction = {
@@ -351,6 +490,7 @@ export const translateAction = {
     if (!state.machine.has(server)) {
       const status = await api(`/api/servers/${enc(server)}/translation/status`).catch(() => ({ machine: false }));
       state.machine.set(server, Boolean(status.machine));
+      state.provider ??= status.provider ?? null;
     }
     const label = server;
     const { sites } = await api(`/api/servers/${enc(server)}/translation/scan`, { method: 'POST', body: { domains } });
@@ -373,11 +513,14 @@ export const translateAction = {
   },
 
   results({ permissions = [] } = {}) {
-    if (state.sites.length) {
-      const multi = new Set(state.sites.map((s) => s.server)).size > 1;
-      return h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(multi), siteDetail(permissions));
-    }
-    return null;
+    if (!state.sites.length) return null;
+    const multi = new Set(state.sites.map((s) => s.server)).size > 1;
+    return h(
+      'div',
+      { class: 'space-y-4' },
+      bulkBar(permissions),
+      h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(multi), siteDetail(permissions)),
+    );
   },
 
   /** Rien trouvé : le dire franchement plutôt que de laisser un écran vide. */

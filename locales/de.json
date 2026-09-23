@@ -727,6 +727,18 @@
       "NL": "Niederländisch"
     },
     "uncertain": "Zu prüfen · {lang}?",
-    "uncertain_hint": "Kurzer Text: die Analyse schwankt zwischen zwei Sprachen. Bitte vor dem Übersetzen prüfen."
+    "uncertain_hint": "Kurzer Text: die Analyse schwankt zwischen zwei Sprachen. Bitte vor dem Übersetzen prüfen.",
+    "provider_deepl": "DeepL",
+    "provider_google": "Google Übersetzer",
+    "provider_libre": "LibreTranslate",
+    "translate_all": "Alles übersetzen",
+    "publish_all": "Veröffentlichen ({count})",
+    "bulk_hint": "{sites} Website(s) offen · {ready} bereit zur Veröffentlichung",
+    "working_site": "{done} / {total}…",
+    "filled_all": "{count} Übersetzung(en) vorgeschlagen. Bitte vor dem Veröffentlichen prüfen.",
+    "publish_all_title": "Alle bereiten Websites veröffentlichen?",
+    "publish_all_body": "{sites} Website(s) und {texts} Text(e) gehen live.",
+    "publish_all_go": "Veröffentlichen",
+    "published_all": "{ok} Website(s) veröffentlicht, {ko} fehlgeschlagen."
   }
 }
