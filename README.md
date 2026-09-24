@@ -579,13 +579,18 @@ immédiatement, sans redémarrage :
 | `POST` | `/api/design/phrases` `{ source, lang, target }` | `design.edit` |
 | `DELETE` | `/api/design/phrases/:id` | `design.edit` |
 
-**Mesures du 24/09/2026.** Sur 600 sites de deux serveurs : 466 francophones (rien à traduire vers
-leur propre langue) et **134 sites non francophones sur 134** portent le même reste —
-« Retour à l'accueil » dans leur page 404. `acnav.net` en compte six, dont deux dans `sitemap.php`.
+**Mesures du 24/09/2026.** Sur 200 sites : 153 francophones (rien à traduire vers leur propre
+langue) et **aucune correction à faire** sur les 47 autres. Le parc est propre de ce côté ; le seul
+cas relevé sur 1 600 sites reste `acnav.net`, avec cinq restes dont quatre dans `sitemap.php` — un
+fichier qu'on ne pense pas à ouvrir.
 
-La boucle d'ajout, éprouvée sur 12 sites anglais : **12 corrections et 24 signalements** au départ ;
-après l'ajout de deux mots — « La page que vous recherchez n'existe pas ou a été déplacée. » et
-« Explorer nos rubriques » — **36 corrections et 0 signalement**.
+> **Un relevé précédent annonçait 134 sites sur 134 à corriger. Il était faux.** Ce qu'il voyait
+> était le français **source** de la table `$t404` de la page 404 :
+> `['FR' => ['back' => "Retour à l'accueil"], 'UK' => ['back' => 'Back to home'], …]`. Le site y
+> choisit sa ligne — rien n'apparaît tel quel dans un navigateur. Écrire ces « corrections » aurait
+> remplacé la ligne française par de l'anglais sur des milliers de sites : une donnée corrompue,
+> sans le moindre symptôme visible. La garde couvrait les tables plates (`'ES' => 'texte'`), pas
+> celles à deux niveaux ; elle couvre désormais les deux.
 
 ### Traduction automatique (facultative)
 

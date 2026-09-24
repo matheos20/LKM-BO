@@ -795,6 +795,33 @@ foreach ($domains as $domain) {
         $aRemplacer = [];   // index de token => nouveau texte
         $vus = [];          // index de token déjà traités par la passe A
 
+        // Une table multilingue est une DONNÉE, pas un oubli de traduction : le site y
+        // choisit sa ligne à l'affichage. Les deux formes se rencontrent sur le parc :
+        //   $_copyright_texts = ['FR' => 'Tous droits réservés', 'UK' => '…'];
+        //   $t404 = ['FR' => ['back' => 'Retour à l\'accueil', …], 'UK' => […]];
+        // La seconde couvrait la page 404 de chaque site : sans cette garde, le
+        // français source y passait pour un reste à corriger.
+        $protege = [];
+        foreach ($sig as $pos => $idx) {
+            $tok = $tokens[$idx];
+            if (!is_array($tok) || $tok[0] !== T_CONSTANT_ENCAPSED_STRING) continue;
+            if (!in_array(strtoupper(valeur($tok[1])), $LANGS, true)) continue;
+            $fleche = $tokens[$sig[$pos + 1] ?? -1] ?? null;
+            if (!is_array($fleche) || $fleche[0] !== T_DOUBLE_ARROW) continue;
+            $debut = $sig[$pos + 2] ?? null;
+            if ($debut === null) continue;
+            $ouvrant = $tokens[$debut];
+            $estTableau = $ouvrant === '[' || (is_array($ouvrant) && $ouvrant[0] === T_ARRAY);
+            if (!$estTableau) { $protege[$debut] = true; continue; }
+            $prof = 0;
+            for ($j = $debut, $fin = count($tokens); $j < $fin; $j++) {
+                $c = is_array($tokens[$j]) ? $tokens[$j][1] : $tokens[$j];
+                if ($c === '[' || $c === '(') $prof++;
+                elseif ($c === ']' || $c === ')') { $prof--; if ($prof <= 0) break; }
+                $protege[$j] = true;
+            }
+        }
+
         // ── Passe A : $lang['cle'] ?? 'Texte français' ─────────────────────
         for ($k = 0; $k + 5 < count($sig); $k++) {
             $t0 = $tokens[$sig[$k]];
@@ -822,16 +849,7 @@ foreach ($domains as $domain) {
         foreach ($sig as $pos => $idx) {
             $tok = $tokens[$idx];
             if (!is_array($tok) || $tok[0] !== T_CONSTANT_ENCAPSED_STRING || isset($vus[$idx])) continue;
-            // Valeur d'une table multilingue ('ES' => 'Todos los derechos reservados') :
-            // elle est à sa place, c'est le site qui choisit la ligne à afficher.
-            if ($pos >= 2 && $tokens[$sig[$pos - 1]] === ',') { /* rien */ }
-            if ($pos >= 2) {
-                $fl = $tokens[$sig[$pos - 1]];
-                $cleGauche = $tokens[$sig[$pos - 2]];
-                if (is_array($fl) && $fl[0] === T_DOUBLE_ARROW && is_array($cleGauche)
-                    && $cleGauche[0] === T_CONSTANT_ENCAPSED_STRING
-                    && in_array(strtoupper(valeur($cleGauche[1])), $LANGS, true)) continue;
-            }
+            if (isset($protege[$idx])) continue;   // table multilingue : donnée, pas oubli
             $v = valeur($tok[1]);
             if ($tok[1][0] === '"' && preg_match('/[$\{]/', $tok[1])) continue;
             $coeur = noyau($v, $av, $ap);

@@ -488,6 +488,17 @@ $_copyright = ['FR' => 'Tous droits réservés', 'ES' => 'Todos los derechos res
 $url = $lang['legal_url'] ?? '/mentions-legales/';
 $classe = 'footer-accueil';
 `,
+    // La même chose à DEUX niveaux — la forme exacte de la page 404 du parc. Elle a
+    // longtemps fait passer le français source pour un reste à corriger, sur des
+    // milliers de sites : le texte n'apparaît jamais tel quel dans un navigateur.
+    '404.php': `<?php
+$t404 = [
+    'FR' => ['title' => 'Page introuvable', 'back' => "Retour à l'accueil", 'explore' => 'Explorer nos rubriques'],
+    'UK' => ['title' => 'Page not found', 'back' => 'Back to home', 'explore' => 'Explore our categories'],
+];
+$t = $t404[$site_lang ?? 'FR'] ?? $t404['FR'];
+echo $t['back'];
+`,
     // Un article a son propre éditeur, et son contenu n'est pas du gabarit.
     'business/article.php': "<?php\n$article_meta = ['title' => 'Plan du site'];\n$content = 'Retour à l\'accueil';\n",
   });
