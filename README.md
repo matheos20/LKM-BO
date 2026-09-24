@@ -472,7 +472,7 @@ avancement, arrêt), chaque action ne rendant que ses propres résultats.
 | Périmètre | Usage |
 |---|---|
 | **Tout le serveur** | La tournée de fond sur les milliers de sites d'un VPS. |
-| **Tout le parc** | La même chose sur **tous les serveurs connectés**, d'une traite. Les serveurs hors ligne sont nommés : c'est la première raison pour qu'un domaine manque à l'appel. |
+| **Tout le parc** | Tous les serveurs connectés, d'une traite. **Une pastille par serveur** permet d'en retenir un seul, ou de reprendre celui qui reste. Les serveurs hors ligne sont nommés : c'est la première raison pour qu'un domaine manque à l'appel. |
 | **Liste de domaines** | Ceux qu'un agent colle depuis un tableur — un par ligne, ou séparés par des virgules ; les adresses complètes (`https://www.exemple.com/page.php`) sont acceptées. |
 
 Une liste collée **peut mélanger les serveurs** : le back-office cherche chaque domaine dans
@@ -566,8 +566,24 @@ Le reste est affaire de listes : elles se complètent quand un relevé montre un
 informiert über… » ne marquait aucun point en allemand — ni `sie` ni `über` n'y figuraient — et
 passait pour du français à cause de son « (DE) » final.
 
-**Mesures** : 150 sites analysés en 2 s sur vps-003 ; 2 400 sites en 81 s ; une liste de trois
-domaines répartis sur deux serveurs traitée en un seul lancement.
+**Le parc entier, relevé du 24/09/2026** — les cinq serveurs, 28 176 domaines, **9 min 26 s** :
+
+| Serveur | Domaines | À corriger | Textes |
+|---|---:|---:|---:|
+| VPS 001 | 7 733 | 147 | 180 |
+| VPS 002 | 5 930 | 170 | 235 |
+| VPS 003 | 7 561 | **273** | **414** |
+| VPS 004 | 5 114 | 119 | 247 |
+| Tiers1 | 1 838 | 0 | 0 |
+| **Total** | **28 176** | **709** (2,7 %) | **1 076** |
+
+Soit environ 46 000 caractères à traduire — le dixième de l'offre gratuite de DeepL. VPS 003
+concentre le problème : deux fois plus de textes que les autres, à domaines comparables.
+
+**Sites ignorés.** Un site sans `config.php` tourne sur un autre moteur : les 1 838 sites de
+Tiers1 (MiniBlog) sont dans ce cas, plus 4 sites isolés sur tout le reste du parc — et **aucun
+fichier illisible**. Les deux cas étaient d'abord comptés ensemble sous « illisibles », ce qui
+faisait passer une banalité pour une alerte ; ils sont désormais séparés.
 
 > À noter : 51 sites français écrivent « Questions frequentes » sans accent. Ce n'est pas un défaut
 > de langue et l'écran ne le signale plus — mais c'est le genre de correction de masse que le menu

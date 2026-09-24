@@ -681,7 +681,10 @@
     "no_target": "Nessun sito selezionato.",
     "scope_parc": "Tutto il parco",
     "parc_hint": "Tutti i server connessi vengono analizzati, uno dopo l’altro. Conta qualche minuto per l’intero parco; il pulsante Interrompi resta attivo.",
-    "parc_loading": "Lettura dei domini di ogni server…"
+    "parc_loading": "Lettura dei domini di ogni server…",
+    "pick_all": "Seleziona tutto",
+    "pick_none": "Deseleziona tutto",
+    "server_failed": "{server}: analisi interrotta, gli altri server proseguono."
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
@@ -689,7 +692,7 @@
     "stat_sites": "Siti da correggere",
     "stat_texts": "Testi trovati",
     "stat_applied": "Testi pubblicati",
-    "stat_failed": "Siti illeggibili",
+    "stat_failed": "File illeggibili",
     "all_clean": "Niente da tradurre",
     "all_clean_hint": "Le pagine iniziali analizzate sono nella lingua del loro sito.",
     "sites_to_fix": "Siti da correggere",
@@ -746,6 +749,8 @@
     "provider_claude": "Claude",
     "no_provider": "La traduzione automatica non è configurata: aggiungi una chiave in .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY o LIBRETRANSLATE_URL), poi riavvia il server.",
     "tags_differ": "Tag diversi dall’originale ({tags}): verifica che racchiudano le stesse parole.",
-    "tags_moved": "I tag non racchiudono più le stesse parole ({tags}): l’enfasi è cambiata."
+    "tags_moved": "I tag non racchiudono più le stesse parole ({tags}): l’enfasi è cambiata.",
+    "stat_skipped": "Siti ignorati",
+    "stat_skipped_hint": "Senza config.php: questi siti usano un altro motore. Non è un’anomalia."
   }
 }

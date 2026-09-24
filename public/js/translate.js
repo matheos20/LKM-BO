@@ -660,12 +660,20 @@ export const translateAction = {
 
   stats() {
     const published = [...state.doneSites.values()].reduce((a, b) => a + b, 0);
-    return [
+    // Deux causes très différentes, longtemps comptées ensemble sous « illisibles » :
+    // un site SANS config.php tourne simplement sur un autre moteur — les 1 838 sites
+    // Tiers1 du parc sont dans ce cas — tandis qu'un fichier que PHP refuse de lire
+    // est un vrai incident. Les mélanger faisait passer une banalité pour une alerte.
+    const ignores = state.failed.filter((f) => f.error === 'missing').length;
+    const casses = state.failed.filter((f) => f.error !== 'missing').length;
+    const cells = [
       ['translate.stat_sites', fmtNum(state.sites.length), 'text-accent-700'],
       ['translate.stat_texts', fmtNum(countTexts()), 'text-ink'],
       ['translate.stat_applied', fmtNum(published), 'text-accent-700'],
-      ['translate.stat_failed', fmtNum(state.failed.length), state.failed.length ? 'text-red-600' : 'text-ink-300'],
+      ['translate.stat_skipped', fmtNum(ignores), 'text-ink-300', 'translate.stat_skipped_hint'],
     ];
+    if (casses) cells.push(['translate.stat_failed', fmtNum(casses), 'text-red-600']);
+    return cells;
   },
 
   /** Y a-t-il quelque chose à réafficher ? (retour depuis un autre écran) */

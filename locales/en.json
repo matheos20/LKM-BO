@@ -681,7 +681,10 @@
     "no_target": "No site selected.",
     "scope_parc": "Whole estate",
     "parc_hint": "Every connected server is scanned, one after another. Allow a few minutes for the whole estate; the Stop button stays available.",
-    "parc_loading": "Reading the domains of each server…"
+    "parc_loading": "Reading the domains of each server…",
+    "pick_all": "Select all",
+    "pick_none": "Clear all",
+    "server_failed": "{server}: scan interrupted, the other servers carry on."
   },
   "translate": {
     "explain": "The back office reads the home page of the selected sites and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",
@@ -689,7 +692,7 @@
     "stat_sites": "Sites to fix",
     "stat_texts": "Texts found",
     "stat_applied": "Texts published",
-    "stat_failed": "Unreadable sites",
+    "stat_failed": "Unreadable files",
     "all_clean": "Nothing to translate",
     "all_clean_hint": "Every home page scanned is written in its own site language.",
     "sites_to_fix": "Sites to fix",
@@ -746,6 +749,8 @@
     "provider_claude": "Claude",
     "no_provider": "Automatic translation is not configured: add a key to .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY or LIBRETRANSLATE_URL), then restart the server.",
     "tags_differ": "Tags differ from the original ({tags}): check they wrap the same words.",
-    "tags_moved": "The tags no longer wrap the same words ({tags}): the emphasis has shifted."
+    "tags_moved": "The tags no longer wrap the same words ({tags}): the emphasis has shifted.",
+    "stat_skipped": "Sites skipped",
+    "stat_skipped_hint": "No config.php: these sites run on a different engine. This is not a fault."
   }
 }

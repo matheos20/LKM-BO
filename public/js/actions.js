@@ -33,6 +33,7 @@ const state = {
   loadingDomains: false,
   scope: 'server', // server | parc | list
   parc: null, // serveur → noms de domaines, pour le périmètre « tout le parc »
+  parcChoisis: new Set(), // sous-ensemble retenu par l'agent
   loadingParc: false,
   text: '',
   resolved: null, // { found:[{domain,server}], unknown:[], offline:[] }
@@ -62,6 +63,7 @@ export async function openActions({ serverId, serverLabel: label, servers, permi
     domains: [],
     loadingDomains: false,
     parc: null,
+    parcChoisis: new Set(),
     loadingParc: false,
     scope: serverId && serverId !== 'all' ? 'server' : 'parc',
     text: '',
@@ -181,6 +183,7 @@ async function loadParcDomains() {
     if (r.status === 'fulfilled') parc.set(connectes[i].id, r.value.domains ?? []);
   });
   state.parc = parc;
+  state.parcChoisis = new Set(parc.keys());
   state.loadingParc = false;
   render();
 }
@@ -237,7 +240,10 @@ function targets() {
   if (state.scope === 'list') return state.resolved?.found ?? [];
   if (state.scope === 'parc') {
     const out = [];
-    for (const [server, noms] of state.parc ?? []) for (const domain of noms) out.push({ domain, server });
+    for (const [server, noms] of state.parc ?? []) {
+      if (!state.parcChoisis.has(server)) continue;
+      for (const domain of noms) out.push({ domain, server });
+    }
     return out;
   }
   return state.domains.map((domain) => ({ domain, server: state.serverId }));
@@ -262,6 +268,9 @@ async function run() {
     groups.get(target.server).push(target.domain);
   }
 
+  // Une coupure sur un serveur ne doit pas emporter le travail des autres : le parc
+  // entier demande une dizaine de minutes, et une session SSH peut tomber en route.
+  const echecs = [];
   for (const [server, domains] of groups) {
     for (let i = 0; i < domains.length; i += size) {
       if (state.cancel || !state.open) break;
@@ -270,12 +279,14 @@ async function run() {
         await action.run(server, batch, { permissions: state.permissions });
         // Les résultats portent un identifiant de serveur ; l'écran seul connaît son nom.
         action.labelServers?.(serverLabel);
+        state.done += batch.length;
       } catch (err) {
-        state.phase = 'done';
+        echecs.push({ server, message: err.message });
+        // Le reste de CE serveur est perdu ; la progression en tient compte.
+        state.done += domains.length - i;
         render();
-        return toastError(err);
+        break;
       }
-      state.done += batch.length;
       render();
     }
     if (state.cancel || !state.open) break;
@@ -283,7 +294,8 @@ async function run() {
 
   state.phase = 'done';
   render();
-  if (!state.cancel) action.finished?.();
+  for (const e of echecs) toast(t('actions.server_failed', { server: serverLabel(e.server) }), 'error', e.message);
+  if (!state.cancel && echecs.length < groups.size) action.finished?.();
 }
 
 // ───────────────────────── Rendu ─────────────────────────
@@ -423,17 +435,67 @@ function listInput() {
   return listArea;
 }
 
+/**
+ * Une pastille par serveur, à cocher ou décocher.
+ *
+ * Le parc entier demande une dizaine de minutes ; un agent veut souvent traiter un
+ * serveur à la fois, ou reprendre celui qui reste. Tous sont retenus au départ.
+ */
 function parcScope() {
   if (state.loadingParc) return h('p', { class: 'mt-3 text-sm text-ink-500' }, t('actions.parc_loading'));
 
+  const running = state.phase === 'running';
   const hors = state.servers.filter((s) => s.state !== 'connected');
-  const detail = [...(state.parc ?? [])].map(([id, noms]) => `${serverLabel(id)} · ${fmtNum(noms.length)}`).join(' — ');
+  const entrees = [...(state.parc ?? [])];
 
+  const pastille = ([id, noms]) => {
+    const retenu = state.parcChoisis.has(id);
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: `flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition ${
+          retenu ? 'border-accent bg-accent-50 text-ink' : 'border-ink-200 bg-white text-ink-400 hover:border-ink-300'
+        }`,
+        'aria-pressed': String(retenu),
+        disabled: running,
+        onclick: () => {
+          if (retenu) state.parcChoisis.delete(id);
+          else state.parcChoisis.add(id);
+          render();
+        },
+      },
+      icon(retenu ? 'check' : 'plus', 'size-3.5'),
+      h('span', { class: 'font-medium' }, serverLabel(id)),
+      h('span', { class: 'tabular-nums text-ink-400' }, fmtNum(noms.length)),
+    );
+  };
+
+  const tous = state.parcChoisis.size === entrees.length;
   return h(
     'div',
-    { class: 'mt-3 space-y-1.5' },
+    { class: 'mt-3 space-y-2.5' },
     h('p', { class: 'text-sm text-ink-500' }, t('actions.parc_hint')),
-    detail ? h('p', { class: 'text-sm text-ink-700' }, detail) : null,
+    h(
+      'div',
+      { class: 'flex flex-wrap items-center gap-2' },
+      entrees.map(pastille),
+      entrees.length > 1
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-ghost px-2 py-1 text-xs',
+              disabled: running,
+              onclick: () => {
+                state.parcChoisis = tous ? new Set() : new Set(entrees.map(([id]) => id));
+                render();
+              },
+            },
+            t(tous ? 'actions.pick_none' : 'actions.pick_all'),
+          )
+        : null,
+    ),
     hors.length ? h('p', { class: 'text-xs text-ink-400' }, t('actions.offline', { servers: hors.map((s) => s.label).join(', ') })) : null,
   );
 }
@@ -515,10 +577,10 @@ function statsRow() {
   return h(
     'div',
     { class: `grid grid-cols-2 gap-3 sm:grid-cols-3 ${GRID[Math.min(cells.length, GRID.length) - 1]}` },
-    cells.map(([key, value, tone]) =>
+    cells.map(([key, value, tone, hint]) =>
       h(
         'div',
-        { class: 'card px-4 py-3' },
+        { class: 'card px-4 py-3', title: hint ? t(hint) : null },
         h('p', { class: 'text-xs font-medium tracking-wide text-ink-400 uppercase' }, t(key)),
         h('p', { class: `mt-1 text-2xl font-bold tabular-nums ${tone ?? 'text-ink'}` }, value),
       ),

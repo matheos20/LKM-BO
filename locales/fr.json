@@ -681,7 +681,10 @@
     "no_target": "Aucun site retenu.",
     "scope_parc": "Tout le parc",
     "parc_hint": "Tous les serveurs connectés sont analysés, les uns après les autres. Comptez quelques minutes pour le parc entier ; le bouton Arrêter reste actif.",
-    "parc_loading": "Lecture des domaines de chaque serveur…"
+    "parc_loading": "Lecture des domaines de chaque serveur…",
+    "pick_all": "Tout cocher",
+    "pick_none": "Tout décocher",
+    "server_failed": "{server} : analyse interrompue, les autres serveurs continuent."
   },
   "translate": {
     "explain": "Le back-office lit la page d'accueil des sites choisis et repère les textes rédigés dans une autre langue que celle du site. Rien n'est modifié pendant l'analyse.",
@@ -689,7 +692,7 @@
     "stat_sites": "Sites à corriger",
     "stat_texts": "Textes trouvés",
     "stat_applied": "Textes publiés",
-    "stat_failed": "Sites illisibles",
+    "stat_failed": "Fichiers illisibles",
     "all_clean": "Aucun texte à traduire",
     "all_clean_hint": "Les pages d'accueil analysées sont bien dans la langue de leur site.",
     "sites_to_fix": "Sites à corriger",
@@ -746,6 +749,8 @@
     "provider_claude": "Claude",
     "no_provider": "Traduction automatique non configurée : ajoutez une clé dans .env (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY ou LIBRETRANSLATE_URL), puis relancez le serveur.",
     "tags_differ": "Balises différentes de l’original ({tags}) : vérifiez qu’elles entourent les mêmes mots.",
-    "tags_moved": "Les balises n’entourent plus les mêmes mots ({tags}) : la mise en valeur a changé de sens."
+    "tags_moved": "Les balises n’entourent plus les mêmes mots ({tags}) : la mise en valeur a changé de sens.",
+    "stat_skipped": "Sites ignorés",
+    "stat_skipped_hint": "Sans config.php : ces sites tournent sur un autre moteur que celui du parc. Ce n’est pas une anomalie."
   }
 }

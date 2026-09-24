@@ -681,7 +681,10 @@
     "no_target": "Keine Website ausgewählt.",
     "scope_parc": "Gesamter Bestand",
     "parc_hint": "Alle verbundenen Server werden nacheinander geprüft. Rechnen Sie für den gesamten Bestand mit einigen Minuten; die Schaltfläche Anhalten bleibt verfügbar.",
-    "parc_loading": "Domains jedes Servers werden gelesen…"
+    "parc_loading": "Domains jedes Servers werden gelesen…",
+    "pick_all": "Alle auswählen",
+    "pick_none": "Auswahl aufheben",
+    "server_failed": "{server}: Prüfung abgebrochen, die anderen Server laufen weiter."
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",
@@ -689,7 +692,7 @@
     "stat_sites": "Zu korrigieren",
     "stat_texts": "Gefundene Texte",
     "stat_applied": "Veröffentlichte Texte",
-    "stat_failed": "Unlesbare Websites",
+    "stat_failed": "Unlesbare Dateien",
     "all_clean": "Nichts zu übersetzen",
     "all_clean_hint": "Alle geprüften Startseiten sind in der Sprache ihrer Website verfasst.",
     "sites_to_fix": "Zu korrigierende Websites",
@@ -746,6 +749,8 @@
     "provider_claude": "Claude",
     "no_provider": "Die automatische Übersetzung ist nicht eingerichtet: tragen Sie einen Schlüssel in .env ein (DEEPL_KEY, ANTHROPIC_API_KEY, GOOGLE_TRANSLATE_KEY oder LIBRETRANSLATE_URL) und starten Sie den Server neu.",
     "tags_differ": "Andere Tags als im Original ({tags}): prüfen Sie, ob sie dieselben Wörter umschließen.",
-    "tags_moved": "Die Tags umschließen nicht mehr dieselben Wörter ({tags}): die Hervorhebung hat sich verschoben."
+    "tags_moved": "Die Tags umschließen nicht mehr dieselben Wörter ({tags}): die Hervorhebung hat sich verschoben.",
+    "stat_skipped": "Übersprungene Websites",
+    "stat_skipped_hint": "Ohne config.php: diese Websites laufen auf einer anderen Engine. Das ist kein Fehler."
   }
 }
