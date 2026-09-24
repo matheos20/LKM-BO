@@ -4,6 +4,7 @@ import { requireConnection, requirePermission, requireServerAccess } from '../mi
 /**
  * Ajout de rubriques, monté sous /api/servers/:id/categories
  *
+ *  POST /existing { domains }            les rubriques en place sur ces sites — LECTURE SEULE
  *  POST /plan   { request, operation }   ce qui existe déjà, ce qui changerait — LECTURE SEULE
  *  POST /apply  { request, operation }   crée ou retire les rubriques
  *
@@ -16,6 +17,10 @@ import { requireConnection, requirePermission, requireServerAccess } from '../mi
 export function categoriesRouter({ ssh, categories, audit }) {
   const r = Router({ mergeParams: true });
   r.use(requireServerAccess(ssh), requireConnection(ssh));
+
+  r.post('/existing', requirePermission('design.read'), async (req, res) => {
+    res.json(await categories.existing(req.params.id, req.body?.domains));
+  });
 
   r.post('/plan', requirePermission('design.read'), async (req, res) => {
     res.json(await categories.plan(req.params.id, req.body?.request, { operation: req.body?.operation }));

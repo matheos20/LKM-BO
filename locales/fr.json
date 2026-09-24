@@ -878,6 +878,14 @@
     "drop_hint": "Une ligne par site : le domaine, puis ses rubriques. La première ligne peut être un en-tête.",
     "file_too_big": "Fichier trop volumineux (2 Mo au maximum).",
     "file_read": "{name} lu : {sites} site(s).",
-    "file_failed": "Fichier illisible."
+    "file_failed": "Fichier illisible.",
+    "pick_sites_first": "Choisissez d'abord les sites, à l'étape suivante : les rubriques en place s'afficheront ici.",
+    "loading_existing": "Lecture des rubriques en place…",
+    "existing_failed": "Les rubriques n'ont pas pu être lues. Vérifiez que les serveurs sont connectés.",
+    "no_existing": "Aucune rubrique n'est déclarée sur ces sites.",
+    "existing_scanned": "Rubriques lues sur {scanned} site(s) parmi les {total} choisis.",
+    "on_sites": "{count} site(s)",
+    "clear_choice": "Tout décocher",
+    "or_type": "Ou saisir un nom de rubrique qui ne figure pas ci-dessus"
   }
 }

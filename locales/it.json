@@ -878,6 +878,14 @@
     "drop_hint": "Una riga per sito: il dominio, poi le sue rubriche. La prima riga può essere un’intestazione.",
     "file_too_big": "File troppo grande (2 MB al massimo).",
     "file_read": "{name} letto: {sites} sito/i.",
-    "file_failed": "File illeggibile."
+    "file_failed": "File illeggibile.",
+    "pick_sites_first": "Scegli prima i siti, al passo successivo: le rubriche presenti compariranno qui.",
+    "loading_existing": "Lettura delle rubriche presenti…",
+    "existing_failed": "Non è stato possibile leggere le rubriche. Verifica che i server siano connessi.",
+    "no_existing": "Nessuna rubrica è dichiarata su questi siti.",
+    "existing_scanned": "Rubriche lette su {scanned} sito/i sui {total} scelti.",
+    "on_sites": "{count} sito/i",
+    "clear_choice": "Deseleziona tutto",
+    "or_type": "Oppure scrivi il nome di una rubrica che non compare sopra"
   }
 }

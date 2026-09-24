@@ -384,7 +384,9 @@ function render() {
   const etape = { form: 1, scope: avecForm ? 2 : 1, results: avecForm ? 3 : 2 };
   const results = state.action.results({ permissions: state.permissions, openFiles: openFilesFor });
   const vide = !results && state.phase === 'done' ? state.action.emptyState?.() : null;
-  const formulaire = state.action.form?.({ permissions: state.permissions, step: etape.form });
+  // Le formulaire a besoin des sites : supprimer une rubrique suppose de savoir
+  // lesquelles sont en place, et cela se lit sur les sites choisis.
+  const formulaire = state.action.form?.({ permissions: state.permissions, step: etape.form, targets: targets() });
   const perimetre = scopeCard(etape.scope);
 
   const body = [

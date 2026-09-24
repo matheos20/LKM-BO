@@ -878,6 +878,14 @@
     "drop_hint": "Uma linha por site: o domínio e depois as suas categorias. A primeira linha pode ser um cabeçalho.",
     "file_too_big": "Ficheiro demasiado grande (2 MB no máximo).",
     "file_read": "{name} lido: {sites} site(s).",
-    "file_failed": "Ficheiro ilegível."
+    "file_failed": "Ficheiro ilegível.",
+    "pick_sites_first": "Escolha primeiro os sites, no passo seguinte: as categorias existentes aparecerão aqui.",
+    "loading_existing": "A ler as categorias existentes…",
+    "existing_failed": "Não foi possível ler as categorias. Verifique se os servidores estão ligados.",
+    "no_existing": "Nenhuma categoria está declarada nestes sites.",
+    "existing_scanned": "Categorias lidas em {scanned} site(s) dos {total} escolhidos.",
+    "on_sites": "{count} site(s)",
+    "clear_choice": "Desmarcar tudo",
+    "or_type": "Ou escreva um nome de categoria que não conste acima"
   }
 }

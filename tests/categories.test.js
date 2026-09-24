@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CATEGORY_FILES } from '../src/services/phpScripts.js';
+import { CATEGORY_FILES, CATEGORY_LIST } from '../src/services/phpScripts.js';
 import { normalizeRequest, slugify } from '../src/services/categoryService.js';
 
 test('rubriques : le nom donne l’adresse', () => {
@@ -216,3 +216,132 @@ test('import CSV : ce qu’un tableur écrit vraiment', async () => {
   // Tapé à la main, sans tabulation : la virgule sépare, comme l'agent s'y attend.
   assert.deepEqual(parseTable('exemple.com, Sport, Cuisine').lignes, [{ domain: 'exemple.com', noms: ['Sport', 'Cuisine'] }]);
 });
+
+// ── Supprimer une rubrique qu'on n'a pas créée ─────────────────────────────
+
+// Le cas réel qui bloquait : sur le parc, 104 rubriques sur 4152 portent un nom
+// dont slugify() ne retrouve pas la clé. « Finance &amp; real estate » se range
+// sous « finance-real-estate » ; un agent qui tape le nom affiché ne l'atteint
+// jamais. La clé doit donc voyager telle quelle.
+test('rubriques : une clé réelle traverse la demande sans être abîmée', () => {
+  const out = normalizeRequest({
+    'exemple.com': [
+      { slug: 'finance-real-estate', name: 'Finance & real estate' },
+      { slug: 'woman-fashion', name: 'Woman / fashion' },
+    ],
+  });
+  assert.deepEqual(
+    out['exemple.com'].map((r) => r.slug),
+    ['finance-real-estate', 'woman-fashion'],
+  );
+  // Sans clé fournie, c'est le nom qui la donne — et là, slugify se trompe de cible.
+  assert.equal(normalizeRequest({ 'exemple.com': [{ name: 'Finance &amp; real estate' }] })['exemple.com'][0].slug, 'finance-amp-real-estate');
+  // Une clé fournie mais invalide est rattrapée, jamais envoyée telle quelle.
+  assert.equal(normalizeRequest({ 'exemple.com': [{ slug: 'Mon Dossier', name: 'X' }] })['exemple.com'][0].slug, 'mon-dossier');
+  assert.equal(normalizeRequest({ 'exemple.com': [{ slug: '../etc', name: 'X' }] })['exemple.com'][0].slug, 'etc');
+});
+
+const SITE_PARC = {
+  'config.php':
+    "<?php\n$site_lang = 'UK';\n$categories = [\n" +
+    "    'finance-real-estate' => ['name' => 'Finance &amp; real estate', 'icon' => '', 'description' => 'Money'],\n" +
+    "    'tourism' => ['name' => 'Tourism', 'icon' => '', 'description' => 'Travel'],\n" +
+    "    'MAJUSCULE' => ['name' => 'Rejetée', 'icon' => '', 'description' => ''],\n];\n",
+  'category.php': '<?php\n',
+  'finance-real-estate/index.php': "<?php\n$category = 'finance-real-estate';\n",
+  'finance-real-estate/mon-article.php': "<?php\n$article_meta = ['title' => 'Un article'];\n",
+  'tourism/index.php': "<?php\n$category = 'tourism';\n",
+};
+
+function lister(fichiers, domaines = ['exemple.com']) {
+  const root = mkdtempSync(join(tmpdir(), 'lkm-cat-'));
+  try {
+    for (const [rel, contenu] of Object.entries(fichiers)) {
+      const chemin = join(root, 'exemple.com', 'public_html', rel);
+      mkdirSync(join(chemin, '..'), { recursive: true });
+      writeFileSync(chemin, contenu, 'utf8');
+    }
+    const res = spawnSync('php', [], {
+      input: CATEGORY_LIST,
+      encoding: 'utf8',
+      env: { ...process.env, LKM_ROOT: root, LKM_B64: Buffer.from(JSON.stringify(domaines)).toString('base64') },
+    });
+    assert.equal(res.status, 0, res.stderr);
+    return JSON.parse(res.stdout).sites;
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test('rubriques : la liste des rubriques en place, telle que l’agent la coche', { skip: phpAbsent && 'php absent' }, () => {
+  const [site] = lister(SITE_PARC);
+  const par = Object.fromEntries(site.items.map((i) => [i.slug, i]));
+
+  // Le nom est rendu lisible — l'agent voit ce que voit le visiteur — mais la clé,
+  // elle, reste celle du serveur : c'est elle qui sert à viser la rubrique.
+  assert.equal(par['finance-real-estate'].name, 'Finance & real estate');
+  assert.equal(par['finance-real-estate'].articles, 1);
+  assert.equal(par['finance-real-estate'].dir, true);
+  // Une rubrique vide se distingue : son dossier partira, les autres non.
+  assert.equal(par.tourism.articles, 0);
+  // Une clé que le moteur du site ne sait pas servir n'est pas proposée.
+  assert.equal(par.MAJUSCULE, undefined);
+  assert.equal(site.items.length, 2);
+});
+
+test('rubriques : un site sans config.php est signalé, pas deviné', { skip: phpAbsent && 'php absent' }, () => {
+  const [site] = lister({ 'category.php': '<?php\n' });
+  assert.equal(site.error, 'missing');
+  assert.deepEqual(site.items, []);
+});
+
+test('rubriques : supprimer retire la page, jamais les articles', { skip: phpAbsent && 'php absent' }, () => {
+  // On vise par la CLÉ RÉELLE, comme le fait désormais l'écran après avoir lu le site.
+  const demande = { 'exemple.com': [{ slug: 'finance-real-estate', name: 'Finance & real estate' }, { slug: 'tourism', name: 'Tourism' }] };
+  const site = lancerParc(SITE_PARC, demande, 'apply', 'remove');
+  const par = Object.fromEntries(site.items.map((i) => [i.slug, i]));
+
+  assert.deepEqual(par['finance-real-estate'].done, ['dir']);
+  // Ce qui compte : l'article survit, et son dossier avec lui.
+  assert.equal(site.existe('finance-real-estate/mon-article.php'), true);
+  assert.equal(site.existe('finance-real-estate/index.php'), false);
+  // La rubrique vide, elle, ne laisse pas de dossier derrière elle.
+  assert.equal(site.existe('tourism/index.php'), false);
+});
+
+/** Même harnais que `lancer`, mais sur l'arborescence d'un site du parc. */
+function lancerParc(fichiers, request, mode, operation) {
+  const root = mkdtempSync(join(tmpdir(), 'lkm-cat-'));
+  try {
+    for (const [rel, contenu] of Object.entries(fichiers)) {
+      const chemin = join(root, 'exemple.com', 'public_html', rel);
+      mkdirSync(join(chemin, '..'), { recursive: true });
+      writeFileSync(chemin, contenu, 'utf8');
+    }
+    const res = spawnSync('php', [], {
+      input: CATEGORY_FILES,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        LKM_ROOT: root,
+        LKM_MODE: mode,
+        LKM_OP: operation,
+        LKM_B64: Buffer.from(JSON.stringify(normalizeRequest(request))).toString('base64'),
+      },
+    });
+    assert.equal(res.status, 0, res.stderr);
+    const site = JSON.parse(res.stdout).sites[0];
+    const apres = {};
+    for (const rel of [...Object.keys(fichiers), 'tourism/index.php']) {
+      try {
+        apres[rel] = readFileSync(join(root, 'exemple.com', 'public_html', rel), 'utf8');
+      } catch {
+        apres[rel] = null;
+      }
+    }
+    site.existe = (rel) => apres[rel] != null;
+    return site;
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}

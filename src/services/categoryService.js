@@ -1,5 +1,5 @@
 import { AppError } from '../errors.js';
-import { CATEGORY_FILES } from './phpScripts.js';
+import { CATEGORY_FILES, CATEGORY_LIST } from './phpScripts.js';
 
 /**
  * Ajout de rubriques aux sites du parc.
@@ -26,6 +26,10 @@ import { CATEGORY_FILES } from './phpScripts.js';
  */
 
 const MAX_DOMAINS = 150;
+/** Lire les rubriques de tout un parc n'aurait pas de sens : on travaille sur un échantillon. */
+const MAX_LIST = 60;
+/** Une adresse de rubrique telle que le moteur du site la sert. */
+const SLUG = /^[a-z0-9][a-z0-9-]{0,60}$/;
 const MAX_CATEGORIES = 12;
 const TIMEOUT = 180000;
 
@@ -51,7 +55,12 @@ export function normalizeRequest(request) {
     const liste = [];
     for (const r of rubriques) {
       const name = String(r?.name ?? '').trim().slice(0, 120);
-      const slug = slugify(r?.slug || name);
+      // Une clé déjà valide passe telle quelle : elle vient d'une rubrique lue sur le
+      // serveur, et la re-slugifier la ferait rater sa cible. « Finance &amp; real
+      // estate » vit sous « finance-real-estate » ; slugify(nom) donnerait
+      // « finance-amp-real-estate », qui ne désigne rien.
+      const fourni = String(r?.slug ?? '').trim();
+      const slug = SLUG.test(fourni) ? fourni : slugify(fourni || name);
       if (!name || !slug || vues.has(slug) || liste.length >= MAX_CATEGORIES) continue;
       vues.add(slug);
       liste.push({ slug, name });
@@ -65,6 +74,54 @@ export class CategoryService {
   constructor(ssh, sites) {
     this.ssh = ssh;
     this.sites = sites;
+  }
+
+  /**
+   * Les rubriques en place sur des sites donnés — lecture seule.
+   *
+   * C'est ce qui permet à l'agent de supprimer une rubrique qu'il n'a pas créée :
+   * il la choisit dans la liste au lieu d'en deviner le nom exact.
+   */
+  async existing(serverId, domains) {
+    const server = this.ssh.server(serverId);
+    const liste = [
+      ...new Set(
+        (Array.isArray(domains) ? domains : [])
+          .map((d) => String(d ?? '').trim().toLowerCase())
+          .filter((d) => /^[a-z0-9][a-z0-9.-]{1,252}$/.test(d)),
+      ),
+    ];
+    if (!liste.length) throw new AppError('errors.category_none', { status: 400 });
+
+    const echantillon = liste.slice(0, MAX_LIST);
+    const raw = await this.sites.runPhp(
+      serverId,
+      server.wwwRoot,
+      CATEGORY_LIST,
+      { LKM_ROOT: server.wwwRoot, LKM_B64: Buffer.from(JSON.stringify(echantillon), 'utf8').toString('base64') },
+      { timeout: TIMEOUT },
+    );
+
+    const sites = (raw.sites ?? []).map((s) => ({ domain: s.domain, error: s.error ?? null, items: s.items ?? [] }));
+
+    // L'union : une rubrique vue sur plusieurs sites ne se coche qu'une fois, et
+    // l'agent voit du même coup combien de sites et combien d'articles elle engage.
+    const union = new Map();
+    for (const site of sites) {
+      for (const it of site.items) {
+        const vu = union.get(it.slug) ?? { slug: it.slug, name: it.name, sites: 0, articles: 0 };
+        vu.sites += 1;
+        vu.articles += it.articles;
+        union.set(it.slug, vu);
+      }
+    }
+
+    return {
+      scanned: echantillon.length,
+      total: liste.length,
+      sites,
+      union: [...union.values()].sort((a, b) => b.sites - a.sites || a.slug.localeCompare(b.slug)),
+    };
   }
 
   /** Lecture seule : ce qui existe déjà, ce qui serait créé ou retiré. */

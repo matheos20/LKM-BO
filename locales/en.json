@@ -878,6 +878,14 @@
     "drop_hint": "One line per site: the domain, then its categories. The first line may be a header.",
     "file_too_big": "File too large (2 MB maximum).",
     "file_read": "{name} read: {sites} site(s).",
-    "file_failed": "File unreadable."
+    "file_failed": "File unreadable.",
+    "pick_sites_first": "First choose the sites, in the next step: the categories in place will appear here.",
+    "loading_existing": "Reading the categories in place…",
+    "existing_failed": "The categories could not be read. Check that the servers are connected.",
+    "no_existing": "No category is declared on these sites.",
+    "existing_scanned": "Categories read on {scanned} site(s) out of the {total} chosen.",
+    "on_sites": "{count} site(s)",
+    "clear_choice": "Clear all",
+    "or_type": "Or type a category name that is not listed above"
   }
 }

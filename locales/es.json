@@ -878,6 +878,14 @@
     "drop_hint": "Una línea por sitio: el dominio y luego sus categorías. La primera línea puede ser un encabezado.",
     "file_too_big": "Archivo demasiado grande (2 MB como máximo).",
     "file_read": "{name} leído: {sites} sitio(s).",
-    "file_failed": "Archivo ilegible."
+    "file_failed": "Archivo ilegible.",
+    "pick_sites_first": "Elija primero los sitios, en el paso siguiente: las categorías existentes aparecerán aquí.",
+    "loading_existing": "Leyendo las categorías existentes…",
+    "existing_failed": "No se han podido leer las categorías. Compruebe que los servidores estén conectados.",
+    "no_existing": "No hay ninguna categoría declarada en estos sitios.",
+    "existing_scanned": "Categorías leídas en {scanned} sitio(s) de los {total} elegidos.",
+    "on_sites": "{count} sitio(s)",
+    "clear_choice": "Desmarcar todo",
+    "or_type": "O escriba un nombre de categoría que no figure arriba"
   }
 }

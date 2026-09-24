@@ -878,6 +878,14 @@
     "drop_hint": "Eine Zeile je Website: die Domain, dann ihre Kategorien. Die erste Zeile darf eine Kopfzeile sein.",
     "file_too_big": "Datei zu groß (höchstens 2 MB).",
     "file_read": "{name} gelesen: {sites} Website(s).",
-    "file_failed": "Datei nicht lesbar."
+    "file_failed": "Datei nicht lesbar.",
+    "pick_sites_first": "Wählen Sie zuerst die Websites im nächsten Schritt: die vorhandenen Kategorien erscheinen hier.",
+    "loading_existing": "Vorhandene Kategorien werden gelesen…",
+    "existing_failed": "Die Kategorien konnten nicht gelesen werden. Prüfen Sie, ob die Server verbunden sind.",
+    "no_existing": "Auf diesen Websites ist keine Kategorie deklariert.",
+    "existing_scanned": "Kategorien auf {scanned} von {total} gewählten Website(s) gelesen.",
+    "on_sites": "{count} Website(s)",
+    "clear_choice": "Alle abwählen",
+    "or_type": "Oder einen Kategorienamen eingeben, der oben nicht steht"
   }
 }

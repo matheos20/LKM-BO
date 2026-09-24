@@ -34,7 +34,15 @@ const state = {
   plan: null, // résultat de la vérification
   selected: null,
   done: new Map(), // clé de site → nombre de rubriques créées
+  // Mode « Supprimer » : ce qui existe sur les sites choisis, et ce que l'agent coche.
+  existantes: null, // { union, scanned, total, erreur } — lu sur le serveur
+  chargement: false,
+  empreinte: '', // les sites déjà lus, pour ne pas relire à chaque rendu
+  choisies: new Map(), // clé réelle → nom affiché
 };
+
+/** Le nombre de sites qu'on interroge pour dresser la liste des rubriques en place. */
+const MAX_LECTURE = 60;
 
 /** Nom de rubrique → adresse. Même règle que côté serveur, qui a le dernier mot. */
 export function slugify(name) {
@@ -137,8 +145,154 @@ function demande(targets) {
     }
     return out;
   }
-  const rubriques = nomsSaisis().map((name) => ({ name, slug: slugify(name) }));
+  // Une rubrique cochée porte sa clé réelle, lue sur le serveur. C'est elle qui
+  // part, jamais un nom re-slugifié : « Finance & real estate » se range sous
+  // « finance-real-estate », et aucun nom tapé ne retombe dessus.
+  const rubriques = state.operation === 'remove' && state.choisies.size
+    ? [...state.choisies].map(([slug, name]) => ({ slug, name }))
+    : nomsSaisis().map((name) => ({ name, slug: slugify(name) }));
   return Object.fromEntries(targets.map((x) => [x.domain, rubriques]));
+}
+
+// ──────────────── Mode « Supprimer » : les rubriques en place ────────────────
+
+/**
+ * Lit les rubriques réellement déclarées sur les sites choisis.
+ *
+ * L'agent ne peut pas deviner la clé interne d'une rubrique qu'il n'a pas créée, et
+ * pour 1 rubrique sur 40 du parc le nom affiché ne permet même pas de la retrouver
+ * (« Finance &amp; real estate » vit sous « finance-real-estate »). On lit donc la
+ * vérité sur le serveur et on la lui donne à cocher.
+ *
+ * On n'interroge qu'un échantillon : lire tout le parc n'aurait pas de sens, et les
+ * rubriques d'un parc se ressemblent d'un site à l'autre.
+ */
+async function chargerExistantes(cibles) {
+  const echantillon = cibles.slice(0, MAX_LECTURE);
+  const empreinte = echantillon.map((c) => `${c.server}/${c.domain}`).join(',');
+  if (!empreinte || empreinte === state.empreinte || state.chargement) return;
+
+  state.empreinte = empreinte;
+  state.chargement = true;
+  state.existantes = null;
+  categoryAction.onChange?.();
+
+  // Un site par serveur : la route est par serveur, et le parc peut en mêler plusieurs.
+  const parServeur = new Map();
+  for (const c of echantillon) parServeur.set(c.server, [...(parServeur.get(c.server) ?? []), c.domain]);
+
+  try {
+    const reponses = await Promise.all(
+      [...parServeur].map(([server, domains]) =>
+        api(`/api/servers/${enc(server)}/categories/existing`, { method: 'POST', body: { domains } }).catch(() => null),
+      ),
+    );
+
+    const union = new Map();
+    let lus = 0;
+    for (const rep of reponses) {
+      if (!rep) continue;
+      lus += rep.scanned ?? 0;
+      for (const u of rep.union ?? []) {
+        const vu = union.get(u.slug) ?? { slug: u.slug, name: u.name, sites: 0, articles: 0 };
+        vu.sites += u.sites;
+        vu.articles += u.articles;
+        union.set(u.slug, vu);
+      }
+    }
+
+    state.existantes = {
+      union: [...union.values()].sort((a, b) => b.sites - a.sites || a.name.localeCompare(b.name)),
+      scanned: lus,
+      total: cibles.length,
+      erreur: reponses.every((r) => !r),
+    };
+    // Une rubrique cochée qui n'existe plus nulle part n'a plus lieu d'être cochée.
+    for (const slug of [...state.choisies.keys()]) if (!union.has(slug)) state.choisies.delete(slug);
+  } catch (err) {
+    state.existantes = { union: [], scanned: 0, total: cibles.length, erreur: true };
+    toastError(err);
+  } finally {
+    state.chargement = false;
+    categoryAction.onChange?.();
+  }
+}
+
+/** La liste à cocher : ce qui est là, sur combien de sites, avec combien d'articles. */
+function listeExistantes(cibles) {
+  if (!cibles.length) {
+    return h('p', { class: 'mt-4 rounded-lg bg-ink-50 px-4 py-3 text-sm text-ink-500' }, t('categories.pick_sites_first'));
+  }
+  if (state.chargement) return h('p', { class: 'mt-4 text-sm text-ink-400' }, t('categories.loading_existing'));
+
+  const ex = state.existantes;
+  if (!ex) return h('p', { class: 'mt-4 text-sm text-ink-400' }, t('categories.loading_existing'));
+  if (ex.erreur) return h('p', { class: 'mt-4 text-sm text-red-600' }, t('categories.existing_failed'));
+  if (!ex.union.length) return h('p', { class: 'mt-4 rounded-lg bg-ink-50 px-4 py-3 text-sm text-ink-500' }, t('categories.no_existing'));
+
+  const ligne = (u) => {
+    const coche = state.choisies.has(u.slug);
+    return h(
+      'label',
+      {
+        class: `flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${coche ? 'border-red-300 bg-red-50' : 'border-ink-200 bg-white hover:border-ink-300'}`,
+      },
+      h('input', {
+        type: 'checkbox',
+        class: 'size-4 shrink-0 accent-red-600',
+        checked: coche,
+        onchange: (e) => {
+          if (e.target.checked) state.choisies.set(u.slug, u.name);
+          else state.choisies.delete(u.slug);
+          // Cocher change ce qui sera retiré : la vérification précédente ne vaut plus.
+          categoryAction.reset();
+          categoryAction.onChange?.();
+        },
+      }),
+      h(
+        'span',
+        { class: 'min-w-0 flex-1' },
+        h('span', { class: 'block truncate text-sm font-medium' }, u.name),
+        h('span', { class: 'block font-mono text-[11px] text-ink-400' }, `/${u.slug}/`),
+      ),
+      h('span', { class: 'shrink-0 text-xs text-ink-400' }, t('categories.on_sites', { count: fmtNum(u.sites) })),
+      // Le chiffre qui rassure : ces articles ne bougeront pas.
+      u.articles
+        ? h('span', { class: 'badge shrink-0 bg-ink-100 text-ink-600' }, t('categories.keeps_articles', { count: fmtNum(u.articles) }))
+        : null,
+    );
+  };
+
+  return h(
+    'div',
+    { class: 'mt-4 space-y-3' },
+    h(
+      'div',
+      { class: 'flex flex-wrap items-center gap-2' },
+      h('p', { class: 'flex-1 text-xs text-ink-400' }, t('categories.existing_scanned', { scanned: fmtNum(ex.scanned), total: fmtNum(ex.total) })),
+      state.choisies.size
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-ghost px-2 py-1 text-xs',
+              onclick: () => {
+                state.choisies.clear();
+                categoryAction.reset();
+                categoryAction.onChange?.();
+              },
+            },
+            t('categories.clear_choice'),
+          )
+        : null,
+    ),
+    h('div', { class: 'grid gap-1.5 sm:grid-cols-2' }, ex.union.map(ligne)),
+    // Une rubrique absente de l'échantillon reste atteignable : on ne ferme pas la porte.
+    h('details', { class: 'pt-1' },
+      h('summary', { class: 'cursor-pointer text-xs text-ink-400' }, t('categories.or_type')),
+      formulaireSimple(),
+    ),
+  );
 }
 
 // ───────────────────────── Étape 1 : les rubriques ─────────────────────────
@@ -604,7 +758,11 @@ export const categoryAction = {
     return state.operation === 'remove' ? 'categories.before_run_remove' : 'categories.before_run';
   },
 
-  form({ step = 1 } = {}) {
+  form({ step = 1, targets: cibles = [] } = {}) {
+    // Supprimer suppose de savoir ce qui est là : on va le lire dès que les sites
+    // sont connus, et une seule fois par périmètre.
+    if (state.operation === 'remove' && state.mode === 'simple' && cibles.length) chargerExistantes(cibles);
+
     const verbe = (cle, ico, libelle) => {
       const actif = state.operation === cle;
       const couleur = cle === 'remove' ? 'border-red-300 bg-red-50 text-red-700' : 'border-accent bg-accent-50 text-ink';
@@ -617,6 +775,11 @@ export const categoryAction = {
           onclick: () => {
             if (state.operation === cle) return;
             state.operation = cle;
+            // Les deux verbes ne désignent pas les mêmes rubriques : ce qui était
+            // coché pour une suppression n'a rien à faire dans une création.
+            state.choisies.clear();
+            state.empreinte = '';
+            state.existantes = null;
             // Changer de verbe invalide la vérification précédente : elle ne parlait
             // pas de la même chose.
             categoryAction.reset();
@@ -660,7 +823,11 @@ export const categoryAction = {
         verbe('remove', 'trash', t('categories.op_remove')),
         h('p', { class: 'text-xs text-ink-400' }, t(state.operation === 'remove' ? 'categories.op_remove_hint' : 'categories.op_add_hint')),
       ),
-      state.mode === 'simple' ? formulaireSimple() : formulaireTable(),
+      state.mode === 'simple'
+        ? state.operation === 'remove'
+          ? listeExistantes(cibles)
+          : formulaireSimple()
+        : formulaireTable(),
     );
   },
 
@@ -672,7 +839,9 @@ export const categoryAction = {
 
   /** Rien à vérifier tant qu'aucune rubrique n'est saisie. */
   canRun() {
-    return state.mode === 'table' ? Boolean(state.parse?.lignes.length) : nomsSaisis().length > 0;
+    if (state.mode === 'table') return Boolean(state.parse?.lignes.length);
+    if (state.operation === 'remove' && state.choisies.size) return true;
+    return nomsSaisis().length > 0;
   },
 
   async run(server, domains) {

@@ -576,9 +576,31 @@ peut encore corriger.
 
 ### Supprimer une rubrique
 
-Le même écran, l'autre verbe. **Les articles ne sont jamais touchés** : un dossier de rubrique en
-contient — sur le parc, `hardware/` en porte sept — et leurs adresses publiques viennent de
-`permalinks.php`, pas du dossier.
+Le même écran, l'autre verbe.
+
+**L'agent ne tape rien : il coche.** Dès que les sites sont choisis, l'écran lit les rubriques
+réellement déclarées et les présente à cocher, avec leur adresse et le nombre d'articles qu'elles
+portent. C'est ce qui rend la suppression utilisable sur des rubriques que personne n'a créées
+depuis le back-office.
+
+Sans cela, il fallait deviner le nom exact, et parfois aucun nom ne convenait. Relevé sur 600
+sites du VPS 003 — **4 152 rubriques**, dont :
+
+| Mesure | Nombre |
+|---|---|
+| Rubriques dont le nom affiché ne redonne pas la clé interne | **104** (1 sur 40) |
+| Rubriques portant au moins un article | **3 885** (94 %) |
+| Rubriques sans page `index.php` | 0 |
+
+Le cas type : « Finance &amp; real estate » se range sous `finance-real-estate`. Un agent qui tape
+le nom affiché produit `finance-amp-real-estate`, qui ne désigne rien — la suppression ne trouvait
+rien à retirer et semblait sans effet. La clé lue sur le serveur **repart désormais telle quelle**,
+sans repasser par la fabrication d'adresse ; le nom, lui, est affiché décodé, comme le visiteur le
+voit. Une rubrique absente de la liste reste atteignable en la saisissant à la main.
+
+**Les articles ne sont jamais touchés** : un dossier de rubrique en contient — sur le parc,
+`hardware/` en porte sept — et leurs adresses publiques viennent de `permalinks.php`, pas du
+dossier.
 
 | Ce qui part | Ce qui reste |
 |---|---|
@@ -596,6 +618,11 @@ car une rubrique encore au menu dont la page a disparu donne un lien mort, visib
 pas. **L'article a survécu**, le dossier vide a disparu, celui qui portait l'article est resté,
 le résumé WordPress est à jour, ses autres clés intactes, `php -l` propre et une sauvegarde par
 écriture.
+
+Puis rejoué sur le cas difficile, reproduit à l'identique : un site portant « Finance &amp; real
+estate » (6 articles), « Woman / fashion » (3), « Health » (2) et « Tourism » (vide). Les deux
+premières cochées dans la liste, **11 articles sur 11 conservés**, la page de la rubrique retirée,
+le dossier plein gardé, le dossier vide effacé, le résumé WordPress à jour et `php -l` propre.
 
 ### L'action « Traduction des gabarits »
 

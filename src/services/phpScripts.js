@@ -959,6 +959,54 @@ echo json_encode(['sites' => $sites, 'mode' => $mode], JSON_UNESCAPED_UNICODE | 
  * Entrées : LKM_ROOT, LKM_OP (add | remove), LKM_MODE (scan | apply),
  *           LKM_B64 (domaine → [{slug, name}]).
  */
+/**
+ * Les rubriques réellement déclarées sur des sites, avec ce qu'elles pèsent.
+ *
+ * Écrit pour la suppression : l'agent ne peut pas deviner la clé interne d'une
+ * rubrique qu'il n'a pas créée. « Finance &amp; real estate » se range sous
+ * `finance-real-estate`, et aucun nom tapé à la main ne retombe dessus. On lit donc
+ * les clés telles qu'elles sont, et c'est cette clé qui repartira.
+ *
+ * Le nombre d'articles est compté ici parce qu'il décide de tout : la suppression
+ * retire la page de la rubrique, jamais les articles, et l'agent doit le voir avant.
+ */
+export const CATEGORY_LIST = String.raw`<?php
+error_reporting(0);
+$root = rtrim((string) getenv('LKM_ROOT'), '/');
+$domaines = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true) ?: [];
+
+$sites = [];
+foreach ($domaines as $domain) {
+    $domain = (string) $domain;
+    if (!preg_match('/^[a-z0-9][a-z0-9.-]{1,252}$/i', $domain)) continue;
+    $doc = $root . '/' . $domain . '/public_html';
+    $site = ['domain' => $domain, 'items' => []];
+    if (!is_file($doc . '/config.php')) { $site['error'] = 'missing'; $sites[] = $site; continue; }
+
+    $cats = (function ($f) { ob_start(); include $f; ob_end_clean(); return $categories ?? []; })($doc . '/config.php');
+    if (!is_array($cats)) $cats = [];
+
+    foreach ($cats as $cle => $val) {
+        $cle = (string) $cle;
+        // Ce que le moteur du site sait servir : une clé qui tient dans une adresse.
+        if (!preg_match('/^[a-z0-9][a-z0-9-]{0,60}$/', $cle)) continue;
+        $dossier = $doc . '/' . $cle;
+        // Tout ce que le dossier contient hors index.php, ce sont des articles.
+        $restes = is_dir($dossier) ? array_values(array_diff(scandir($dossier) ?: [], ['.', '..', 'index.php'])) : [];
+        $site['items'][] = [
+            'slug' => $cle,
+            // Le nom affiché sert à l'agent ; c'est la clé qui sert à la machine.
+            'name' => html_entity_decode((string) (is_array($val) ? ($val['name'] ?? $cle) : $val), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'articles' => count($restes),
+            'dir' => is_file($dossier . '/index.php'),
+        ];
+    }
+    $sites[] = $site;
+}
+
+echo json_encode(['sites' => $sites], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+`;
+
 export const CATEGORY_FILES = String.raw`<?php
 error_reporting(0);
 $root = rtrim((string) getenv('LKM_ROOT'), '/');
@@ -1010,7 +1058,12 @@ foreach ($demande as $domain => $rubriques) {
         $restes = is_dir($dossier) ? array_values(array_diff(scandir($dossier) ?: [], ['.', '..', 'index.php'])) : [];
         $etat = [
             'slug' => $slug,
-            'name' => $op === 'remove' ? (string) (($config[$slug]['name'] ?? '') ?: $nom) : $nom,
+            // Pour une suppression, le nom sert à l'agent : on le lui montre lisible,
+            // comme le visiteur le voit. Pour une création, il part tel quel dans
+            // config.php et ne doit surtout pas être réécrit.
+            'name' => $op === 'remove'
+                ? html_entity_decode((string) (($config[$slug]['name'] ?? '') ?: $nom), ENT_QUOTES | ENT_HTML5, 'UTF-8')
+                : $nom,
             // Trois pièces, trois états : ce qui existe déjà n'est jamais réécrit.
             'dir' => is_file($index),
             'config' => isset($config[$slug]),
