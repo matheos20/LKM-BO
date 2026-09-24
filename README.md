@@ -472,6 +472,7 @@ avancement, arrêt), chaque action ne rendant que ses propres résultats.
 | Périmètre | Usage |
 |---|---|
 | **Tout le serveur** | La tournée de fond sur les milliers de sites d'un VPS. |
+| **Tout le parc** | La même chose sur **tous les serveurs connectés**, d'une traite. Les serveurs hors ligne sont nommés : c'est la première raison pour qu'un domaine manque à l'appel. |
 | **Liste de domaines** | Ceux qu'un agent colle depuis un tableur — un par ligne, ou séparés par des virgules ; les adresses complètes (`https://www.exemple.com/page.php`) sont acceptées. |
 
 Une liste collée **peut mélanger les serveurs** : le back-office cherche chaque domaine dans

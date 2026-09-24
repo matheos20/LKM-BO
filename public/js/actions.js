@@ -11,8 +11,9 @@ import { translateAction } from './translate.js';
  * est — et laisse chaque action rendre ses propres résultats. Ajouter un traitement
  * demain, c'est ajouter une entrée dans ACTIONS.
  *
- * Deux périmètres, parce que les deux besoins existent :
+ * Trois périmètres, parce que les trois besoins existent :
  *   - TOUT LE SERVEUR : la tournée de fond, sur les milliers de sites d'un VPS ;
+ *   - TOUT LE PARC : la même chose sur tous les serveurs connectés, d'une traite ;
  *   - UNE LISTE DE DOMAINES : ceux qu'un agent colle depuis un tableur. Ils peuvent
  *     venir de plusieurs serveurs à la fois : le back-office les répartit lui-même,
  *     et dit clairement lesquels il ne trouve pas, et pourquoi.
@@ -30,7 +31,9 @@ const state = {
   permissions: [],
   domains: [], // domaines du serveur courant (périmètre « tout le serveur »)
   loadingDomains: false,
-  scope: 'server', // server | list
+  scope: 'server', // server | parc | list
+  parc: null, // serveur → noms de domaines, pour le périmètre « tout le parc »
+  loadingParc: false,
   text: '',
   resolved: null, // { found:[{domain,server}], unknown:[], offline:[] }
   resolving: false,
@@ -58,7 +61,9 @@ export async function openActions({ serverId, serverLabel: label, servers, permi
     permissions: permissions ?? [],
     domains: [],
     loadingDomains: false,
-    scope: serverId && serverId !== 'all' ? 'server' : 'list',
+    parc: null,
+    loadingParc: false,
+    scope: serverId && serverId !== 'all' ? 'server' : 'parc',
     text: '',
     resolved: null,
     resolving: false,
@@ -84,7 +89,7 @@ export async function openActions({ serverId, serverLabel: label, servers, permi
   for (const sel of ['#btn-conn', '#btn-refresh', '#btn-add']) $(sel).hidden = true;
 
   render();
-  await loadServerDomains();
+  await (state.scope === 'parc' ? loadParcDomains() : loadServerDomains());
 }
 
 /**
@@ -156,6 +161,30 @@ async function loadServerDomains() {
   }
 }
 
+/**
+ * Les domaines de TOUS les serveurs connectés.
+ *
+ * C'est la tournée de fond du parc : près de 28 000 sites, soit quelques minutes
+ * d'analyse. Les serveurs déconnectés sont simplement absents — et dits comme tels,
+ * car c'est la première raison pour laquelle un domaine manquerait à l'appel.
+ */
+async function loadParcDomains() {
+  if (state.parc || state.loadingParc) return;
+  const connectes = state.servers.filter((s) => s.state === 'connected');
+  if (!connectes.length) return;
+
+  state.loadingParc = true;
+  render();
+  const parc = new Map();
+  const res = await Promise.allSettled(connectes.map((s) => api(`/api/servers/${enc(s.id)}/domain-names`)));
+  res.forEach((r, i) => {
+    if (r.status === 'fulfilled') parc.set(connectes[i].id, r.value.domains ?? []);
+  });
+  state.parc = parc;
+  state.loadingParc = false;
+  render();
+}
+
 // ───────────────────────── Périmètre ─────────────────────────
 
 /** Une liste collée depuis un tableur : séparateurs libres, adresses complètes tolérées. */
@@ -206,6 +235,11 @@ async function resolveList() {
 /** Cibles retenues, dans l'ordre, chacune avec le serveur qui la porte. */
 function targets() {
   if (state.scope === 'list') return state.resolved?.found ?? [];
+  if (state.scope === 'parc') {
+    const out = [];
+    for (const [server, noms] of state.parc ?? []) for (const domain of noms) out.push({ domain, server });
+    return out;
+  }
   return state.domains.map((domain) => ({ domain, server: state.serverId }));
 }
 
@@ -312,6 +346,7 @@ function scopeCard() {
         title: disabled ? t('actions.pick_server_first') : null,
         onclick: () => {
           state.scope = key;
+          if (key === 'parc') loadParcDomains();
           render();
         },
       },
@@ -332,10 +367,11 @@ function scopeCard() {
         'div',
         { class: 'flex rounded-lg bg-ink-50 p-1' },
         tab('server', t('actions.scope_server'), !state.serverId || running),
+        tab('parc', t('actions.scope_parc'), running),
         tab('list', t('actions.scope_list'), running),
       ),
     ),
-    state.scope === 'server' ? serverScope() : listScope(),
+    state.scope === 'server' ? serverScope() : state.scope === 'parc' ? parcScope() : listScope(),
     h(
       'div',
       { class: 'mt-4 flex flex-wrap items-center gap-3 border-t border-ink-100 pt-4' },
@@ -385,6 +421,21 @@ function listInput() {
   });
   listArea.disabled = state.phase === 'running';
   return listArea;
+}
+
+function parcScope() {
+  if (state.loadingParc) return h('p', { class: 'mt-3 text-sm text-ink-500' }, t('actions.parc_loading'));
+
+  const hors = state.servers.filter((s) => s.state !== 'connected');
+  const detail = [...(state.parc ?? [])].map(([id, noms]) => `${serverLabel(id)} · ${fmtNum(noms.length)}`).join(' — ');
+
+  return h(
+    'div',
+    { class: 'mt-3 space-y-1.5' },
+    h('p', { class: 'text-sm text-ink-500' }, t('actions.parc_hint')),
+    detail ? h('p', { class: 'text-sm text-ink-700' }, detail) : null,
+    hors.length ? h('p', { class: 'text-xs text-ink-400' }, t('actions.offline', { servers: hors.map((s) => s.label).join(', ') })) : null,
+  );
 }
 
 function listScope() {

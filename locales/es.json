@@ -678,7 +678,10 @@
     "restart": "Reiniciar",
     "stop": "Detener",
     "progress": "{done} de {total} sitios tratados",
-    "no_target": "Ningún sitio seleccionado."
+    "no_target": "Ningún sitio seleccionado.",
+    "scope_parc": "Todo el parque",
+    "parc_hint": "Se analizan todos los servidores conectados, uno tras otro. Cuente unos minutos para el parque entero; el botón Detener sigue disponible.",
+    "parc_loading": "Leyendo los dominios de cada servidor…"
   },
   "translate": {
     "explain": "El back-office lee la página de inicio de los sitios elegidos y detecta los textos escritos en un idioma distinto al del sitio. Nada se modifica durante el análisis.",

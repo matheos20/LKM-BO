@@ -678,7 +678,10 @@
     "restart": "Neu starten",
     "stop": "Anhalten",
     "progress": "{done} von {total} Websites bearbeitet",
-    "no_target": "Keine Website ausgewählt."
+    "no_target": "Keine Website ausgewählt.",
+    "scope_parc": "Gesamter Bestand",
+    "parc_hint": "Alle verbundenen Server werden nacheinander geprüft. Rechnen Sie für den gesamten Bestand mit einigen Minuten; die Schaltfläche Anhalten bleibt verfügbar.",
+    "parc_loading": "Domains jedes Servers werden gelesen…"
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",

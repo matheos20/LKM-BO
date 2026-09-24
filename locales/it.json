@@ -678,7 +678,10 @@
     "restart": "Riavvia",
     "stop": "Interrompi",
     "progress": "{done} di {total} siti trattati",
-    "no_target": "Nessun sito selezionato."
+    "no_target": "Nessun sito selezionato.",
+    "scope_parc": "Tutto il parco",
+    "parc_hint": "Tutti i server connessi vengono analizzati, uno dopo l’altro. Conta qualche minuto per l’intero parco; il pulsante Interrompi resta attivo.",
+    "parc_loading": "Lettura dei domini di ogni server…"
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
