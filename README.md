@@ -580,10 +580,12 @@ passait pour du français à cause de son « (DE) » final.
 Soit environ 46 000 caractères à traduire — le dixième de l'offre gratuite de DeepL. VPS 003
 concentre le problème : deux fois plus de textes que les autres, à domaines comparables.
 
-**Sites ignorés.** Un site sans `config.php` tourne sur un autre moteur : les 1 838 sites de
-Tiers1 (MiniBlog) sont dans ce cas, plus 4 sites isolés sur tout le reste du parc — et **aucun
-fichier illisible**. Les deux cas étaient d'abord comptés ensemble sous « illisibles », ce qui
-faisait passer une banalité pour une alerte ; ils sont désormais séparés.
+**Sites ignorés.** Un site sans `config.php` tourne sur un autre moteur. Relevé exhaustif du
+24/09/2026 : **1 841 sites**, dont 1 836 sur Tiers1 (MiniBlog — les 2 autres sites de ce serveur
+portent bien le moteur du parc), et **cinq isolés** sur les VPS : `missis-beauty.fr`,
+`demo-lkm.fr`, `a-lasserre.com`, `noelwhelandesign.com`, `actualitesport.fr`. **Aucun fichier
+illisible sur les 28 176 domaines.** Les deux cas étaient d'abord comptés ensemble sous
+« illisibles », ce qui faisait passer une banalité pour une alerte ; ils sont désormais séparés.
 
 > À noter : 51 sites français écrivent « Questions frequentes » sans accent. Ce n'est pas un défaut
 > de langue et l'écran ne le signale plus — mais c'est le genre de correction de masse que le menu
