@@ -696,7 +696,12 @@
     "scope_from_form": "Sites come from the pasted table",
     "step_result": "Check",
     "step_result_hint": "Nothing is written yet. Read it over, then start the creation.",
-    "before_run": "Nothing is written at this step: the result appears below."
+    "before_run": "Nothing is written at this step: the result appears below.",
+    "offline_title": "{count} server(s) are not connected",
+    "offline_body": "While the session is closed their domains cannot be found and no action can reach them: {servers}.",
+    "unsearched": "{count} domain(s) not searched, for want of a connection:",
+    "connect_done": "Servers connected.",
+    "connect_partial": "Still offline: {servers}."
   },
   "translate": {
     "explain": "The back office reads the home page of the selected sites and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",

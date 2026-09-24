@@ -202,6 +202,60 @@ async function loadParcDomains() {
   render();
 }
 
+/** Serveurs que l'agent ne peut pas interroger : rien ne marchera sans eux. */
+const serveursHorsLigne = () => state.servers.filter((s) => s.state !== 'connected');
+
+/**
+ * Reconnecte les serveurs depuis cet écran.
+ *
+ * Sans cela, l'agent voyait « domaine introuvable » et cherchait une faute de frappe
+ * dans son fichier, alors que la seule chose à faire était de rouvrir les sessions.
+ */
+async function connecterTout(bouton) {
+  const hors = serveursHorsLigne();
+  if (!hors.length) return;
+  if (bouton) bouton.disabled = true;
+  try {
+    await Promise.all(hors.map((s) => api(`/api/servers/${enc(s.id)}/connect`, { method: 'POST' }).catch(() => null)));
+    const { servers } = await api('/api/servers');
+    state.servers = servers ?? state.servers;
+    const restants = serveursHorsLigne();
+    if (restants.length) toast(t('actions.connect_partial', { servers: restants.map((s) => s.label).join(', ') }), 'info');
+    else toast(t('actions.connect_done'), 'success');
+    // Ce qui avait échoué faute de serveurs mérite une seconde chance.
+    state.parc = null;
+    if (state.scope === 'parc') await loadParcDomains();
+    else if (state.scope === 'server') await loadServerDomains();
+    if (state.text.trim()) await resolveList();
+  } catch (err) {
+    toastError(err);
+  } finally {
+    if (bouton) bouton.disabled = false;
+    render();
+  }
+}
+
+/** Bandeau franc, en haut de l'écran : la cause, et le geste qui la répare. */
+function bandeauConnexion() {
+  const hors = serveursHorsLigne();
+  if (!hors.length) return null;
+  const bouton = h('button', { type: 'button', class: 'btn btn-dark px-3 py-1.5 text-xs' }, icon('plug', 'size-3.5'), t('server.connect_all'));
+  bouton.addEventListener('click', () => connecterTout(bouton));
+
+  return h(
+    'div',
+    { class: 'card flex flex-wrap items-center gap-3 border-l-4 border-l-amber-400 px-5 py-3' },
+    icon('alert', 'size-5 shrink-0 text-amber-600'),
+    h(
+      'div',
+      { class: 'min-w-0 flex-1' },
+      h('p', { class: 'text-sm font-medium text-ink' }, t('actions.offline_title', { count: fmtNum(hors.length) })),
+      h('p', { class: 'mt-0.5 text-xs text-ink-500' }, t('actions.offline_body', { servers: hors.map((s) => s.label).join(', ') })),
+    ),
+    bouton,
+  );
+}
+
 // ───────────────────────── Périmètre ─────────────────────────
 
 /** Une liste collée depuis un tableur : séparateurs libres, adresses complètes tolérées. */
@@ -330,10 +384,19 @@ function render() {
   const etape = { form: 1, scope: avecForm ? 2 : 1, results: avecForm ? 3 : 2 };
   const results = state.action.results({ permissions: state.permissions, openFiles: openFilesFor });
   const vide = !results && state.phase === 'done' ? state.action.emptyState?.() : null;
+  const formulaire = state.action.form?.({ permissions: state.permissions, step: etape.form });
+  const perimetre = scopeCard(etape.scope);
+
   const body = [
     chooser(),
-    state.action.form?.({ permissions: state.permissions, step: etape.form }),
-    scopeCard(etape.scope),
+    bandeauConnexion(),
+    // Deux saisies courtes valent mieux côte à côte : l'écran tenait sur trois cartes
+    // empilées, avec un vide au milieu et le bouton perdu en bas.
+    formulaire
+      ? (formulaire.classList.add('xl:col-span-2'),
+        h('div', { class: 'grid items-start gap-4 xl:grid-cols-3' }, formulaire, perimetre))
+      : perimetre,
+    runBar(),
     statsRow(),
     // En-tête de section plutôt qu'une carte : la vérification n'est pas une saisie.
     results || vide ? h('div', { class: 'px-1 pt-2' }, stepTitle(etape.results, t('actions.step_result'), t('actions.step_result_hint'))) : null,
@@ -360,19 +423,11 @@ function chooser() {
 
   return h(
     'div',
-    { class: 'card p-5' },
-    h(
-      'div',
-      { class: 'flex flex-wrap items-start gap-4' },
-      h('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-700' }, icon(state.action.icon, 'size-5')),
-      h(
-        'div',
-        { class: 'min-w-0 flex-1' },
-        h('p', { class: 'label' }, t('actions.choose')),
-        select,
-      ),
-      h('p', { class: 'min-w-0 flex-1 basis-72 text-sm text-ink-500' }, t(state.action.hintKey)),
-    ),
+    { class: 'card flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3' },
+    h('span', { class: 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-700' }, icon(state.action.icon, 'size-5')),
+    h('p', { class: 'text-xs font-semibold tracking-wide text-ink-400 uppercase' }, t('actions.choose')),
+    select,
+    h('p', { class: 'min-w-0 flex-1 basis-80 text-sm text-ink-500' }, t(state.action.hintKey)),
   );
 }
 
@@ -417,15 +472,38 @@ function scopeCard(numero) {
           ),
         ),
     sitesFournis ? null : state.scope === 'server' ? serverScope() : state.scope === 'parc' ? parcScope() : listScope(),
+  );
+}
+
+/**
+ * Le ruban de lancement, sur toute la largeur.
+ *
+ * Il était au coin d'une carte, sous la saisie : on ne le trouvait pas. Seul sur sa
+ * ligne, il dit ce qui est retenu, ce qui va se passer, et porte le seul bouton vert
+ * de l'écran.
+ */
+function runBar() {
+  const running = state.phase === 'running';
+  const count = targets().length;
+  const pret = count > 0 && state.action.canRun?.() !== false;
+
+  return h(
+    'div',
+    { class: 'card px-5 py-4' },
     h(
       'div',
-      { class: 'mt-4 flex flex-wrap items-center gap-3 border-t border-ink-100 pt-4' },
+      { class: 'flex flex-wrap items-center gap-4' },
       h(
         'div',
         { class: 'min-w-0 flex-1' },
-        h('p', { class: 'text-sm text-ink-500' }, t('actions.selected', { count: fmtNum(count) })),
-        // Ce qui se passera au clic, dit avant le clic : rien n'est écrit à ce stade.
-        state.phase === 'idle' ? h('p', { class: 'mt-0.5 text-xs text-ink-400' }, t(state.action.beforeRunKey ?? 'actions.before_run')) : null,
+        h(
+          'p',
+          { class: pret ? 'text-sm font-medium text-ink' : 'text-sm text-ink-400' },
+          t('actions.selected', { count: fmtNum(count) }),
+        ),
+        state.phase === 'idle'
+          ? h('p', { class: 'mt-0.5 text-xs text-ink-400' }, t(state.action.beforeRunKey ?? 'actions.before_run'))
+          : null,
       ),
       running
         ? h('button', { type: 'button', class: 'btn btn-outline', onclick: () => { state.cancel = true; } }, t('actions.stop'))
@@ -433,8 +511,8 @@ function scopeCard(numero) {
             'button',
             {
               type: 'button',
-              class: 'btn btn-primary',
-              disabled: !count || state.action.canRun?.() === false,
+              class: 'btn btn-primary px-5 py-2.5',
+              disabled: !pret,
               onclick: run,
             },
             icon('refresh'),
@@ -568,18 +646,17 @@ function listScope() {
                 h('span', { class: 'text-ink-500' }, byServer(res.found)),
               )
             : null,
+          // Un domaine « introuvable » alors qu'aucun serveur ne répond n'est pas
+          // introuvable : il n'a pas été cherché. Le bandeau du haut dit quoi faire.
           res.unknown.length
             ? h(
                 'p',
-                { class: 'text-sm text-red-600' },
-                t('actions.unknown', { count: fmtNum(res.unknown.length) }),
+                { class: serveursHorsLigne().length ? 'text-sm text-ink-500' : 'text-sm text-red-600' },
+                t(serveursHorsLigne().length ? 'actions.unsearched' : 'actions.unknown', { count: fmtNum(res.unknown.length) }),
                 ' ',
                 h('span', { class: 'font-mono text-xs' }, res.unknown.slice(0, 8).join(', ')),
                 res.unknown.length > 8 ? '…' : '',
               )
-            : null,
-          res.offline?.length
-            ? h('p', { class: 'text-xs text-ink-400' }, t('actions.offline', { servers: res.offline.map((s) => s.label).join(', ') }))
             : null,
         )
       : null,

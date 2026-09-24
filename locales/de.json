@@ -696,7 +696,12 @@
     "scope_from_form": "Die Websites kommen aus der eingefügten Tabelle",
     "step_result": "Prüfung",
     "step_result_hint": "Es wurde noch nichts geschrieben. Lesen Sie nach, dann starten Sie die Anlage.",
-    "before_run": "In diesem Schritt wird nichts geschrieben: das Ergebnis erscheint unten."
+    "before_run": "In diesem Schritt wird nichts geschrieben: das Ergebnis erscheint unten.",
+    "offline_title": "{count} Server sind nicht verbunden",
+    "offline_body": "Solange die Sitzung geschlossen ist, sind ihre Domains nicht auffindbar und keine Aktion erreicht sie: {servers}.",
+    "unsearched": "{count} Domain(s) nicht gesucht, mangels Verbindung:",
+    "connect_done": "Server verbunden.",
+    "connect_partial": "Weiterhin offline: {servers}."
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",

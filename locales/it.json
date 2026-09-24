@@ -696,7 +696,12 @@
     "scope_from_form": "I siti vengono dalla tabella incollata",
     "step_result": "Verifica",
     "step_result_hint": "Non è ancora stato scritto nulla. Rileggi, poi avvia la creazione.",
-    "before_run": "Nessuna scrittura in questa fase: il risultato appare qui sotto."
+    "before_run": "Nessuna scrittura in questa fase: il risultato appare qui sotto.",
+    "offline_title": "{count} server non sono connessi",
+    "offline_body": "Finché la sessione è chiusa i loro domini restano introvabili e nessuna azione può raggiungerli: {servers}.",
+    "unsearched": "{count} dominio/i non cercati, per mancanza di connessione:",
+    "connect_done": "Server connessi.",
+    "connect_partial": "Ancora fuori linea: {servers}."
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",

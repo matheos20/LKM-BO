@@ -696,7 +696,12 @@
     "scope_from_form": "Os sites vêm da tabela colada",
     "step_result": "Verificação",
     "step_result_hint": "Ainda nada foi escrito. Releia e depois inicie a criação.",
-    "before_run": "Nada é escrito nesta etapa: o resultado aparece abaixo."
+    "before_run": "Nada é escrito nesta etapa: o resultado aparece abaixo.",
+    "offline_title": "{count} servidor(es) não estão ligados",
+    "offline_body": "Enquanto a sessão estiver fechada, os seus domínios não podem ser encontrados e nenhuma ação os alcança: {servers}.",
+    "unsearched": "{count} domínio(s) não procurados, por falta de ligação:",
+    "connect_done": "Servidores ligados.",
+    "connect_partial": "Continuam fora de linha: {servers}."
   },
   "translate": {
     "explain": "O back-office lê a página inicial dos sites escolhidos e assinala os textos escritos noutra língua que não a do site. Nada é alterado durante a análise.",

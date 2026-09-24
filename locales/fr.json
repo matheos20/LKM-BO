@@ -696,7 +696,12 @@
     "scope_from_form": "Les sites viennent du tableau collé",
     "step_result": "Vérification",
     "step_result_hint": "Rien n’est encore écrit. Relisez, puis lancez la création.",
-    "before_run": "Aucune écriture à cette étape : le résultat s’affichera ci-dessous."
+    "before_run": "Aucune écriture à cette étape : le résultat s’affichera ci-dessous.",
+    "offline_title": "{count} serveur(s) ne sont pas connectés",
+    "offline_body": "Tant que la session est fermée, leurs domaines restent introuvables et aucune action ne peut les atteindre : {servers}.",
+    "unsearched": "{count} domaine(s) non cherché(s), faute de connexion :",
+    "connect_done": "Serveurs connectés.",
+    "connect_partial": "Toujours hors ligne : {servers}."
   },
   "translate": {
     "explain": "Le back-office lit la page d'accueil des sites choisis et repère les textes rédigés dans une autre langue que celle du site. Rien n'est modifié pendant l'analyse.",

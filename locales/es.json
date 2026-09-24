@@ -696,7 +696,12 @@
     "scope_from_form": "Los sitios vienen de la tabla pegada",
     "step_result": "Verificación",
     "step_result_hint": "Todavía no se ha escrito nada. Revise y luego inicie la creación.",
-    "before_run": "No se escribe nada en este paso: el resultado aparecerá abajo."
+    "before_run": "No se escribe nada en este paso: el resultado aparecerá abajo.",
+    "offline_title": "{count} servidor(es) no están conectados",
+    "offline_body": "Mientras la sesión esté cerrada, sus dominios no se pueden encontrar y ninguna acción puede alcanzarlos: {servers}.",
+    "unsearched": "{count} dominio(s) no buscados, por falta de conexión:",
+    "connect_done": "Servidores conectados.",
+    "connect_partial": "Siguen sin conexión: {servers}."
   },
   "translate": {
     "explain": "El back-office lee la página de inicio de los sitios elegidos y detecta los textos escritos en un idioma distinto al del sitio. Nada se modifica durante el análisis.",
