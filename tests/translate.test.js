@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { dictionaryLookup, machineTranslate, normalizeLang, pickProvider } from '../src/services/langTools.js';
+import { LANGS, dictionaryLookup, machineTranslate, normalizeLang, pickProvider, templateDictionary } from '../src/services/langTools.js';
 import { readPath, writePath } from '../src/services/siteService.js';
 import { TranslationService } from '../src/services/translationService.js';
-import { SCAN_LANG } from '../src/services/phpScripts.js';
+import { SCAN_LANG, TEMPLATE_TEXTS } from '../src/services/phpScripts.js';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -418,4 +418,106 @@ $homepage = [
 
   const casse = analyser("<?php\n$site_lang = 'UK'\n"); // point-virgule manquant
   assert.equal(casse.error, 'unreadable'); // le lot entier ne tombe pas pour autant
+});
+
+// ── L'action « gabarits » : dictionnaire exact, jamais d'analyse statistique ───
+
+function gabarits(fichiers, { domain = 'exemple.com', mode = 'scan', changes = null } = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'lkm-tpl-'));
+  try {
+    for (const [rel, contenu] of Object.entries(fichiers)) {
+      const chemin = join(root, domain, 'public_html', rel);
+      mkdirSync(join(chemin, '..'), { recursive: true });
+      writeFileSync(chemin, contenu, 'utf8');
+    }
+    const dicts = Object.fromEntries(LANGS.filter((l) => l !== 'FR').map((l) => [l, templateDictionary(l)]));
+    const res = spawnSync('php', [], {
+      input: TEMPLATE_TEXTS,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        LKM_ROOT: root,
+        LKM_MODE: mode,
+        LKM_DICT: Buffer.from(JSON.stringify(dicts)).toString('base64'),
+        LKM_B64: Buffer.from(JSON.stringify([domain])).toString('base64'),
+        LKM_CHANGES: changes ? Buffer.from(JSON.stringify(changes)).toString('base64') : '',
+      },
+    });
+    assert.equal(res.status, 0, res.stderr);
+    const site = JSON.parse(res.stdout).sites[0];
+    // Les fichiers sont relus AVANT le ménage : le dossier n'existe plus au retour.
+    const apres = {};
+    for (const rel of Object.keys(fichiers)) apres[rel] = readFileSync(join(root, domain, 'public_html', rel), 'utf8');
+    site.lire = (rel) => apres[rel];
+    return site;
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const LEXIQUE = `<?php
+$translations = [
+    'FR' => ['home' => 'Accueil', 'share' => 'Partager', 'legal_url' => '/mentions-legales/'],
+    'UK' => ['home' => 'Home', 'share' => 'Share', 'legal_url' => '/legal-notice/'],
+];
+`;
+
+test('gabarits : le lexique du site fait autorité', { skip: phpAbsent && 'php absent' }, () => {
+  const site = gabarits({
+    'config.php': "<?php\n$site_lang = 'UK';\n",
+    'parts/lang.php': LEXIQUE,
+    // Relevé sur acnav.net : un repli français dans une page du moteur.
+    'sitemap.php': `<?php ?><a href="/"><?php echo $lang['home'] ?? 'Accueil'; ?></a> &rsaquo; Plan du site\n`,
+  });
+  assert.equal(site.lang, 'UK');
+  const par = Object.fromEntries(site.items.map((i) => [i.kind, i]));
+  assert.equal(par.lexique.from, 'Accueil');
+  assert.equal(par.lexique.to, 'Home'); // la valeur vient de parts/lang.php, pas d'une devinette
+  assert.equal(par.html.from, 'Plan du site');
+  assert.equal(par.html.to, 'Sitemap'); // celle-ci vient du dictionnaire du parc
+});
+
+test('gabarits : ce qui ne doit jamais bouger', { skip: phpAbsent && 'php absent' }, () => {
+  const site = gabarits({
+    'config.php': "<?php\n$site_lang = 'UK';\n",
+    'parts/lang.php': LEXIQUE,
+    // Une table multilingue est à sa place : le site choisit sa ligne à l'affichage.
+    // Sans cette garde, chaque site du parc serait signalé à tort.
+    'parts/footer.php': `<?php
+$_copyright = ['FR' => 'Tous droits réservés', 'ES' => 'Todos los derechos reservados'];
+$url = $lang['legal_url'] ?? '/mentions-legales/';
+$classe = 'footer-accueil';
+`,
+    // Un article a son propre éditeur, et son contenu n'est pas du gabarit.
+    'business/article.php': "<?php\n$article_meta = ['title' => 'Plan du site'];\n$content = 'Retour à l\'accueil';\n",
+  });
+  assert.deepEqual(site.items, []);
+});
+
+test('gabarits : un site français n a rien à traduire vers le français', { skip: phpAbsent && 'php absent' }, () => {
+  const site = gabarits({
+    'config.php': "<?php\n$site_lang = 'FR';\n",
+    'parts/lang.php': LEXIQUE,
+    '404.php': `<?php ?><p><a href="/">Retour à l'accueil</a></p>\n`,
+  });
+  assert.equal(site.skip, 'source');
+  assert.deepEqual(site.items, []);
+});
+
+test('gabarits : écriture — seul le coché change, le fichier reste valide', { skip: phpAbsent && 'php absent' }, () => {
+  const fichiers = {
+    'config.php': "<?php\n$site_lang = 'UK';\n",
+    'parts/lang.php': LEXIQUE,
+    '404.php': `<?php ?><p><a href="/">Retour à l'accueil</a></p>\n<?php $b = 'Partager'; ?>\n`,
+  };
+  // L'agent décoche « Partager » : seule la ligne HTML doit être écrite.
+  const site = gabarits(fichiers, {
+    mode: 'apply',
+    changes: { 'exemple.com': { '404.php': [{ line: 1, from: "Retour à l'accueil" }] } },
+  });
+  assert.deepEqual(site.written, [{ file: '404.php', count: 1 }]);
+  const apres = site.lire('404.php');
+  assert.match(apres, /Back to home/);
+  assert.match(apres, /\$b = 'Partager'/); // décoché : laissé tel quel
+  assert.doesNotMatch(apres, /Retour/);
 });

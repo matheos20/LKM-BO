@@ -684,7 +684,8 @@
     "parc_loading": "Domains jedes Servers werden gelesen…",
     "pick_all": "Alle auswählen",
     "pick_none": "Auswahl aufheben",
-    "server_failed": "{server}: Prüfung abgebrochen, die anderen Server laufen weiter."
+    "server_failed": "{server}: Prüfung abgebrochen, die anderen Server laufen weiter.",
+    "templates": "Vorlagen übersetzen"
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",
@@ -752,5 +753,35 @@
     "tags_moved": "Die Tags umschließen nicht mehr dieselben Wörter ({tags}): die Hervorhebung hat sich verschoben.",
     "stat_skipped": "Übersprungene Websites",
     "stat_skipped_hint": "Ohne config.php: diese Websites laufen auf einer anderen Engine. Das ist kein Fehler."
+  },
+  "templates": {
+    "explain": "Das Back-Office durchsucht die Dateien der Engine — parts/, 404.php, sitemap.php… — nach sichtbaren Wörtern, die auf Französisch geblieben sind, und schlägt die genaue Übersetzung aus dem Lexikon der Website vor. Artikelinhalte und Links werden nie angetastet.",
+    "sites_to_fix": "Zu korrigierende Websites",
+    "pick_site": "Wählen Sie eine Website aus der Liste.",
+    "apply_site": "Diese Website korrigieren",
+    "apply_all": "Korrigieren ({count})",
+    "apply_all_go": "Korrigieren",
+    "apply_all_title": "Alle Websites korrigieren?",
+    "apply_all_body": "{sites} Website(s) und {texts} Text(e) werden in der Produktion korrigiert.",
+    "working": "{done} / {total}…",
+    "done_badge": "Korrigiert",
+    "bulk_hint": "{sites} Website(s) zu korrigieren · {texts} Text(e)",
+    "from_lexicon": "Übersetzungen aus dem Lexikon der Website (parts/lang.php) und dem Wörterbuch des Parks.",
+    "safety_note": "Jede Datei wird mit php -l geprüft, unter .lkm-backups/templates/ gesichert und dann an Ort und Stelle geschrieben. Artikel, Links und mehrsprachige Tabellen werden nie angetastet.",
+    "nothing_selected": "Nichts ist angehakt.",
+    "applied": "{files} Datei(en) auf {sites} Website(s) korrigiert.",
+    "failed": "{count} Datei(en) abgelehnt — dafür wurde nichts geschrieben.",
+    "scan_done": "Prüfung beendet: {sites} Website(s), {texts} Text(e).",
+    "all_clean": "Nichts zu korrigieren",
+    "all_clean_hint": "Alle geprüften Vorlagen sind in der Sprache ihrer Website.",
+    "stat_sites": "Zu korrigieren",
+    "stat_texts": "Gefundene Texte",
+    "stat_written": "Korrigierte Dateien",
+    "stat_source": "Französische Websites",
+    "stat_source_hint": "Französisch ist die Ausgangssprache des Parks: auf einer französischen Website gibt es nichts zu übersetzen.",
+    "stat_nolex": "Ohne Lexikon",
+    "kind_lexique": "Lexikon",
+    "kind_texte": "PHP-Text",
+    "kind_html": "HTML-Text"
   }
 }

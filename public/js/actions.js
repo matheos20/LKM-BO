@@ -1,6 +1,7 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
 import { $, enc, fmtNum, h, icon, toast, toastError } from './ui.js';
+import { templateAction } from './templates.js';
 import { translateAction } from './translate.js';
 
 /**
@@ -20,7 +21,7 @@ import { translateAction } from './translate.js';
  */
 
 /** Traitements disponibles. Une action = { key, icon, labelKey, hintKey, batch, reset, run, stats, results }. */
-const ACTIONS = [translateAction];
+const ACTIONS = [translateAction, templateAction];
 
 const state = {
   open: false,

@@ -530,3 +530,282 @@ foreach ($domains as $domain) {
 
 echo json_encode(['sites' => $sites], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 `;
+
+/**
+ * Mots visibles restés en français dans les GABARITS d'un site (\`parts/\`, pages du
+ * moteur, \`sitemap.php\`…), et leur correction.
+ *
+ * Trois différences de fond avec SCAN_LANG, qui traite \`config.php\` :
+ *
+ *   1. AUCUNE analyse statistique. Les gabarits contiennent des tables multilingues
+ *      — \`$_copyright_texts = ['FR' => …, 'ES' => …]\` — qu'une détection par
+ *      fréquence de mots signalerait à tort sur chaque site du parc. Seules les
+ *      correspondances EXACTES du dictionnaire sont retenues.
+ *   2. Le lexique du site fait autorité : \`$lang['home'] ?? 'Accueil'\` se corrige avec
+ *      la valeur de \`parts/lang.php\` pour la langue du site, sans deviner.
+ *   3. Le fichier est relu par l'analyseur de PHP lui-même (\`token_get_all\`), jamais
+ *      par une expression régulière : une chaîne dans un commentaire, un heredoc ou
+ *      une interpolation ne peut pas être prise pour du texte affiché.
+ *
+ * Les ARTICLES sont écartés : ils ont leur propre éditeur, et leur contenu n'est pas
+ * du gabarit. Les adresses (\`*_url\`, \`/chemin\`, \`https://…\`) sont écartées aussi :
+ * traduire un lien changerait la destination, pas le mot lu par le visiteur.
+ *
+ * Entrées : LKM_ROOT, LKM_B64 (domaines), LKM_DICT (dictionnaires par langue),
+ *           LKM_MODE (scan | apply), LKM_CHANGES (corrections retenues, en mode apply).
+ */
+export const TEMPLATE_TEXTS = String.raw`<?php
+error_reporting(0);
+$root = rtrim((string) getenv('LKM_ROOT'), '/');
+$mode = getenv('LKM_MODE') === 'apply' ? 'apply' : 'scan';
+$domains = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true) ?: [];
+$DICOS = json_decode((string) base64_decode((string) getenv('LKM_DICT'), true), true) ?: [];
+$RETENUS = json_decode((string) base64_decode((string) getenv('LKM_CHANGES'), true), true) ?: [];
+$LANGS = ['FR', 'UK', 'ES', 'PT', 'DE', 'IT', 'NL'];
+
+/** Clé de comparaison : casse, accents et espaces ne doivent pas séparer deux variantes. */
+function cle(string $s): string {
+    $t = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+    if ($t === false) $t = $s;
+    $t = strtolower(preg_replace('/\s+/u', ' ', $t));
+    return trim($t, " \t\n\r\0\x0B.:;!?");
+}
+
+/** Décorations d'un libellé : flèches, chevrons, puces. Le cœur seul est traduit. */
+function noyau(string $s, &$avant, &$apres): string {
+    $avant = ''; $apres = '';
+    // Les mêmes décorations des deux côtés : un chevron de fil d'Ariane se place aussi
+    // bien avant qu'après le libellé (« Accueil › Plan du site »).
+    $deco = ['&larr;', '&rarr;', '&laquo;', '&raquo;', '&lsaquo;', '&rsaquo;', '&nbsp;', '&middot;',
+             '←', '→', '«', '»', '‹', '›', '•', '·', '–', '—', '…', '-', '|', '/'];
+    $g = $deco;
+    $d = $deco;
+    $c = $s;
+    do {
+        $chg = false;
+        $t = ltrim($c);
+        if ($t !== $c) { $avant .= substr($c, 0, strlen($c) - strlen($t)); $c = $t; $chg = true; }
+        foreach ($g as $m) if ($m !== '' && strpos($c, $m) === 0) { $avant .= $m; $c = substr($c, strlen($m)); $chg = true; }
+    } while ($chg && $c !== '');
+    do {
+        $chg = false;
+        $t = rtrim($c);
+        if ($t !== $c) { $apres = substr($c, strlen($t)) . $apres; $c = $t; $chg = true; }
+        foreach ($d as $m) if ($m !== '' && $m !== $c && substr($c, -strlen($m)) === $m) { $apres = $m . $apres; $c = substr($c, 0, -strlen($m)); $chg = true; }
+    } while ($chg && $c !== '');
+    return $c;
+}
+
+/** Une adresse, un identifiant, un nom de fichier : jamais un mot lu par le visiteur. */
+function technique(string $v): bool {
+    if ($v === '' || mb_strlen($v) > 120) return true;
+    if (preg_match('#^(https?:|//|/|\#|mailto:|tel:)#i', $v)) return true;
+    if (preg_match('/\.(php|css|js|jpe?g|png|webp|svg|ico|json|xml|txt)$/i', $v)) return true;
+    if (preg_match('/^[a-z0-9_.\/-]+$/', $v)) return true;   // slug, classe, clé
+    if (!preg_match('/\p{L}{2}/u', $v)) return true;
+    return false;
+}
+
+/** Valeur d'une chaîne PHP littérale. */
+function valeur(string $lit): string {
+    $q = $lit[0] ?? '';
+    $c = substr($lit, 1, -1);
+    if ($q === "'") return strtr($c, ["\\'" => "'", '\\\\' => '\\']);
+    if ($q === '"') return stripcslashes($c);
+    return $lit;
+}
+
+/** Chaîne PHP entre apostrophes. */
+function litteral(string $v): string {
+    return "'" . strtr($v, ['\\' => '\\\\', "'" => "\\'"]) . "'";
+}
+
+/** Le lexique du site : parts/lang.php, lu par PHP lui-même. */
+function lexique(string $doc): ?array {
+    $f = $doc . '/parts/lang.php';
+    if (!is_file($f)) return null;
+    $t = (function ($file) {
+        ob_start();
+        include $file;
+        ob_end_clean();
+        return $translations ?? null;
+    })($f);
+    return is_array($t) ? $t : null;
+}
+
+/**
+ * Nœuds de texte d'un bloc HTML : ce que le visiteur lit, hors balises.
+ * Rend une liste de [position, longueur, texte].
+ */
+function noeuds(string $html): array {
+    $out = []; $n = strlen($html); $i = 0;
+    while ($i < $n) {
+        if ($html[$i] === '<') {
+            $f = strpos($html, '>', $i);
+            if ($f === false) break;
+            $i = $f + 1;
+            continue;
+        }
+        $f = strpos($html, '<', $i);
+        $len = ($f === false ? $n : $f) - $i;
+        if ($len > 0) $out[] = [$i, $len, substr($html, $i, $len)];
+        $i += $len;
+    }
+    return $out;
+}
+
+/** Index des tokens significatifs (espaces et commentaires ignorés). */
+function signifiants(array $tokens): array {
+    $out = [];
+    foreach ($tokens as $i => $tok) {
+        if (is_array($tok) && in_array($tok[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) continue;
+        $out[] = $i;
+    }
+    return $out;
+}
+
+$sites = [];
+foreach ($domains as $domain) {
+    $domain = (string) $domain;
+    if (!preg_match('/^[a-z0-9][a-z0-9.-]{1,252}$/i', $domain)) continue;
+    $doc = $root . '/' . $domain . '/public_html';
+    $site = ['domain' => $domain, 'items' => []];
+    if (!is_file($doc . '/config.php')) { $site['error'] = 'missing'; $sites[] = $site; continue; }
+
+    $cfg = (string) @file_get_contents($doc . '/config.php');
+    $lang = preg_match('/\$site_lang\s*=\s*[\x27"]([A-Za-z]{2})[\x27"]/', $cfg, $m) ? strtoupper($m[1]) : 'FR';
+    $lang = ['EN' => 'UK', 'GB' => 'UK', 'US' => 'UK', 'BR' => 'PT', 'MX' => 'ES', 'AT' => 'DE', 'BE' => 'NL'][$lang] ?? $lang;
+    if (!in_array($lang, $LANGS, true)) $lang = 'FR';
+    $site['lang'] = $lang;
+    if ($lang === 'FR') { $site['skip'] = 'source'; $sites[] = $site; continue; }
+
+    $lex = lexique($doc);
+    if ($lex === null || !isset($lex[$lang])) { $site['skip'] = 'lexicon'; $sites[] = $site; continue; }
+    $TO = $lex[$lang];
+    $DICO = [];
+    foreach (($DICOS[$lang] ?? []) as $fr => $to) $DICO[cle($fr)] = $to;
+
+    $fichiers = array_merge(glob($doc . '/*.php') ?: [], glob($doc . '/parts/*.php') ?: []);
+    sort($fichiers);
+    foreach ($fichiers as $chemin) {
+        $nom = basename($chemin);
+        $rel = ltrim(str_replace($doc, '', $chemin), '/');
+        if ($nom === 'lang.php' || $nom === 'config.php' || strpos($nom, '.bak') !== false) continue;
+        $src = (string) @file_get_contents($chemin);
+        if ($src === '') continue;
+        // Un article n'est pas un gabarit : il a son propre éditeur.
+        if (strpos(substr($src, 0, 600), '$article_meta') !== false) continue;
+
+        try { $tokens = token_get_all($src); } catch (\Throwable $e) { continue; }
+        $sig = signifiants($tokens);
+        $aRemplacer = [];   // index de token => nouveau texte
+        $vus = [];          // index de token déjà traités par la passe A
+
+        // ── Passe A : $lang['cle'] ?? 'Texte français' ─────────────────────
+        for ($k = 0; $k + 5 < count($sig); $k++) {
+            $t0 = $tokens[$sig[$k]];
+            if (!is_array($t0) || $t0[0] !== T_VARIABLE || $t0[1] !== '$lang') continue;
+            if ($tokens[$sig[$k + 1]] !== '[') continue;
+            $tc = $tokens[$sig[$k + 2]];
+            if (!is_array($tc) || $tc[0] !== T_CONSTANT_ENCAPSED_STRING) continue;
+            if ($tokens[$sig[$k + 3]] !== ']') continue;
+            $tq = $tokens[$sig[$k + 4]];
+            if (!is_array($tq) || $tq[0] !== T_COALESCE) continue;
+            $tv = $tokens[$sig[$k + 5]];
+            if (!is_array($tv) || $tv[0] !== T_CONSTANT_ENCAPSED_STRING) continue;
+
+            $key = valeur($tc[1]);
+            // Une adresse traduite changerait la destination du lien, pas un mot lu.
+            if (substr($key, -4) === '_url' || !isset($TO[$key]) || !is_string($TO[$key])) continue;
+            $de = valeur($tv[1]);
+            $vers = $TO[$key];
+            $vus[$sig[$k + 5]] = true;
+            if ($de === $vers) continue;
+            $aRemplacer[$sig[$k + 5]] = ['kind' => 'lexique', 'line' => $tv[2], 'from' => $de, 'to' => $vers, 'new' => litteral($vers)];
+        }
+
+        // ── Passe B : littéraux connus du dictionnaire ─────────────────────
+        foreach ($sig as $pos => $idx) {
+            $tok = $tokens[$idx];
+            if (!is_array($tok) || $tok[0] !== T_CONSTANT_ENCAPSED_STRING || isset($vus[$idx])) continue;
+            // Valeur d'une table multilingue ('ES' => 'Todos los derechos reservados') :
+            // elle est à sa place, c'est le site qui choisit la ligne à afficher.
+            if ($pos >= 2 && $tokens[$sig[$pos - 1]] === ',') { /* rien */ }
+            if ($pos >= 2) {
+                $fl = $tokens[$sig[$pos - 1]];
+                $cleGauche = $tokens[$sig[$pos - 2]];
+                if (is_array($fl) && $fl[0] === T_DOUBLE_ARROW && is_array($cleGauche)
+                    && $cleGauche[0] === T_CONSTANT_ENCAPSED_STRING
+                    && in_array(strtoupper(valeur($cleGauche[1])), $LANGS, true)) continue;
+            }
+            $v = valeur($tok[1]);
+            if ($tok[1][0] === '"' && preg_match('/[$\{]/', $tok[1])) continue;
+            $coeur = noyau($v, $av, $ap);
+            if (technique($coeur)) continue;
+            $trad = $DICO[cle($coeur)] ?? null;
+            if ($trad === null || $trad === $coeur) continue;
+            $aRemplacer[$idx] = ['kind' => 'texte', 'line' => $tok[2], 'from' => $coeur, 'to' => $trad, 'new' => litteral($av . $trad . $ap)];
+        }
+
+        // ── Passe C : texte visible du HTML ────────────────────────────────
+        foreach ($tokens as $idx => $tok) {
+            if (!is_array($tok) || $tok[0] !== T_INLINE_HTML) continue;
+            $html = $tok[1];
+            $sortie = ''; $curseur = 0; $touche = false; $premier = null;
+            foreach (noeuds($html) as [$debut, $len, $texte]) {
+                $coeur = noyau($texte, $av, $ap);
+                if (technique($coeur)) continue;
+                $trad = $DICO[cle($coeur)] ?? null;
+                if ($trad === null || $trad === $coeur) continue;
+                $sortie .= substr($html, $curseur, $debut - $curseur) . $av . $trad . $ap;
+                $curseur = $debut + $len;
+                $touche = true;
+                // Le bloc HTML peut couvrir plusieurs lignes : on situe le texte, pas le bloc.
+                if ($premier === null) $premier = [$coeur, $trad, $tok[2] + substr_count(substr($html, 0, $debut), chr(10))];
+            }
+            if (!$touche) continue;
+            $sortie .= substr($html, $curseur);
+            $aRemplacer[$idx] = ['kind' => 'html', 'line' => $premier[2], 'from' => $premier[0], 'to' => $premier[1], 'new' => $sortie];
+        }
+
+        if (!$aRemplacer) continue;
+        foreach ($aRemplacer as $idx => $r) {
+            $site['items'][] = ['file' => $rel, 'line' => $r['line'], 'kind' => $r['kind'], 'from' => $r['from'], 'to' => $r['to']];
+        }
+
+        // ── Écriture ───────────────────────────────────────────────────────
+        if ($mode !== 'apply') continue;
+        $choix = $RETENUS[$domain][$rel] ?? null;
+        $sortie = ''; $ecrits = 0;
+        foreach ($tokens as $idx => $tok) {
+            $brut = is_array($tok) ? $tok[1] : $tok;
+            if (!isset($aRemplacer[$idx])) { $sortie .= $brut; continue; }
+            $r = $aRemplacer[$idx];
+            // L'agent a pu décocher : on ne réécrit que ce qu'il a retenu.
+            $retenu = $choix === null;
+            if (!$retenu) foreach ($choix as $c) {
+                if (($c['line'] ?? 0) == $r['line'] && ($c['from'] ?? '') === $r['from']) { $retenu = true; break; }
+            }
+            if (!$retenu) { $sortie .= $brut; continue; }
+            $sortie .= $r['new'];
+            $ecrits++;
+        }
+        if ($ecrits === 0) continue;
+
+        $tmp = $chemin . '.lkm-new';
+        if (@file_put_contents($tmp, $sortie) === false) { $site['failed'][] = $rel; continue; }
+        exec('php -l ' . escapeshellarg($tmp) . ' 2>&1', $sortieLint, $code);
+        if ($code !== 0) { @unlink($tmp); $site['failed'][] = $rel; continue; }
+        $bk = $doc . '/.lkm-backups/templates';
+        @mkdir($bk . '/' . dirname($rel), 0775, true);
+        @copy($chemin, $bk . '/' . $rel . '.' . date('Ymd-His'));
+        // cat plutôt que rename : propriétaire, droits et ACL du fichier d'origine sont conservés.
+        if (@file_put_contents($chemin, $sortie) === false) { @unlink($tmp); $site['failed'][] = $rel; continue; }
+        @unlink($tmp);
+        $site['written'][] = ['file' => $rel, 'count' => $ecrits];
+    }
+    $sites[] = $site;
+}
+
+echo json_encode(['sites' => $sites, 'mode' => $mode], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+`;

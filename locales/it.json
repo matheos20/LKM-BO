@@ -684,7 +684,8 @@
     "parc_loading": "Lettura dei domini di ogni server…",
     "pick_all": "Seleziona tutto",
     "pick_none": "Deseleziona tutto",
-    "server_failed": "{server}: analisi interrotta, gli altri server proseguono."
+    "server_failed": "{server}: analisi interrotta, gli altri server proseguono.",
+    "templates": "Tradurre i modelli"
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
@@ -752,5 +753,35 @@
     "tags_moved": "I tag non racchiudono più le stesse parole ({tags}): l’enfasi è cambiata.",
     "stat_skipped": "Siti ignorati",
     "stat_skipped_hint": "Senza config.php: questi siti usano un altro motore. Non è un’anomalia."
+  },
+  "templates": {
+    "explain": "Il back-office cerca nei file del motore — parts/, 404.php, sitemap.php… — le parole visibili rimaste in francese e propone la traduzione esatta del lessico del sito. Il contenuto degli articoli e i link non vengono mai toccati.",
+    "sites_to_fix": "Siti da correggere",
+    "pick_site": "Scegli un sito nell’elenco.",
+    "apply_site": "Correggi questo sito",
+    "apply_all": "Correggi ({count})",
+    "apply_all_go": "Correggi",
+    "apply_all_title": "Correggere tutti i siti?",
+    "apply_all_body": "Saranno corretti {sites} sito/i e {texts} testo/i in produzione.",
+    "working": "{done} / {total}…",
+    "done_badge": "Corretto",
+    "bulk_hint": "{sites} sito/i da correggere · {texts} testo/i",
+    "from_lexicon": "Traduzioni dal lessico del sito (parts/lang.php) e dal dizionario del parco.",
+    "safety_note": "Ogni file è controllato con php -l, salvato in .lkm-backups/templates/, poi scritto sul posto. Articoli, link e tabelle multilingue non vengono mai toccati.",
+    "nothing_selected": "Nessuna correzione selezionata.",
+    "applied": "{files} file corretto/i su {sites} sito/i.",
+    "failed": "{count} file rifiutato/i — per quelli non è stato scritto nulla.",
+    "scan_done": "Analisi terminata: {sites} sito/i, {texts} testo/i.",
+    "all_clean": "Niente da correggere",
+    "all_clean_hint": "I modelli analizzati sono nella lingua del loro sito.",
+    "stat_sites": "Siti da correggere",
+    "stat_texts": "Testi trovati",
+    "stat_written": "File corretti",
+    "stat_source": "Siti francesi",
+    "stat_source_hint": "Il francese è la lingua di origine del parco: su un sito francese non c’è nulla da tradurre.",
+    "stat_nolex": "Senza lessico",
+    "kind_lexique": "lessico",
+    "kind_texte": "testo PHP",
+    "kind_html": "testo HTML"
   }
 }

@@ -1,6 +1,6 @@
 import { AppError } from '../errors.js';
-import { SCAN_LANG } from './phpScripts.js';
-import { LANGS, dictionaryLookup, machineTranslate, normalizeLang, pickProvider } from './langTools.js';
+import { SCAN_LANG, TEMPLATE_TEXTS } from './phpScripts.js';
+import { LANGS, dictionaryLookup, machineTranslate, normalizeLang, pickProvider, templateDictionary } from './langTools.js';
 
 /**
  * Traduction des pages d'accueil du parc.
@@ -119,6 +119,61 @@ export class TranslationService {
     } catch (err) {
       throw new AppError('errors.translate_failed', { status: 502, detail: String(err.message).slice(0, 300) });
     }
+  }
+
+  // ───────────────────────── Gabarits ─────────────────────────
+
+  /**
+   * Dictionnaires des gabarits, une fois pour toutes : ils ne dépendent pas du site.
+   * Chaque langue cible y trouve la traduction exacte des expressions du parc.
+   */
+  get templateDicts() {
+    this.dicts ??= Buffer.from(
+      JSON.stringify(Object.fromEntries(LANGS.filter((l) => l !== 'FR').map((l) => [l, templateDictionary(l)]))),
+      'utf8',
+    ).toString('base64');
+    return this.dicts;
+  }
+
+  /**
+   * Mots visibles restés en français dans les gabarits d'un lot de sites.
+   *
+   * En mode `scan` (défaut) rien n'est écrit. En mode `apply`, les corrections
+   * retenues sont écrites fichier par fichier : contrôle `php -l`, sauvegarde
+   * horodatée sous `.lkm-backups/templates/`, puis écriture sur place.
+   */
+  async templates(serverId, domains, { apply = false, changes = null } = {}) {
+    const server = this.ssh.server(serverId);
+    const list = (Array.isArray(domains) ? domains : []).map((d) => String(d ?? '').trim().toLowerCase()).filter(Boolean);
+    if (!list.length) throw new AppError('errors.translate_no_domain', { status: 400 });
+    if (list.length > MAX_BATCH) throw new AppError('errors.translate_batch_too_big', { status: 400, vars: { max: MAX_BATCH } });
+
+    const raw = await this.sites.runPhp(
+      serverId,
+      server.wwwRoot,
+      TEMPLATE_TEXTS,
+      {
+        LKM_ROOT: server.wwwRoot,
+        LKM_MODE: apply ? 'apply' : 'scan',
+        LKM_DICT: this.templateDicts,
+        LKM_B64: Buffer.from(JSON.stringify(list), 'utf8').toString('base64'),
+        LKM_CHANGES: changes ? Buffer.from(JSON.stringify(changes), 'utf8').toString('base64') : '',
+      },
+      { timeout: SCAN_TIMEOUT },
+    );
+
+    return {
+      sites: (raw.sites ?? []).map((site) => ({
+        domain: site.domain,
+        lang: normalizeLang(site.lang),
+        error: site.error ?? null,
+        // « source » : le site est français, il n'y a rien à traduire vers le français.
+        skip: site.skip ?? null,
+        items: site.items ?? [],
+        written: site.written ?? [],
+        failed: site.failed ?? [],
+      })),
+    };
   }
 
   /**

@@ -520,6 +520,34 @@ d'origine : un slogan français sur un site anglais, une question de FAQ oublié
   mention « à vérifier ».
 - L'analyse demande `design.read`, la publication `design.publish` : les mêmes droits que l'éditeur.
 
+### L'action « Traduction des gabarits »
+
+La seconde action du menu traite les fichiers du moteur — `parts/`, `404.php`, `sitemap.php`… —
+là où la première traite `config.php`. Elle reprend le travail du script
+[`traduire-langue.sh`](server-scripts/) et l'amène dans l'interface.
+
+**Elle ne devine jamais.** Chaque correction vient soit du lexique du site
+(`$lang['home'] ?? 'Accueil'` → la valeur `'Home'` de `parts/lang.php`), soit du dictionnaire du
+parc pour les expressions connues. **Aucune analyse statistique** : les gabarits contiennent des
+tables multilingues — `$_copyright_texts = ['FR' => …, 'ES' => …]` — qu'une détection par
+fréquence de mots signalerait à tort sur *chaque* site. Mesuré : 7 981 faux positifs sur 1 200
+sites par la voie statistique, **zéro** par le dictionnaire.
+
+Le fichier est relu par l'analyseur de PHP lui-même (`token_get_all`) : une chaîne dans un
+commentaire, un heredoc ou une interpolation ne peut pas être prise pour du texte affiché.
+
+**Ce qui n'est jamais touché** : le contenu des articles (ils ont leur éditeur), les adresses
+(`*_url`, `/chemin`, `https://…` — traduire un lien changerait sa destination), les identifiants
+et les classes CSS, et les tables multilingues.
+
+Chaque fichier corrigé est contrôlé par `php -l`, sauvegardé sous `.lkm-backups/templates/`, puis
+écrit sur place.
+
+**Mesure du 24/09/2026** : sur 600 sites de deux serveurs, 466 sont francophones (rien à traduire
+vers leur propre langue) et **134 sites non francophones sur 134** portent le même reste —
+« Retour à l'accueil » dans leur page 404. Le seul autre cas relevé, `acnav.net`, en compte six,
+dont deux dans `sitemap.php` — un fichier qu'on ne pense pas à ouvrir.
+
 ### Traduction automatique (facultative)
 
 Quatre services au choix, à renseigner dans `.env` — **le premier configuré est retenu** :

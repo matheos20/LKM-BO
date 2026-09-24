@@ -684,7 +684,8 @@
     "parc_loading": "Lecture des domaines de chaque serveur…",
     "pick_all": "Tout cocher",
     "pick_none": "Tout décocher",
-    "server_failed": "{server} : analyse interrompue, les autres serveurs continuent."
+    "server_failed": "{server} : analyse interrompue, les autres serveurs continuent.",
+    "templates": "Traduction des gabarits"
   },
   "translate": {
     "explain": "Le back-office lit la page d'accueil des sites choisis et repère les textes rédigés dans une autre langue que celle du site. Rien n'est modifié pendant l'analyse.",
@@ -752,5 +753,35 @@
     "tags_moved": "Les balises n’entourent plus les mêmes mots ({tags}) : la mise en valeur a changé de sens.",
     "stat_skipped": "Sites ignorés",
     "stat_skipped_hint": "Sans config.php : ces sites tournent sur un autre moteur que celui du parc. Ce n’est pas une anomalie."
+  },
+  "templates": {
+    "explain": "Le back-office cherche dans les fichiers du moteur — parts/, 404.php, sitemap.php… — les mots visibles restés en français, et propose la traduction exacte du lexique du site. Le contenu des articles et les adresses ne sont jamais touchés.",
+    "sites_to_fix": "Sites à corriger",
+    "pick_site": "Choisissez un site dans la liste.",
+    "apply_site": "Corriger ce site",
+    "apply_all": "Corriger ({count})",
+    "apply_all_go": "Corriger",
+    "apply_all_title": "Corriger tous les sites ?",
+    "apply_all_body": "{sites} site(s) et {texts} texte(s) seront corrigés en production.",
+    "working": "{done} / {total}…",
+    "done_badge": "Corrigé",
+    "bulk_hint": "{sites} site(s) à corriger · {texts} texte(s)",
+    "from_lexicon": "Traductions issues du lexique du site (parts/lang.php) et du dictionnaire du parc.",
+    "safety_note": "Chaque fichier est contrôlé par php -l, sauvegardé sous .lkm-backups/templates/, puis écrit sur place. Les articles, les adresses et les tables multilingues ne sont jamais touchés.",
+    "nothing_selected": "Aucune correction cochée.",
+    "applied": "{files} fichier(s) corrigé(s) sur {sites} site(s).",
+    "failed": "{count} fichier(s) refusés — rien écrit pour ceux-là.",
+    "scan_done": "Analyse terminée : {sites} site(s), {texts} texte(s).",
+    "all_clean": "Aucun mot à corriger",
+    "all_clean_hint": "Les gabarits analysés sont dans la langue de leur site.",
+    "stat_sites": "Sites à corriger",
+    "stat_texts": "Textes trouvés",
+    "stat_written": "Fichiers corrigés",
+    "stat_source": "Sites francophones",
+    "stat_source_hint": "Le français est la langue source du parc : sur un site français, il n’y a rien à traduire.",
+    "stat_nolex": "Sans lexique",
+    "kind_lexique": "lexique",
+    "kind_texte": "texte PHP",
+    "kind_html": "texte HTML"
   }
 }

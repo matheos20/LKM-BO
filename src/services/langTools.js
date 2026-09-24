@@ -81,6 +81,87 @@ export function dictionaryLookup(text, target) {
 }
 
 
+// ───────────────────────── Expressions des gabarits ─────────────────────────
+
+/**
+ * Expressions visibles qui reviennent dans les gabarits du parc (`parts/`, pages du
+ * moteur), reprises du script `traduire-langue.sh` qui a servi à traduire le parc.
+ *
+ * Ce dictionnaire ne sert qu'à des remplacements EXACTS : une correspondance mot pour
+ * mot, jamais une analyse statistique. Les gabarits contiennent des tables
+ * multilingues — `$_copyright_texts = ['FR' => …, 'ES' => …]` — qu'une détection par
+ * fréquence de mots signalerait à tort sur chaque site du parc.
+ *
+ * Ordre des colonnes : FR, UK, ES, PT, DE, IT, NL.
+ */
+export const TEMPLATE_PHRASES = [
+  ['Rejoindre', 'Join', 'Unirse', 'Aderir', 'Beitreten', 'Unisciti', 'Meedoen'],
+  ['Nous rejoindre', 'Join us', 'Únete a nosotros', 'Junte-se a nós', 'Mitmachen', 'Unisciti a noi', 'Doe met ons mee'],
+  ["Lire l'article", 'Read the article', 'Leer el artículo', 'Ler o artigo', 'Artikel lesen', "Leggi l'articolo", 'Lees het artikel'],
+  ["Voir l'article", 'View the article', 'Ver el artículo', 'Ver o artigo', 'Artikel ansehen', "Vedi l'articolo", 'Bekijk het artikel'],
+  ["Plus d'informations", 'More information', 'Más información', 'Mais informações', 'Weitere Informationen', 'Maggiori informazioni', 'Meer informatie'],
+  ['Voir plus', 'See more', 'Ver más', 'Ver mais', 'Mehr anzeigen', 'Vedi di più', 'Meer bekijken'],
+  ['Découvrez', 'Discover', 'Descubre', 'Descubra', 'Entdecken Sie', 'Scopri', 'Ontdek'],
+  ['Retour', 'Back', 'Volver', 'Voltar', 'Zurück', 'Indietro', 'Terug'],
+  ["Retour à l'accueil", 'Back to home', 'Volver al inicio', 'Voltar ao início', 'Zurück zur Startseite', 'Torna alla home', 'Terug naar home'],
+  ['Envoyer', 'Send', 'Enviar', 'Enviar', 'Senden', 'Invia', 'Verzenden'],
+  ['Envoyer le message', 'Send message', 'Enviar mensaje', 'Enviar mensagem', 'Nachricht senden', 'Invia il messaggio', 'Bericht verzenden'],
+  ['Votre nom', 'Your name', 'Tu nombre', 'O seu nome', 'Ihr Name', 'Il tuo nome', 'Uw naam'],
+  ['Votre email', 'Your email', 'Tu correo electrónico', 'O seu email', 'Ihre E-Mail', 'La tua email', 'Uw e-mail'],
+  ['Votre message', 'Your message', 'Tu mensaje', 'A sua mensagem', 'Ihre Nachricht', 'Il tuo messaggio', 'Uw bericht'],
+  ['Prénom', 'First name', 'Nombre', 'Nome próprio', 'Vorname', 'Nome', 'Voornaam'],
+  ['Message', 'Message', 'Mensaje', 'Mensagem', 'Nachricht', 'Messaggio', 'Bericht'],
+  ['Sujet', 'Subject', 'Asunto', 'Assunto', 'Betreff', 'Oggetto', 'Onderwerp'],
+  ['Rechercher', 'Search', 'Buscar', 'Pesquisar', 'Suchen', 'Cerca', 'Zoeken'],
+  ['Recherche', 'Search', 'Búsqueda', 'Pesquisa', 'Suche', 'Ricerca', 'Zoeken'],
+  ['Suivant', 'Next', 'Siguiente', 'Seguinte', 'Weiter', 'Successivo', 'Volgende'],
+  ['Précédent', 'Previous', 'Anterior', 'Anterior', 'Vorherige', 'Precedente', 'Vorige'],
+  ['Tous les articles', 'All articles', 'Todos los artículos', 'Todos os artigos', 'Alle Artikel', 'Tutti gli articoli', 'Alle artikelen'],
+  ['À découvrir aussi', 'Also worth reading', 'También te puede interesar', 'Também para descobrir', 'Ebenfalls interessant', 'Da scoprire anche', 'Ook interessant'],
+  ['Articles similaires', 'Related articles', 'Artículos relacionados', 'Artigos relacionados', 'Ähnliche Artikel', 'Articoli correlati', 'Gerelateerde artikelen'],
+  ['Articles récents', 'Recent articles', 'Artículos recientes', 'Artigos recentes', 'Neueste Artikel', 'Articoli recenti', 'Recente artikelen'],
+  ['Continuer la lecture', 'Continue reading', 'Seguir leyendo', 'Continuar a ler', 'Weiterlesen', 'Continua a leggere', 'Verder lezen'],
+  ['Catégories', 'Categories', 'Categorías', 'Categorias', 'Kategorien', 'Categorie', 'Categorieën'],
+  ['Catégorie', 'Category', 'Categoría', 'Categoria', 'Kategorie', 'Categoria', 'Categorie'],
+  ['Auteur', 'Author', 'Autor', 'Autor', 'Autor', 'Autore', 'Auteur'],
+  ['Temps de lecture', 'Reading time', 'Tiempo de lectura', 'Tempo de leitura', 'Lesezeit', 'Tempo di lettura', 'Leestijd'],
+  ['Suivez-nous', 'Follow us', 'Síguenos', 'Siga-nos', 'Folgen Sie uns', 'Seguici', 'Volg ons'],
+  ['Abonnez-vous', 'Subscribe', 'Suscríbete', 'Subscreva', 'Abonnieren', 'Iscriviti', 'Abonneer'],
+  ['Merci', 'Thank you', 'Gracias', 'Obrigado', 'Danke', 'Grazie', 'Bedankt'],
+  ['Page non trouvée', 'Page not found', 'Página no encontrada', 'Página não encontrada', 'Seite nicht gefunden', 'Pagina non trovata', 'Pagina niet gevonden'],
+  ['Plan du site', 'Sitemap', 'Mapa del sitio', 'Mapa do site', 'Sitemap', 'Mappa del sito', 'Sitemap'],
+  ['Politique de confidentialité', 'Privacy policy', 'Política de privacidad', 'Política de privacidade', 'Datenschutz', 'Informativa sulla privacy', 'Privacybeleid'],
+  ['Conditions générales', 'Terms and conditions', 'Condiciones generales', 'Termos e condições', 'Allgemeine Geschäftsbedingungen', 'Termini e condizioni', 'Algemene voorwaarden'],
+  ['Tous droits réservés', 'All rights reserved', 'Todos los derechos reservados', 'Todos os direitos reservados', 'Alle Rechte vorbehalten', 'Tutti i diritti riservati', 'Alle rechten voorbehouden'],
+  ['Mis à jour le', 'Updated on', 'Actualizado el', 'Atualizado em', 'Aktualisiert am', 'Aggiornato il', 'Bijgewerkt op'],
+  ['Chargement', 'Loading', 'Cargando', 'A carregar', 'Wird geladen', 'Caricamento', 'Laden'],
+  ['Aucun article', 'No articles', 'No hay artículos', 'Nenhum artigo', 'Keine Artikel', 'Nessun articolo', 'Geen artikelen'],
+  ['Accueil', 'Home', 'Inicio', 'Início', 'Startseite', 'Home', 'Home'],
+  ['Partager', 'Share', 'Compartir', 'Partilhar', 'Teilen', 'Condividi', 'Delen'],
+  ['Publié le', 'Published on', 'Publicado el', 'Publicado em', 'Veröffentlicht am', 'Pubblicato il', 'Gepubliceerd op'],
+  ['Écrit par', 'Written by', 'Escrito por', 'Escrito por', 'Geschrieben von', 'Scritto da', 'Geschreven door'],
+  ['min de lecture', 'min read', 'min de lectura', 'min de leitura', 'Min. Lesezeit', 'min di lettura', 'min leestijd'],
+  ['Mentions légales', 'Legal notice', 'Aviso legal', 'Avisos legais', 'Impressum', 'Note legali', 'Juridische vermeldingen'],
+  ['Navigation', 'Navigation', 'Navegación', 'Navegação', 'Navigation', 'Navigazione', 'Navigatie'],
+  ['Liens', 'Links', 'Enlaces', 'Links', 'Links', 'Link', 'Links'],
+  ['Légal', 'Legal', 'Legal', 'Legal', 'Rechtliches', 'Legale', 'Juridisch'],
+  ['Rubriques', 'Categories', 'Categorías', 'Categorias', 'Kategorien', 'Categorie', 'Categorieën'],
+];
+
+/** Le dictionnaire des gabarits, prêt pour le script PHP : { langue: { fr: traduction } }. */
+export function templateDictionary(target) {
+  const lang = normalizeLang(target);
+  const col = LANGS.indexOf(lang);
+  if (col < 1) return null; // FR est la langue source : rien à traduire vers elle
+  const out = {};
+  for (const row of [...DICTIONARY, ...TEMPLATE_PHRASES]) {
+    const fr = row[0];
+    const to = row[col];
+    if (fr && to && key(fr) !== key(to)) out[fr] = to;
+  }
+  return out;
+}
+
 // ───────────────────────── Traduction automatique ─────────────────────────
 
 /**
