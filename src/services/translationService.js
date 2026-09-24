@@ -1,6 +1,7 @@
 import { AppError } from '../errors.js';
 import { SCAN_LANG, TEMPLATE_TEXTS } from './phpScripts.js';
 import { LANGS, dictionaryLookup, machineTranslate, normalizeLang, pickProvider, templateDictionary } from './langTools.js';
+import { phrasesByLang } from '../db/phrases.js';
 
 /**
  * Traduction des pages d'accueil du parc.
@@ -128,11 +129,13 @@ export class TranslationService {
    * Chaque langue cible y trouve la traduction exacte des expressions du parc.
    */
   get templateDicts() {
-    this.dicts ??= Buffer.from(
-      JSON.stringify(Object.fromEntries(LANGS.filter((l) => l !== 'FR').map((l) => [l, templateDictionary(l)]))),
-      'utf8',
-    ).toString('base64');
-    return this.dicts;
+    // Recalculé à chaque analyse : un mot ajouté par un agent doit servir aussitôt,
+    // sans redémarrer le back-office.
+    const ajouts = phrasesByLang();
+    const tout = Object.fromEntries(
+      LANGS.filter((l) => l !== 'FR').map((l) => [l, { ...templateDictionary(l), ...(ajouts[l] ?? {}) }]),
+    );
+    return Buffer.from(JSON.stringify(tout), 'utf8').toString('base64');
   }
 
   /**
@@ -170,6 +173,8 @@ export class TranslationService {
         // « source » : le site est français, il n'y a rien à traduire vers le français.
         skip: site.skip ?? null,
         items: site.items ?? [],
+        // Phrases françaises qu'aucun dictionnaire ne couvre : à l'agent d'en décider.
+        todo: site.todo ?? [],
         written: site.written ?? [],
         failed: site.failed ?? [],
       })),

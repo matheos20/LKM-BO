@@ -23,6 +23,10 @@ const state = {
   selected: null,
   edits: new Map(), // clé de site → Set des corrections écartées
   doneSites: new Map(), // clé de site → nombre de fichiers corrigés
+  todo: [], // phrases françaises qu'aucun dictionnaire ne couvre
+  phrases: [], // dictionnaire ajouté par les agents
+  showDict: false,
+  prefill: null, // mot repris d'un signalement, pour n'avoir plus qu'à écrire la traduction
 };
 
 const keyOf = (site) => `${site.server}/${site.domain}`;
@@ -52,6 +56,154 @@ const kindLabel = (kind) => {
   const label = t(`templates.kind_${kind}`);
   return label.startsWith('templates.kind_') ? kind : label;
 };
+
+// ───────────────────────── Dictionnaire des agents ─────────────────────────
+
+async function loadPhrases() {
+  try {
+    const { phrases } = await api('/api/design/phrases');
+    state.phrases = phrases ?? [];
+  } catch {
+    state.phrases = [];
+  }
+  templateAction.onChange?.();
+}
+
+async function addPhrase({ source, lang, target }, bouton) {
+  if (bouton) bouton.disabled = true;
+  try {
+    await api('/api/design/phrases', { method: 'POST', body: { source, lang, target } });
+    state.prefill = null;
+    toast(t('templates.phrase_added'), 'success');
+    await loadPhrases();
+  } catch (err) {
+    toastError(err);
+  } finally {
+    if (bouton) bouton.disabled = false;
+  }
+}
+
+async function removePhrase(id) {
+  try {
+    await api(`/api/design/phrases/${id}`, { method: 'DELETE' });
+    await loadPhrases();
+  } catch (err) {
+    toastError(err);
+  }
+}
+
+/** Formulaire d'ajout : un mot français, une langue, sa traduction. */
+function phraseForm({ source = '', lang = 'UK' } = {}) {
+  const fr = h('input', { class: 'input sm:w-64', value: source, placeholder: t('templates.phrase_source') });
+  const choix = h(
+    'select',
+    { class: 'input sm:w-32' },
+    ['UK', 'ES', 'PT', 'DE', 'IT', 'NL'].map((l) => h('option', { value: l }, l)),
+  );
+  choix.value = lang; // la propriété, pas l'attribut : c'est elle qui choisit l'option
+  const to = h('input', { class: 'input sm:w-64', placeholder: t('templates.phrase_target') });
+  const go = h(
+    'button',
+    { type: 'button', class: 'btn btn-primary px-3 py-1.5' },
+    icon('plus'),
+    t('templates.phrase_add'),
+  );
+  go.addEventListener('click', () => addPhrase({ source: fr.value, lang: choix.value, target: to.value }, go));
+  to.addEventListener('keydown', (e) => e.key === 'Enter' && go.click());
+  return h('div', { class: 'flex flex-wrap items-center gap-2', 'data-dict-form': '' }, fr, choix, to, go);
+}
+
+/** Le dictionnaire, replié par défaut : on l'ouvre pour ajouter ou retirer un mot. */
+function dictionary(permissions) {
+  const peut = permissions.includes('design.edit');
+  const entete = h(
+    'button',
+    {
+      type: 'button',
+      class: 'flex w-full items-center gap-2 px-5 py-3 text-left',
+      onclick: () => {
+        state.showDict = !state.showDict;
+        if (state.showDict && !state.phrases.length) loadPhrases();
+        templateAction.onChange?.();
+      },
+    },
+    icon('chevronRight', `size-4 text-ink-400 transition ${state.showDict ? 'rotate-90' : ''}`),
+    h('span', { class: 'text-sm font-semibold' }, t('templates.dict_title')),
+    h('span', { class: 'badge bg-ink-100 text-ink-600' }, fmtNum(state.phrases.length)),
+    h('span', { class: 'flex-1' }),
+    h('span', { class: 'text-xs text-ink-400' }, t('templates.dict_hint')),
+  );
+  if (!state.showDict) return h('div', { class: 'card overflow-hidden' }, entete);
+
+  const lignes = state.phrases.map((ph) =>
+    h(
+      'div',
+      { class: 'flex items-center gap-3 border-t border-ink-100 px-5 py-2 text-sm' },
+      h('span', { class: 'min-w-0 flex-1 truncate' }, ph.source),
+      icon('arrowRight', 'size-3.5 shrink-0 text-ink-300'),
+      h('span', { class: 'min-w-0 flex-1 truncate font-medium text-accent-700' }, ph.target),
+      h('span', { class: 'badge bg-ink-50 text-ink-500' }, ph.lang),
+      peut ? h('button', { type: 'button', class: 'icon-btn', 'aria-label': t('action.delete'), onclick: () => removePhrase(ph.id) }, icon('trash')) : null,
+    ),
+  );
+
+  return h(
+    'div',
+    { class: 'card overflow-hidden' },
+    entete,
+    peut ? h('div', { class: 'border-t border-ink-100 bg-ink-50/60 px-5 py-3' }, phraseForm(state.prefill ?? {})) : null,
+    lignes.length ? h('div', {}, lignes) : h('p', { class: 'border-t border-ink-100 px-5 py-4 text-sm text-ink-400' }, t('templates.dict_empty')),
+  );
+}
+
+/** Ce que l'analyse n'a pas su traduire : à l'agent d'ajouter le mot, ou de laisser. */
+function todoList(permissions) {
+  if (!state.todo.length) return null;
+  const peut = permissions.includes('design.edit');
+  const lignes = state.todo.slice(0, 40).map((ligne) =>
+    h(
+      'div',
+      { class: 'flex flex-wrap items-center gap-3 border-t border-ink-100 px-5 py-2.5 text-sm' },
+      h('span', { class: 'min-w-0 flex-1' }, ligne.text),
+      h('span', { class: 'font-mono text-[11px] text-ink-400' }, `${ligne.domain} · ${ligne.file}:${ligne.line}`),
+      ligne.count > 1 ? h('span', { class: 'badge bg-ink-100 text-ink-600' }, t('templates.todo_times', { count: fmtNum(ligne.count) })) : null,
+      peut
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn-outline px-2.5 py-1 text-xs',
+              onclick: () => {
+                // Le formulaire se rouvre pré-rempli : il ne reste que la traduction à écrire.
+                state.prefill = { source: ligne.text, lang: ligne.lang ?? 'UK' };
+                state.showDict = true;
+                if (!state.phrases.length) loadPhrases();
+                templateAction.onChange?.();
+                setTimeout(() => document.querySelectorAll('#actions-view [data-dict-form] input')[1]?.focus(), 30);
+              },
+            },
+            icon('plus', 'size-3.5'),
+            t('templates.todo_add'),
+          )
+        : null,
+    ),
+  );
+
+  return h(
+    'div',
+    { class: 'card overflow-hidden' },
+    h(
+      'div',
+      { class: 'flex items-center gap-2 px-5 py-3' },
+      icon('alert', 'size-4 text-amber-600'),
+      h('span', { class: 'text-sm font-semibold' }, t('templates.todo_title')),
+      h('span', { class: 'badge bg-amber-50 text-amber-700' }, fmtNum(state.todo.length)),
+      h('span', { class: 'flex-1' }),
+      h('span', { class: 'text-xs text-ink-400' }, t('templates.todo_hint')),
+    ),
+    h('div', {}, lignes),
+  );
+}
 
 // ───────────────────────── Écriture ─────────────────────────
 
@@ -277,6 +429,7 @@ export const templateAction = {
 
   reset() {
     state.sites = [];
+    state.todo = [];
     state.skipped = 0;
     state.noLexicon = 0;
     state.selected = null;
@@ -290,6 +443,13 @@ export const templateAction = {
       if (site.skip === 'source') state.skipped += 1;
       else if (site.skip === 'lexicon') state.noLexicon += 1;
       else if (site.items?.length) state.sites.push({ ...site, server, serverLabel: server });
+      // Ce qu'aucun dictionnaire ne sait traduire : regroupé par texte, avec un exemple
+      // de site, pour que l'agent décide une fois pour tout le parc.
+      for (const ligne of site.todo ?? []) {
+        const vu = state.todo.find((x) => x.text === ligne.text);
+        if (vu) vu.count += 1;
+        else state.todo.push({ text: ligne.text, file: ligne.file, line: ligne.line, domain: site.domain, lang: site.lang, count: 1 });
+      }
     }
     if (!state.selected && state.sites.length) state.selected = keyOf(state.sites[0]);
   },
@@ -309,13 +469,15 @@ export const templateAction = {
   ready: () => state.sites.length > 0,
 
   results({ permissions = [] } = {}) {
-    if (!state.sites.length) return null;
+    if (!state.sites.length && !state.todo.length) return null;
     const multi = new Set(state.sites.map((s) => s.server)).size > 1;
     return h(
       'div',
       { class: 'space-y-4' },
-      bulkBar(permissions),
-      h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(multi), siteDetail(permissions)),
+      state.sites.length ? bulkBar(permissions) : null,
+      state.sites.length ? h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(multi), siteDetail(permissions)) : null,
+      todoList(permissions),
+      dictionary(permissions),
     );
   },
 

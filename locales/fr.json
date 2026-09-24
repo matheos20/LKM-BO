@@ -246,7 +246,11 @@
     "translate_nothing": "Aucun texte à modifier.",
     "translate_unavailable": "La traduction automatique n'est pas configurée sur ce back-office.",
     "translate_lang_unknown": "Langue inconnue : {lang}.",
-    "translate_failed": "Le service de traduction a refusé la demande."
+    "translate_failed": "Le service de traduction a refusé la demande.",
+    "phrase_source_invalid": "Le mot à traduire doit faire entre 2 et 160 caractères.",
+    "phrase_target_invalid": "La traduction doit faire entre 1 et 160 caractères.",
+    "phrase_same": "La traduction est identique au mot d’origine.",
+    "phrase_too_many": "Dictionnaire plein ({max} entrées au maximum)."
   },
   "files": {
     "title": "Fichiers",
@@ -782,6 +786,17 @@
     "stat_nolex": "Sans lexique",
     "kind_lexique": "lexique",
     "kind_texte": "texte PHP",
-    "kind_html": "texte HTML"
+    "kind_html": "texte HTML",
+    "dict_title": "Dictionnaire des mots ajoutés",
+    "dict_hint": "Sert à tout le parc, pour toutes les analyses suivantes.",
+    "dict_empty": "Aucun mot ajouté pour l’instant.",
+    "phrase_source": "Mot ou phrase en français",
+    "phrase_target": "Sa traduction",
+    "phrase_add": "Ajouter",
+    "phrase_added": "Mot ajouté au dictionnaire.",
+    "todo_title": "Textes français qu’aucun dictionnaire ne couvre",
+    "todo_hint": "Ajoutez le mot, et la prochaine analyse le corrigera partout.",
+    "todo_add": "Ajouter au dictionnaire",
+    "todo_times": "vu {count} fois"
   }
 }

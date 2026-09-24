@@ -246,7 +246,11 @@
     "translate_nothing": "No text to change.",
     "translate_unavailable": "Automatic translation is not configured on this back office.",
     "translate_lang_unknown": "Unknown language: {lang}.",
-    "translate_failed": "The translation service refused the request."
+    "translate_failed": "The translation service refused the request.",
+    "phrase_source_invalid": "The source word must be 2 to 160 characters long.",
+    "phrase_target_invalid": "The translation must be 1 to 160 characters long.",
+    "phrase_same": "The translation is identical to the source word.",
+    "phrase_too_many": "Dictionary full ({max} entries maximum)."
   },
   "files": {
     "title": "Files",
@@ -782,6 +786,17 @@
     "stat_nolex": "No lexicon",
     "kind_lexique": "lexicon",
     "kind_texte": "PHP text",
-    "kind_html": "HTML text"
+    "kind_html": "HTML text",
+    "dict_title": "Added words",
+    "dict_hint": "Used across the whole estate, for every later scan.",
+    "dict_empty": "No word added yet.",
+    "phrase_source": "French word or phrase",
+    "phrase_target": "Its translation",
+    "phrase_add": "Add",
+    "phrase_added": "Word added to the dictionary.",
+    "todo_title": "French texts no dictionary covers",
+    "todo_hint": "Add the word and the next scan will fix it everywhere.",
+    "todo_add": "Add to dictionary",
+    "todo_times": "seen {count} times"
   }
 }

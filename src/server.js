@@ -90,7 +90,7 @@ app.use('/api/i18n', i18nRouter());
 app.use('/api/auth', authRouter({ audit }));
 app.use('/api', requireAuth);
 app.use('/api/admin', adminRouter({ audit, ssh }));
-app.use('/api/design', designCatalogRouter());
+app.use('/api/design', designCatalogRouter({ audit }));
 app.use('/api/servers/:id/domains/:domain/design', designRouter({ ssh, sites, audit, uploadLimit: config.files.maxUploadBytes }));
 app.use('/api/servers/:id/translation', translationRouter({ ssh, translation, audit }));
 app.use('/api/servers/:id/domains/:domain/files', filesRouter({ ssh, files, audit, uploadLimit: config.files.maxUploadBytes }));

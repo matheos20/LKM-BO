@@ -543,10 +543,33 @@ et les classes CSS, et les tables multilingues.
 Chaque fichier corrigé est contrôlé par `php -l`, sauvegardé sous `.lkm-backups/templates/`, puis
 écrit sur place.
 
-**Mesure du 24/09/2026** : sur 600 sites de deux serveurs, 466 sont francophones (rien à traduire
-vers leur propre langue) et **134 sites non francophones sur 134** portent le même reste —
-« Retour à l'accueil » dans leur page 404. Le seul autre cas relevé, `acnav.net`, en compte six,
-dont deux dans `sitemap.php` — un fichier qu'on ne pense pas à ouvrir.
+**Le dictionnaire vient d'abord du site.** Comme dans le script, chaque clé de `parts/lang.php`
+fournit une paire « valeur française → valeur de la langue du site » : une vingtaine de mots
+propres à ce site, auxquels s'ajoutent le dictionnaire du parc et les mots des agents. Le lexique
+a priorité : c'est lui qui fait foi.
+
+### Ajouter un mot qui manque
+
+Ce que l'action ne sait pas traduire, elle le **signale** au lieu de deviner : « Textes français
+qu'aucun dictionnaire ne couvre », avec le site et la ligne. Un bouton reprend la phrase dans le
+formulaire, l'agent écrit la traduction, et **l'analyse suivante la corrige sur tout le parc**.
+
+Le dictionnaire des agents vit dans la base du back-office — pas sur les serveurs — et sert
+immédiatement, sans redémarrage :
+
+| Méthode | Route | Droit |
+|---|---|---|
+| `GET` | `/api/design/phrases` | `design.read` |
+| `POST` | `/api/design/phrases` `{ source, lang, target }` | `design.edit` |
+| `DELETE` | `/api/design/phrases/:id` | `design.edit` |
+
+**Mesures du 24/09/2026.** Sur 600 sites de deux serveurs : 466 francophones (rien à traduire vers
+leur propre langue) et **134 sites non francophones sur 134** portent le même reste —
+« Retour à l'accueil » dans leur page 404. `acnav.net` en compte six, dont deux dans `sitemap.php`.
+
+La boucle d'ajout, éprouvée sur 12 sites anglais : **12 corrections et 24 signalements** au départ ;
+après l'ajout de deux mots — « La page que vous recherchez n'existe pas ou a été déplacée. » et
+« Explorer nos rubriques » — **36 corrections et 0 signalement**.
 
 ### Traduction automatique (facultative)
 

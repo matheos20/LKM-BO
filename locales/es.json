@@ -246,7 +246,11 @@
     "translate_nothing": "No hay ningún texto que modificar.",
     "translate_unavailable": "La traducción automática no está configurada en este back-office.",
     "translate_lang_unknown": "Idioma desconocido: {lang}.",
-    "translate_failed": "El servicio de traducción rechazó la solicitud."
+    "translate_failed": "El servicio de traducción rechazó la solicitud.",
+    "phrase_source_invalid": "La palabra de origen debe tener entre 2 y 160 caracteres.",
+    "phrase_target_invalid": "La traducción debe tener entre 1 y 160 caracteres.",
+    "phrase_same": "La traducción es idéntica a la palabra de origen.",
+    "phrase_too_many": "Diccionario lleno ({max} entradas como máximo)."
   },
   "files": {
     "title": "Archivos",
@@ -782,6 +786,17 @@
     "stat_nolex": "Sin léxico",
     "kind_lexique": "léxico",
     "kind_texte": "texto PHP",
-    "kind_html": "texto HTML"
+    "kind_html": "texto HTML",
+    "dict_title": "Palabras añadidas",
+    "dict_hint": "Se usa en todo el parque, en todos los análisis posteriores.",
+    "dict_empty": "Ninguna palabra añadida todavía.",
+    "phrase_source": "Palabra o frase en francés",
+    "phrase_target": "Su traducción",
+    "phrase_add": "Añadir",
+    "phrase_added": "Palabra añadida al diccionario.",
+    "todo_title": "Textos en francés que ningún diccionario cubre",
+    "todo_hint": "Añada la palabra y el próximo análisis la corregirá en todas partes.",
+    "todo_add": "Añadir al diccionario",
+    "todo_times": "visto {count} veces"
   }
 }

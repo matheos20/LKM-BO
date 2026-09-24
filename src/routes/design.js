@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import { requireConnection, requirePermission, requireServerAccess } from '../middleware/index.js';
 import { PRESETS, SECTION_FAMILIES, SITE_LANGS } from '../services/siteCatalog.js';
+import { deletePhrase, listPhrases, savePhrase } from '../db/phrases.js';
 
 /**
  * Éditeur de design et de contenu, monté sous
@@ -150,11 +151,36 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
   return r;
 }
 
-/** Catalogue des composants : indépendant d'un serveur, donc monté à part. */
-export function designCatalogRouter() {
+/**
+ * Catalogue des composants et dictionnaire des agents : indépendants d'un serveur.
+ *
+ *  GET    /catalog              familles de blocs, présets, langues
+ *  GET    /phrases              dictionnaire ajouté par les agents
+ *  POST   /phrases              { source, lang, target }  ajoute ou met à jour
+ *  DELETE /phrases/:id          retire une entrée
+ */
+export function designCatalogRouter({ audit } = {}) {
   const r = Router();
   r.get('/catalog', requirePermission('design.read'), (_req, res) => {
     res.json({ families: SECTION_FAMILIES, presets: PRESETS, langs: SITE_LANGS });
   });
+
+  r.get('/phrases', requirePermission('design.read'), (_req, res) => {
+    res.json({ phrases: listPhrases() });
+  });
+
+  r.post('/phrases', requirePermission('design.edit'), (req, res) => {
+    const { source, lang, target } = req.body ?? {};
+    const phrase = savePhrase({ source, lang, target, userId: req.user?.id });
+    audit?.(req, { action: 'design.phrase', target: `${phrase.source} → ${phrase.target} (${phrase.lang})`, ok: true });
+    res.status(201).json(phrase);
+  });
+
+  r.delete('/phrases/:id', requirePermission('design.edit'), (req, res) => {
+    const removed = deletePhrase(req.params.id);
+    audit?.(req, { action: 'design.phrase_delete', target: String(req.params.id), ok: removed });
+    res.json({ removed });
+  });
+
   return r;
 }

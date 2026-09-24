@@ -246,7 +246,11 @@
     "translate_nothing": "Kein Text zu ändern.",
     "translate_unavailable": "Die automatische Übersetzung ist in diesem Back-Office nicht eingerichtet.",
     "translate_lang_unknown": "Unbekannte Sprache: {lang}.",
-    "translate_failed": "Der Übersetzungsdienst hat die Anfrage abgelehnt."
+    "translate_failed": "Der Übersetzungsdienst hat die Anfrage abgelehnt.",
+    "phrase_source_invalid": "Das Ausgangswort muss 2 bis 160 Zeichen lang sein.",
+    "phrase_target_invalid": "Die Übersetzung muss 1 bis 160 Zeichen lang sein.",
+    "phrase_same": "Die Übersetzung ist mit dem Ausgangswort identisch.",
+    "phrase_too_many": "Wörterbuch voll (höchstens {max} Einträge)."
   },
   "files": {
     "title": "Dateien",
@@ -782,6 +786,17 @@
     "stat_nolex": "Ohne Lexikon",
     "kind_lexique": "Lexikon",
     "kind_texte": "PHP-Text",
-    "kind_html": "HTML-Text"
+    "kind_html": "HTML-Text",
+    "dict_title": "Hinzugefügte Wörter",
+    "dict_hint": "Gilt für den ganzen Bestand, bei jeder weiteren Prüfung.",
+    "dict_empty": "Noch kein Wort hinzugefügt.",
+    "phrase_source": "Französisches Wort oder Satz",
+    "phrase_target": "Seine Übersetzung",
+    "phrase_add": "Hinzufügen",
+    "phrase_added": "Wort zum Wörterbuch hinzugefügt.",
+    "todo_title": "Französische Texte, die kein Wörterbuch abdeckt",
+    "todo_hint": "Fügen Sie das Wort hinzu, die nächste Prüfung korrigiert es überall.",
+    "todo_add": "Zum Wörterbuch hinzufügen",
+    "todo_times": "{count}-mal gesehen"
   }
 }

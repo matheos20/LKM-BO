@@ -596,6 +596,23 @@ function noyau(string $s, &$avant, &$apres): string {
     return $c;
 }
 
+/**
+ * Mots outils qui trahissent une phrase française. Ils ne servent qu'à SIGNALER à
+ * l'agent ce qu'aucun dictionnaire ne sait traduire — jamais à modifier un fichier.
+ */
+$MARQUEURS = ['vous', 'nous', 'votre', 'notre', 'nos', 'avec', 'pour', 'dans', 'cette', 'ces',
+              'leurs', 'ainsi', 'chez', 'tres', 'toutes', 'aussi', 'alors', 'depuis', 'selon',
+              'vers', 'toujours', 'jamais', 'pourquoi', 'lecture', 'rubrique', 'rubriques',
+              'retrouvez', 'decouvrez', 'notre', 'sont', 'etre'];
+
+function ressembleAuFrancais(string $v): bool {
+    global $MARQUEURS;
+    $f = ' ' . cle($v) . ' ';
+    if (mb_strlen($v) < 8 || mb_strlen($v) > 200) return false;
+    foreach ($MARQUEURS as $m) if (strpos($f, ' ' . $m . ' ') !== false) return true;
+    return false;
+}
+
 /** Une adresse, un identifiant, un nom de fichier : jamais un mot lu par le visiteur. */
 function technique(string $v): bool {
     if ($v === '' || mb_strlen($v) > 120) return true;
@@ -682,9 +699,24 @@ foreach ($domains as $domain) {
     $lex = lexique($doc);
     if ($lex === null || !isset($lex[$lang])) { $site['skip'] = 'lexicon'; $sites[] = $site; continue; }
     $TO = $lex[$lang];
-    $DICO = [];
-    foreach (($DICOS[$lang] ?? []) as $fr => $to) $DICO[cle($fr)] = $to;
 
+    // Le dictionnaire de CE site. Le lexique fait autorité : chacune de ses clés donne
+    // une paire « valeur française → valeur de la langue du site », soit une vingtaine
+    // de mots propres au site, là où un dictionnaire figé n'en connaîtrait aucun.
+    $DICO = [];
+    foreach (($lex['FR'] ?? []) as $k => $v) {
+        if (!is_string($v) || substr($k, -4) === '_url') continue;   // une adresse n'est pas un mot lu
+        $t = $TO[$k] ?? null;
+        if (!is_string($t) || mb_strlen($v) < 4 || cle($v) === cle($t)) continue;
+        $DICO[cle($v)] = $t;
+    }
+    // Puis le dictionnaire du parc et les mots ajoutés par les agents, sans écraser le lexique.
+    foreach (($DICOS[$lang] ?? []) as $fr => $to) {
+        if (!isset($DICO[cle($fr)])) $DICO[cle($fr)] = $to;
+    }
+
+    $site['todo'] = [];
+    $signales = [];
     $fichiers = array_merge(glob($doc . '/*.php') ?: [], glob($doc . '/parts/*.php') ?: []);
     sort($fichiers);
     foreach ($fichiers as $chemin) {
@@ -743,7 +775,15 @@ foreach ($domains as $domain) {
             $coeur = noyau($v, $av, $ap);
             if (technique($coeur)) continue;
             $trad = $DICO[cle($coeur)] ?? null;
-            if ($trad === null || $trad === $coeur) continue;
+            if ($trad === null || $trad === $coeur) {
+                // Aucun dictionnaire ne connaît ce texte : s'il a l'air français, l'agent
+                // doit le savoir — c'est à lui d'ajouter le mot, ou de corriger à la main.
+                if (ressembleAuFrancais($coeur) && !isset($signales[cle($coeur)])) {
+                    $signales[cle($coeur)] = true;
+                    $site['todo'][] = ['file' => $rel, 'line' => $tok[2], 'text' => mb_substr($coeur, 0, 160)];
+                }
+                continue;
+            }
             $aRemplacer[$idx] = ['kind' => 'texte', 'line' => $tok[2], 'from' => $coeur, 'to' => $trad, 'new' => litteral($av . $trad . $ap)];
         }
 
@@ -756,7 +796,13 @@ foreach ($domains as $domain) {
                 $coeur = noyau($texte, $av, $ap);
                 if (technique($coeur)) continue;
                 $trad = $DICO[cle($coeur)] ?? null;
-                if ($trad === null || $trad === $coeur) continue;
+                if ($trad === null || $trad === $coeur) {
+                    if (ressembleAuFrancais($coeur) && !isset($signales[cle($coeur)])) {
+                        $signales[cle($coeur)] = true;
+                        $site['todo'][] = ['file' => $rel, 'line' => $tok[2] + substr_count(substr($html, 0, $debut), chr(10)), 'text' => mb_substr($coeur, 0, 160)];
+                    }
+                    continue;
+                }
                 $sortie .= substr($html, $curseur, $debut - $curseur) . $av . $trad . $ap;
                 $curseur = $debut + $len;
                 $touche = true;

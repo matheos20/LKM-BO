@@ -88,6 +88,20 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_drafts_domain ON site_drafts(server_id, domain);
   `,
+
+  // v3 — dictionnaire des agents : les expressions que le dictionnaire du parc ignore
+  `
+  CREATE TABLE lang_phrases (
+    id INTEGER PRIMARY KEY,
+    source TEXT NOT NULL,
+    lang TEXT NOT NULL,
+    target TEXT NOT NULL,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    UNIQUE (source, lang)
+  );
+  `,
 ];
 
 let db = null;
