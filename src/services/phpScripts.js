@@ -637,6 +637,72 @@ function litteral(string $v): string {
     return "'" . strtr($v, ['\\' => '\\\\', "'" => "\\'"]) . "'";
 }
 
+/**
+ * Les fichiers que le visiteur voit réellement.
+ *
+ * Trois sortes de PHP cohabitent dans un site du parc, et une seule est affichée :
+ *   - les PAGES servies par une adresse (index.php, 404.php, sitemap.php…) ;
+ *   - les MORCEAUX qu'elles incluent (parts/header.php, parts/footer.php…), plus les
+ *     53 gabarits de parts/sections/, inclus par un nom calculé à l'exécution ;
+ *   - les OUTILS et les données : config.php, permalinks.php, parts/lang.php, et des
+ *     fichiers que personne n'inclut — parts/_scan_.php est dans ce cas sur tout le
+ *     parc. Rien de tout cela n'atteint un navigateur : on n'y touche pas.
+ *
+ * Les articles sont écartés à part : ils ont leur propre éditeur.
+ */
+function fichiersVus(string $doc): array {
+    $racine = glob($doc . '/*.php') ?: [];
+    $parts = glob($doc . '/parts/*.php') ?: [];
+    $sections = glob($doc . '/parts/sections/*.php') ?: [];
+
+    // Un article n'est ni une page du moteur ni un morceau inclus : il est écarté
+    // d'emblée, avant toute lecture complète. Un site en porte parfois des centaines.
+    $pages = [];
+    foreach ($racine as $f) {
+        $tete = (string) @file_get_contents($f, false, null, 0, 600);
+        if (strpos($tete, '$article_meta') !== false) continue;
+        $pages[] = $f;
+    }
+
+    // Ce que le site inclut, d'où que ce soit : on ne retient de parts/ que cela.
+    // La lecture est entière — un include de pied de page se trouve en fin de fichier.
+    $inclus = [];
+    foreach (array_merge($pages, $parts, $sections) as $f) {
+        $src = (string) @file_get_contents($f);
+        if (preg_match_all('/(?:include|require)(?:_once)?[^;]{0,120};/', $src, $m)) {
+            foreach ($m[0] as $ligne) {
+                if (preg_match_all('#[\x27"]([^\x27"]*?([A-Za-z0-9_-]+\.php))[\x27"]#', $ligne, $n, PREG_SET_ORDER)) {
+                    foreach ($n as $cible) $inclus[strtolower($cible[2])] = true;
+                }
+            }
+        }
+    }
+
+    $donnees = ['config.php' => true, 'permalinks.php' => true, 'lang.php' => true];
+    $out = [];
+    foreach ($pages as $f) {
+        $nom = basename($f);
+        // Un fichier dont le nom commence par « _ » n'est pas une page du site.
+        if ($nom[0] === '_' || isset($donnees[$nom]) || strpos($nom, '.bak') !== false) continue;
+        $out[] = $f;   // servie par une adresse : le visiteur peut y arriver
+    }
+    foreach ($parts as $f) {
+        $nom = basename($f);
+        if ($nom[0] === '_' || isset($donnees[$nom]) || strpos($nom, '.bak') !== false) continue;
+        if (!isset($inclus[strtolower($nom)])) continue;   // inclus par personne : outil
+        $out[] = $f;
+    }
+    foreach ($sections as $f) {
+        // Les sections sont incluses par un nom calculé : aucune trace en clair, mais
+        // elles composent la page d'accueil de chaque site.
+        $nom = basename($f);
+        if ($nom[0] === '_' || strpos($nom, '.bak') !== false) continue;
+        $out[] = $f;
+    }
+    sort($out);
+    return $out;
+}
+
 /** Le lexique du site : parts/lang.php, lu par PHP lui-même. */
 function lexique(string $doc): ?array {
     $f = $doc . '/parts/lang.php';
@@ -717,12 +783,8 @@ foreach ($domains as $domain) {
 
     $site['todo'] = [];
     $signales = [];
-    $fichiers = array_merge(glob($doc . '/*.php') ?: [], glob($doc . '/parts/*.php') ?: []);
-    sort($fichiers);
-    foreach ($fichiers as $chemin) {
-        $nom = basename($chemin);
+    foreach (fichiersVus($doc) as $chemin) {
         $rel = ltrim(str_replace($doc, '', $chemin), '/');
-        if ($nom === 'lang.php' || $nom === 'config.php' || strpos($nom, '.bak') !== false) continue;
         $src = (string) @file_get_contents($chemin);
         if ($src === '') continue;
         // Un article n'est pas un gabarit : il a son propre éditeur.

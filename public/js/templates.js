@@ -424,7 +424,7 @@ export const templateAction = {
   icon: 'code',
   labelKey: 'actions.templates',
   hintKey: 'templates.explain',
-  batch: 60,
+  batch: 100,
   onChange: null,
 
   reset() {

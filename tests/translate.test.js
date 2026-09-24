@@ -521,3 +521,25 @@ test('gabarits : écriture — seul le coché change, le fichier reste valide', 
   assert.match(apres, /\$b = 'Partager'/); // décoché : laissé tel quel
   assert.doesNotMatch(apres, /Retour/);
 });
+
+test('gabarits : seuls les fichiers vus par le visiteur', { skip: phpAbsent && 'php absent' }, () => {
+  const site = gabarits({
+    'config.php': "<?php\n$site_lang = 'UK';\n",
+    'parts/lang.php': LEXIQUE,
+    // Page servie par une adresse, qui inclut son en-tête.
+    'index.php': "<?php include __DIR__ . '/parts/header.php'; ?>\n<p>Plan du site</p>\n",
+    'parts/header.php': `<?php ?><nav><a href="/">Retour à l'accueil</a></nav>\n`,
+    // Inclus par un nom calculé à l'exécution : la page d'accueil les assemble.
+    'parts/sections/hero_split.php': `<?php ?><p>Retour à l'accueil</p>\n`,
+    // Personne ne les inclut, aucune adresse ne les sert : des outils, pas des pages.
+    // parts/_scan_.php existe sur tout le parc et n'atteint jamais un navigateur.
+    'parts/_scan_.php': `<?php ?><p>Plan du site</p>\n`,
+    'parts/orphelin.php': `<?php ?><p>Plan du site</p>\n`,
+    '_scan_.php': `<?php ?><p>Plan du site</p>\n`,
+    // Données du moteur, jamais affichées telles quelles.
+    'permalinks.php': "<?php\n$permalinks = ['a.php' => '/Plan du site/'];\n",
+  });
+
+  const fichiers = [...new Set(site.items.map((i) => i.file))].sort();
+  assert.deepEqual(fichiers, ['index.php', 'parts/header.php', 'parts/sections/hero_split.php']);
+});

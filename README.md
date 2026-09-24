@@ -536,9 +536,25 @@ sites par la voie statistique, **zéro** par le dictionnaire.
 Le fichier est relu par l'analyseur de PHP lui-même (`token_get_all`) : une chaîne dans un
 commentaire, un heredoc ou une interpolation ne peut pas être prise pour du texte affiché.
 
-**Ce qui n'est jamais touché** : le contenu des articles (ils ont leur éditeur), les adresses
-(`*_url`, `/chemin`, `https://…` — traduire un lien changerait sa destination), les identifiants
-et les classes CSS, et les tables multilingues.
+**Seulement ce que le visiteur voit.** Trois sortes de PHP cohabitent dans un site, et une seule
+est affichée :
+
+| | Analysé ? |
+|---|---|
+| Pages servies par une adresse : `index.php`, `404.php`, `sitemap.php`, `contact.php`… | **oui** |
+| Morceaux inclus par ces pages : `parts/header.php`, `parts/footer.php`, `parts/picture.php`… | **oui** |
+| Les 53 gabarits de `parts/sections/`, assemblés sur la page d'accueil | **oui** |
+| Fichiers qu'aucune page n'inclut et qu'aucune adresse ne sert : `parts/_scan_.php`, `_scan_.php` | non |
+| Données du moteur : `config.php`, `permalinks.php`, `parts/lang.php` | non |
+| Articles | non — ils ont leur propre éditeur |
+
+L'appartenance se décide en lisant les `include` du site, pas sur une liste de noms : un morceau
+que personne n'inclut n'atteint jamais un navigateur. Relevé sur flashkod.com : 85 fichiers
+retenus — 28 pages, 4 morceaux inclus sur 6 présents dans `parts/`, et les 53 sections.
+
+**Ce qui n'est jamais touché** : le contenu des articles, les adresses (`*_url`, `/chemin`,
+`https://…` — traduire un lien changerait sa destination), les identifiants et les classes CSS,
+et les tables multilingues.
 
 Chaque fichier corrigé est contrôlé par `php -l`, sauvegardé sous `.lkm-backups/templates/`, puis
 écrit sur place.
