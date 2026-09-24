@@ -693,7 +693,10 @@
     "server_failed": "{server}: analisi interrotta, gli altri server proseguono.",
     "templates": "Tradurre i modelli",
     "categories": "Aggiungere rubriche",
-    "scope_from_form": "I siti vengono dalla tabella incollata"
+    "scope_from_form": "I siti vengono dalla tabella incollata",
+    "step_result": "Verifica",
+    "step_result_hint": "Non è ancora stato scritto nulla. Rileggi, poi avvia la creazione.",
+    "before_run": "Nessuna scrittura in questa fase: il risultato appare qui sotto."
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
@@ -846,6 +849,7 @@
     "error_missing": "sito assente",
     "error_engine": "motore assente",
     "error_missing_long": "Questo dominio non ha un sito del parco in quella posizione.",
-    "error_engine_long": "Questo sito non ha una pagina di rubrica (category.php): una rubrica creata qui non mostrerebbe nulla."
+    "error_engine_long": "Questo sito non ha una pagina di rubrica (category.php): una rubrica creata qui non mostrerebbe nulla.",
+    "before_run": "Nessuna scrittura: vedrai prima, sito per sito, ciò che verrebbe creato. Confermerai dopo."
   }
 }

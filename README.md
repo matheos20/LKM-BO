@@ -553,8 +553,10 @@ L'ordre compte : **page d'abord, menu ensuite**. Un dossier sans entrée de menu
 personne ; l'inverse afficherait une rubrique qui mène à une page inexistante. Une rubrique déjà
 en place n'est jamais réécrite — son nom, son icône et sa description sont l'œuvre de quelqu'un.
 
-**L'écran, pour un agent non technique.** Trois temps, et aucun mot de métier : on parle de
-rubrique et d'adresse, jamais de dossier, de slug ni de configuration.
+**L'écran, pour un agent non technique.** Trois étapes **numérotées**, et aucun mot de métier : on
+parle de rubrique et d'adresse, jamais de dossier, de slug ni de configuration. Chaque bouton dit
+ce qu'il fera **avant** qu'on le presse — « Aucune écriture : vous verrez d'abord, site par site,
+ce qui sera créé » — et l'étape suivante porte son numéro, pour qu'on sache toujours où l'on est.
 
 1. **Quelles rubriques ?** Les mêmes pour tous — l'agent tape « Sport », l'adresse `/sport/`
    s'affiche à côté — ou **un tableau collé** depuis un tableur, une ligne par site, quand chaque

@@ -693,7 +693,10 @@
     "server_failed": "{server}: análise interrompida, os outros servidores continuam.",
     "templates": "Traduzir os modelos",
     "categories": "Acrescentar categorias",
-    "scope_from_form": "Os sites vêm da tabela colada"
+    "scope_from_form": "Os sites vêm da tabela colada",
+    "step_result": "Verificação",
+    "step_result_hint": "Ainda nada foi escrito. Releia e depois inicie a criação.",
+    "before_run": "Nada é escrito nesta etapa: o resultado aparece abaixo."
   },
   "translate": {
     "explain": "O back-office lê a página inicial dos sites escolhidos e assinala os textos escritos noutra língua que não a do site. Nada é alterado durante a análise.",
@@ -846,6 +849,7 @@
     "error_missing": "site ausente",
     "error_engine": "motor ausente",
     "error_missing_long": "Este domínio não tem nenhum site do parque nesse local.",
-    "error_engine_long": "Este site não tem página de categoria (category.php): uma categoria criada aqui não mostraria nada."
+    "error_engine_long": "Este site não tem página de categoria (category.php): uma categoria criada aqui não mostraria nada.",
+    "before_run": "Nada é escrito: verá primeiro, site a site, o que seria criado. Confirma depois."
   }
 }

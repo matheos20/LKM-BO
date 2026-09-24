@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { $, enc, fmtNum, h, icon, toast, toastError } from './ui.js';
+import { $, enc, fmtNum, h, icon, stepTitle, toast, toastError } from './ui.js';
 import { categoryAction } from './categories.js';
 import { templateAction } from './templates.js';
 import { translateAction } from './translate.js';
@@ -324,13 +324,20 @@ function render() {
   $('#page-sub').textContent = state.serverId ? state.serverLabel : t('actions.all_servers');
   $('#page-state').replaceChildren();
 
+  // Les étapes se numérotent toutes seules : une action sans formulaire commence au
+  // choix des sites. L'agent suit 1, 2, 3 sans qu'on lui explique.
+  const avecForm = Boolean(state.action.form);
+  const etape = { form: 1, scope: avecForm ? 2 : 1, results: avecForm ? 3 : 2 };
   const results = state.action.results({ permissions: state.permissions, openFiles: openFilesFor });
+  const vide = !results && state.phase === 'done' ? state.action.emptyState?.() : null;
   const body = [
     chooser(),
-    state.action.form?.({ permissions: state.permissions }),
-    scopeCard(),
+    state.action.form?.({ permissions: state.permissions, step: etape.form }),
+    scopeCard(etape.scope),
     statsRow(),
-    results ?? (state.phase === 'done' ? state.action.emptyState?.() : null),
+    // En-tête de section plutôt qu'une carte : la vérification n'est pas une saisie.
+    results || vide ? h('div', { class: 'px-1 pt-2' }, stepTitle(etape.results, t('actions.step_result'), t('actions.step_result_hint'))) : null,
+    results ?? vide,
   ];
   $('#actions-view').replaceChildren(...body.filter(Boolean));
 }
@@ -369,7 +376,7 @@ function chooser() {
   );
 }
 
-function scopeCard() {
+function scopeCard(numero) {
   const tab = (key, label, disabled) =>
     h(
       'button',
@@ -396,11 +403,11 @@ function scopeCard() {
     'div',
     { class: 'card p-5' },
     sitesFournis
-      ? h('p', { class: 'text-base font-semibold' }, t('actions.scope_from_form'))
+      ? stepTitle(numero, t('actions.scope'), t('actions.scope_from_form'))
       : h(
           'div',
           { class: 'flex flex-wrap items-center gap-3' },
-          h('p', { class: 'flex-1 text-base font-semibold' }, t('actions.scope')),
+          h('div', { class: 'flex-1' }, stepTitle(numero, t('actions.scope'))),
           h(
             'div',
             { class: 'flex rounded-lg bg-ink-50 p-1' },
@@ -413,7 +420,13 @@ function scopeCard() {
     h(
       'div',
       { class: 'mt-4 flex flex-wrap items-center gap-3 border-t border-ink-100 pt-4' },
-      h('p', { class: 'flex-1 text-sm text-ink-500' }, t('actions.selected', { count: fmtNum(count) })),
+      h(
+        'div',
+        { class: 'min-w-0 flex-1' },
+        h('p', { class: 'text-sm text-ink-500' }, t('actions.selected', { count: fmtNum(count) })),
+        // Ce qui se passera au clic, dit avant le clic : rien n'est écrit à ce stade.
+        state.phase === 'idle' ? h('p', { class: 'mt-0.5 text-xs text-ink-400' }, t(state.action.beforeRunKey ?? 'actions.before_run')) : null,
+      ),
       running
         ? h('button', { type: 'button', class: 'btn btn-outline', onclick: () => { state.cancel = true; } }, t('actions.stop'))
         : h(
@@ -425,7 +438,9 @@ function scopeCard() {
               onclick: run,
             },
             icon('refresh'),
-            t(state.phase === 'done' ? 'actions.restart' : (state.action.startLabelKey ?? 'actions.start')),
+            // Une action qui nomme son bouton garde son mot à toutes les étapes :
+            // « Relancer » après une vérification se confondrait avec la création.
+            t(state.action.startLabelKey ?? (state.phase === 'done' ? 'actions.restart' : 'actions.start')),
           ),
     ),
     running ? progress() : null,

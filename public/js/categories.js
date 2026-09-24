@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { closeModal, enc, fmtNum, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtNum, h, icon, modalHeader, openModal, stepTitle, toast, toastError } from './ui.js';
 
 /**
  * Action « Ajouter des rubriques ».
@@ -446,7 +446,9 @@ export const categoryAction = {
   },
 
   /** Étape 1 : ce que l'agent saisit, avant même de choisir les sites. */
-  form() {
+  beforeRunKey: 'categories.before_run',
+
+  form({ step = 1 } = {}) {
     const onglet = (cle, libelle) =>
       h(
         'button',
@@ -468,7 +470,7 @@ export const categoryAction = {
       h(
         'div',
         { class: 'flex flex-wrap items-center gap-3' },
-        h('p', { class: 'flex-1 text-base font-semibold' }, t('categories.step_what')),
+        h('div', { class: 'min-w-0 flex-1' }, stepTitle(step, t('categories.step_what'))),
         h('div', { class: 'flex rounded-lg bg-ink-50 p-1' }, onglet('simple', t('categories.mode_simple')), onglet('table', t('categories.mode_table'))),
       ),
       state.mode === 'simple' ? formulaireSimple() : formulaireTable(),

@@ -693,7 +693,10 @@
     "server_failed": "{server}: Prüfung abgebrochen, die anderen Server laufen weiter.",
     "templates": "Vorlagen übersetzen",
     "categories": "Kategorien hinzufügen",
-    "scope_from_form": "Die Websites kommen aus der eingefügten Tabelle"
+    "scope_from_form": "Die Websites kommen aus der eingefügten Tabelle",
+    "step_result": "Prüfung",
+    "step_result_hint": "Es wurde noch nichts geschrieben. Lesen Sie nach, dann starten Sie die Anlage.",
+    "before_run": "In diesem Schritt wird nichts geschrieben: das Ergebnis erscheint unten."
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",
@@ -846,6 +849,7 @@
     "error_missing": "Website fehlt",
     "error_engine": "Engine fehlt",
     "error_missing_long": "Zu dieser Domain gibt es dort keine Website des Bestands.",
-    "error_engine_long": "Diese Website hat keine Kategorieseite (category.php): eine hier angelegte Kategorie würde nichts anzeigen."
+    "error_engine_long": "Diese Website hat keine Kategorieseite (category.php): eine hier angelegte Kategorie würde nichts anzeigen.",
+    "before_run": "Es wird nichts geschrieben: Sie sehen zuerst Website für Website, was angelegt würde. Danach bestätigen Sie."
   }
 }

@@ -141,6 +141,21 @@ export const modalHeader = (title, tone = 'bg-accent-50 text-accent-700', iconNa
     h('h2', { class: 'text-lg font-semibold' }, title),
   );
 
+/**
+ * En-tête d'une étape : son numéro, son titre, et ce qu'elle attend.
+ *
+ * Un agent doit pouvoir dire où il en est sans lire une phrase : le numéro le situe,
+ * le titre lui dit quoi faire, la note grise lui dit ce qui se passera ensuite.
+ */
+export const stepTitle = (n, title, hint) =>
+  h(
+    'div',
+    { class: 'flex flex-wrap items-baseline gap-x-3 gap-y-1' },
+    h('span', { class: 'flex size-7 shrink-0 items-center justify-center self-center rounded-full bg-ink text-xs font-bold text-white' }, String(n)),
+    h('h2', { class: 'text-base font-semibold' }, title),
+    hint ? h('p', { class: 'text-sm text-ink-400' }, hint) : null,
+  );
+
 export function formError(err, box) {
   box.replaceChildren(err.message, err.detail ? h('pre', { class: 'mt-2 max-h-40 overflow-auto font-mono text-xs whitespace-pre-wrap' }, err.detail) : '');
   box.hidden = false;

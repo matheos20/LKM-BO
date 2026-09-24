@@ -693,7 +693,10 @@
     "server_failed": "{server}: scan interrupted, the other servers carry on.",
     "templates": "Translate templates",
     "categories": "Add categories",
-    "scope_from_form": "Sites come from the pasted table"
+    "scope_from_form": "Sites come from the pasted table",
+    "step_result": "Check",
+    "step_result_hint": "Nothing is written yet. Read it over, then start the creation.",
+    "before_run": "Nothing is written at this step: the result appears below."
   },
   "translate": {
     "explain": "The back office reads the home page of the selected sites and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",
@@ -846,6 +849,7 @@
     "error_missing": "site missing",
     "error_engine": "engine missing",
     "error_missing_long": "This domain has no estate site at that location.",
-    "error_engine_long": "This site has no category page (category.php): a category created here would show nothing."
+    "error_engine_long": "This site has no category page (category.php): a category created here would show nothing.",
+    "before_run": "Nothing is written: you will first see, site by site, what would be created. You confirm afterwards."
   }
 }
