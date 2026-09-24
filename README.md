@@ -467,6 +467,23 @@ latérale. Un menu **Action** choisit le traitement — aujourd'hui *Traduction 
 d'accueil*, demain les suivants : l'écran apporte ce qui leur est commun (choix des sites,
 avancement, arrêt), chaque action ne rendant que ses propres résultats.
 
+### Ajouter une action
+
+L'écran ne connaît aucun traitement en particulier : il apporte ce qui leur est commun —
+choisir l'action, choisir les sites, avancer par lots, montrer la progression, arrêter — et
+chaque action fournit le reste. En ajouter une, c'est écrire un module et l'inscrire dans
+`ACTIONS` ([public/js/actions.js](public/js/actions.js)).
+
+| Ce que l'action fournit | Rôle |
+|---|---|
+| `key`, `icon`, `labelKey`, `hintKey` | Son entrée dans le menu déroulant |
+| `run(serveur, domaines)` | Le travail, un lot à la fois |
+| `stats()`, `results()`, `emptyState()` | Ce qu'elle affiche — l'écran ne décide de rien |
+| `reset()`, `ready()`, `finished()` | Son cycle de vie |
+| `form()` *(facultatif)* | Une carte de saisie **avant** le périmètre : les rubriques à créer, par exemple |
+| `targets()` *(facultatif)* | Ses propres sites, quand la saisie les désigne déjà — le périmètre s'efface |
+| `canRun()`, `startLabelKey` *(facultatifs)* | Garde et libellé du bouton de lancement |
+
 ### Choisir les sites
 
 | Périmètre | Usage |
@@ -519,6 +536,39 @@ d'origine : un slogan français sur un site anglais, une question de FAQ oublié
   l'analyse juge incertain — moins de cinq mots, ou écart faible entre deux langues — porte la
   mention « à vérifier ».
 - L'analyse demande `design.read`, la publication `design.publish` : les mêmes droits que l'éditeur.
+
+### L'action « Ajouter des rubriques »
+
+Reprise du script `ajout_categories.sh`, et répartie là où chaque écriture est la plus sûre.
+Une rubrique du parc tient en **trois pièces**, et c'est la raison d'être de l'action : à la
+main, il en manque toujours une.
+
+| Pièce | Comment elle est écrite |
+|---|---|
+| La page `<rubrique>/index.php` | Script serveur — créée seulement si elle manque |
+| L'entrée du menu dans `$categories` | **Le circuit de publication** : `config.php` est reconstruit, validé, sauvegardé, contrôlé par `php -l`, puis relu — et restauré tout seul en cas d'écart |
+| La ligne de `wp_summary.json` | Script serveur, avec sauvegarde ; le reste du fichier est conservé |
+
+L'ordre compte : **page d'abord, menu ensuite**. Un dossier sans entrée de menu ne dérange
+personne ; l'inverse afficherait une rubrique qui mène à une page inexistante. Une rubrique déjà
+en place n'est jamais réécrite — son nom, son icône et sa description sont l'œuvre de quelqu'un.
+
+**L'écran, pour un agent non technique.** Trois temps, et aucun mot de métier : on parle de
+rubrique et d'adresse, jamais de dossier, de slug ni de configuration.
+
+1. **Quelles rubriques ?** Les mêmes pour tous — l'agent tape « Sport », l'adresse `/sport/`
+   s'affiche à côté — ou **un tableau collé** depuis un tableur, une ligne par site, quand chaque
+   site a les siennes. Les domaines collés sont retrouvés sur tout le parc, et ceux qui manquent
+   sont nommés.
+2. **Quels sites ?** Le périmètre habituel. En mode tableau, il s'efface : les sites viennent du
+   tableau.
+3. **Vérifier**, puis **Créer**. La vérification est une lecture seule qui montre les trois pièces
+   pour chaque rubrique — *déjà là* ou *à créer* — et la création demande confirmation, chiffres à
+   l'appui. Relancer ne recrée rien.
+
+Éprouvé sur un site jetable : rubriques créées avec les bonnes adresses (« Vie quotidienne » donne
+`/vie-quotidienne/`), rubrique existante intacte avec son icône, autres clés du JSON conservées,
+sauvegardes posées, `php -l` propre, et une relance sans effet.
 
 ### L'action « Traduction des gabarits »
 

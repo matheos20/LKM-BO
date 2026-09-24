@@ -250,7 +250,9 @@
     "phrase_source_invalid": "La palabra de origen debe tener entre 2 y 160 caracteres.",
     "phrase_target_invalid": "La traducción debe tener entre 1 y 160 caracteres.",
     "phrase_same": "La traducción es idéntica a la palabra de origen.",
-    "phrase_too_many": "Diccionario lleno ({max} entradas como máximo)."
+    "phrase_too_many": "Diccionario lleno ({max} entradas como máximo).",
+    "category_none": "Ninguna categoría que crear.",
+    "category_block_missing": "Falta el bloque de categorías en la configuración de {domain}."
   },
   "files": {
     "title": "Archivos",
@@ -689,7 +691,9 @@
     "pick_all": "Marcar todo",
     "pick_none": "Desmarcar todo",
     "server_failed": "{server}: análisis interrumpido, los demás servidores continúan.",
-    "templates": "Traducir las plantillas"
+    "templates": "Traducir las plantillas",
+    "categories": "Añadir categorías",
+    "scope_from_form": "Los sitios vienen de la tabla pegada"
   },
   "translate": {
     "explain": "El back-office lee la página de inicio de los sitios elegidos y detecta los textos escritos en un idioma distinto al del sitio. Nada se modifica durante el análisis.",
@@ -798,5 +802,50 @@
     "todo_hint": "Añada la palabra y el próximo análisis la corregirá en todas partes.",
     "todo_add": "Añadir al diccionario",
     "todo_times": "visto {count} veces"
+  },
+  "categories": {
+    "explain": "El back-office crea la categoría en cada sitio elegido: su página, su entrada de menú y su línea en el resumen de WordPress. No se escribe nada antes de que vea la verificación.",
+    "step_what": "¿Qué categorías?",
+    "mode_simple": "Las mismas para todos",
+    "mode_table": "Una tabla pegada",
+    "name_placeholder": "Nombre de la categoría — p. ej. Deporte",
+    "add_row": "Añadir una categoría",
+    "table_hint": "Una línea por sitio: el dominio y luego sus categorías, separados por comas o tabulaciones. Puede pegar directamente desde una hoja de cálculo.",
+    "table_read": "{sites} sitio(s) leídos, {cats} categoría(s) en total.",
+    "table_skipped": "Líneas omitidas (dominio no reconocido): {lines}",
+    "verify": "Verificar",
+    "sites": "Sitios verificados",
+    "pick_site": "Elija un sitio en la lista.",
+    "piece_page": "Página",
+    "piece_menu": "Menú",
+    "piece_summary": "Resumen",
+    "state_present": "ya existe",
+    "state_todo": "por crear",
+    "create_site": "Crear en este sitio",
+    "create_all": "Crear en {count} sitio(s)",
+    "create_go": "Crear",
+    "create_title": "¿Crear las categorías?",
+    "create_body": "Se crearán {cats} categoría(s) en {sites} sitio(s), en producción.",
+    "working": "{done} / {total}…",
+    "done_badge": "Creada",
+    "bulk_hint": "{sites} sitio(s) por completar · {cats} categoría(s) por crear",
+    "safety_note": "La página de la categoría se crea si falta, sin sustituir nunca la existente. El menú del sitio se actualiza por el circuito de publicación: copia de seguridad, comprobación de sintaxis, relectura. Las categorías ya presentes conservan su nombre, icono y descripción.",
+    "nothing_to_do": "Todo está ya en su sitio.",
+    "created": "{count} categoría(s) creada(s) en {sites} sitio(s).",
+    "failed": "{count} categoría(s) con error.",
+    "config_failed": "No se pudo actualizar el menú del sitio: la página existe, pero la categoría no aparecerá.",
+    "no_summary": "Este sitio no tiene resumen de WordPress: la categoría funciona igualmente.",
+    "checked": "Verificación terminada: {sites} sitio(s), {cats} categoría(s) por crear.",
+    "all_done": "Nada que crear",
+    "all_done_hint": "Los sitios verificados ya tienen todas estas categorías.",
+    "stat_sites": "Sitios verificados",
+    "stat_todo": "Por crear",
+    "stat_present": "Ya presentes",
+    "stat_created": "Creadas",
+    "stat_errors": "Sitios omitidos",
+    "error_missing": "sitio ausente",
+    "error_engine": "motor ausente",
+    "error_missing_long": "Este dominio no tiene ningún sitio del parque en esa ubicación.",
+    "error_engine_long": "Este sitio no tiene página de categoría (category.php): una categoría creada aquí no mostraría nada."
   }
 }

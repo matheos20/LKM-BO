@@ -14,6 +14,7 @@ import { DomainService } from './services/domainService.js';
 import { FileService } from './services/fileService.js';
 import { SiteService } from './services/siteService.js';
 import { TranslationService } from './services/translationService.js';
+import { CategoryService } from './services/categoryService.js';
 import { createAudit } from './services/audit.js';
 import { attachUser, csrfGuard, errorHandler, langMiddleware, requireAuth } from './middleware/index.js';
 import { authRouter } from './routes/auth.js';
@@ -24,6 +25,7 @@ import { domainsRouter } from './routes/domains.js';
 import { filesRouter } from './routes/files.js';
 import { designCatalogRouter, designRouter } from './routes/design.js';
 import { translationRouter } from './routes/translation.js';
+import { categoriesRouter } from './routes/categories.js';
 
 let servers;
 try {
@@ -43,6 +45,7 @@ const domains = new DomainService(ssh, { cacheTtl: config.cacheTtl });
 const files = new FileService(ssh, { limits: config.files });
 const sites = new SiteService(ssh);
 const translation = new TranslationService(ssh, sites, config.translate);
+const categories = new CategoryService(ssh, sites);
 const audit = createAudit(config.auditLog);
 const SESSION_TTL = 8 * 3600 * 1000;
 
@@ -93,6 +96,7 @@ app.use('/api/admin', adminRouter({ audit, ssh }));
 app.use('/api/design', designCatalogRouter({ audit }));
 app.use('/api/servers/:id/domains/:domain/design', designRouter({ ssh, sites, audit, uploadLimit: config.files.maxUploadBytes }));
 app.use('/api/servers/:id/translation', translationRouter({ ssh, translation, audit }));
+app.use('/api/servers/:id/categories', categoriesRouter({ ssh, categories, audit }));
 app.use('/api/servers/:id/domains/:domain/files', filesRouter({ ssh, files, audit, uploadLimit: config.files.maxUploadBytes }));
 app.use('/api/servers', serversRouter({ ssh, domains, audit }));
 app.use('/api/domains', domainsRouter({ ssh, domains }));

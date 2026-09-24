@@ -1,6 +1,7 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
 import { $, enc, fmtNum, h, icon, toast, toastError } from './ui.js';
+import { categoryAction } from './categories.js';
 import { templateAction } from './templates.js';
 import { translateAction } from './translate.js';
 
@@ -20,8 +21,20 @@ import { translateAction } from './translate.js';
  *     et dit clairement lesquels il ne trouve pas, et pourquoi.
  */
 
-/** Traitements disponibles. Une action = { key, icon, labelKey, hintKey, batch, reset, run, stats, results }. */
-const ACTIONS = [translateAction, templateAction];
+/**
+ * Traitements disponibles.
+ *
+ * Une action fournit au minimum { key, icon, labelKey, hintKey, batch, reset, run,
+ * stats, results }. Trois ajouts facultatifs lui permettent de demander autre chose
+ * que « lance-toi sur ces sites » :
+ *
+ *   form()      une carte de saisie, affichée avant le périmètre — les rubriques à
+ *               créer, par exemple ;
+ *   targets()   sa propre liste de sites, quand la saisie les désigne déjà (un tableau
+ *               collé) ; le périmètre de l'écran s'efface alors ;
+ *   canRun()    false tant que la saisie est incomplète — le bouton reste inerte.
+ */
+const ACTIONS = [translateAction, templateAction, categoryAction];
 
 const state = {
   open: false,
@@ -238,6 +251,9 @@ async function resolveList() {
 
 /** Cibles retenues, dans l'ordre, chacune avec le serveur qui la porte. */
 function targets() {
+  // Une action dont la saisie désigne déjà les sites passe avant le périmètre.
+  const propres = state.action.targets?.();
+  if (propres) return propres;
   if (state.scope === 'list') return state.resolved?.found ?? [];
   if (state.scope === 'parc') {
     const out = [];
@@ -309,7 +325,13 @@ function render() {
   $('#page-state').replaceChildren();
 
   const results = state.action.results({ permissions: state.permissions, openFiles: openFilesFor });
-  const body = [chooser(), scopeCard(), statsRow(), results ?? (state.phase === 'done' ? state.action.emptyState?.() : null)];
+  const body = [
+    chooser(),
+    state.action.form?.({ permissions: state.permissions }),
+    scopeCard(),
+    statsRow(),
+    results ?? (state.phase === 'done' ? state.action.emptyState?.() : null),
+  ];
   $('#actions-view').replaceChildren(...body.filter(Boolean));
 }
 
@@ -368,23 +390,26 @@ function scopeCard() {
 
   const running = state.phase === 'running';
   const count = targets().length;
+  const sitesFournis = Boolean(state.action.targets?.());
 
   return h(
     'div',
     { class: 'card p-5' },
-    h(
-      'div',
-      { class: 'flex flex-wrap items-center gap-3' },
-      h('p', { class: 'flex-1 text-base font-semibold' }, t('actions.scope')),
-      h(
-        'div',
-        { class: 'flex rounded-lg bg-ink-50 p-1' },
-        tab('server', t('actions.scope_server'), !state.serverId || running),
-        tab('parc', t('actions.scope_parc'), running),
-        tab('list', t('actions.scope_list'), running),
-      ),
-    ),
-    state.scope === 'server' ? serverScope() : state.scope === 'parc' ? parcScope() : listScope(),
+    sitesFournis
+      ? h('p', { class: 'text-base font-semibold' }, t('actions.scope_from_form'))
+      : h(
+          'div',
+          { class: 'flex flex-wrap items-center gap-3' },
+          h('p', { class: 'flex-1 text-base font-semibold' }, t('actions.scope')),
+          h(
+            'div',
+            { class: 'flex rounded-lg bg-ink-50 p-1' },
+            tab('server', t('actions.scope_server'), !state.serverId || running),
+            tab('parc', t('actions.scope_parc'), running),
+            tab('list', t('actions.scope_list'), running),
+          ),
+        ),
+    sitesFournis ? null : state.scope === 'server' ? serverScope() : state.scope === 'parc' ? parcScope() : listScope(),
     h(
       'div',
       { class: 'mt-4 flex flex-wrap items-center gap-3 border-t border-ink-100 pt-4' },
@@ -393,9 +418,14 @@ function scopeCard() {
         ? h('button', { type: 'button', class: 'btn btn-outline', onclick: () => { state.cancel = true; } }, t('actions.stop'))
         : h(
             'button',
-            { type: 'button', class: 'btn btn-primary', disabled: !count, onclick: run },
+            {
+              type: 'button',
+              class: 'btn btn-primary',
+              disabled: !count || state.action.canRun?.() === false,
+              onclick: run,
+            },
             icon('refresh'),
-            t(state.phase === 'done' ? 'actions.restart' : 'actions.start'),
+            t(state.phase === 'done' ? 'actions.restart' : (state.action.startLabelKey ?? 'actions.start')),
           ),
     ),
     running ? progress() : null,

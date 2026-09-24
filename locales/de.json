@@ -250,7 +250,9 @@
     "phrase_source_invalid": "Das Ausgangswort muss 2 bis 160 Zeichen lang sein.",
     "phrase_target_invalid": "Die Übersetzung muss 1 bis 160 Zeichen lang sein.",
     "phrase_same": "Die Übersetzung ist mit dem Ausgangswort identisch.",
-    "phrase_too_many": "Wörterbuch voll (höchstens {max} Einträge)."
+    "phrase_too_many": "Wörterbuch voll (höchstens {max} Einträge).",
+    "category_none": "Keine Kategorie anzulegen.",
+    "category_block_missing": "Der Kategorienblock fehlt in der Konfiguration von {domain}."
   },
   "files": {
     "title": "Dateien",
@@ -689,7 +691,9 @@
     "pick_all": "Alle auswählen",
     "pick_none": "Auswahl aufheben",
     "server_failed": "{server}: Prüfung abgebrochen, die anderen Server laufen weiter.",
-    "templates": "Vorlagen übersetzen"
+    "templates": "Vorlagen übersetzen",
+    "categories": "Kategorien hinzufügen",
+    "scope_from_form": "Die Websites kommen aus der eingefügten Tabelle"
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",
@@ -798,5 +802,50 @@
     "todo_hint": "Fügen Sie das Wort hinzu, die nächste Prüfung korrigiert es überall.",
     "todo_add": "Zum Wörterbuch hinzufügen",
     "todo_times": "{count}-mal gesehen"
+  },
+  "categories": {
+    "explain": "Das Back-Office legt die Kategorie auf jeder gewählten Website an: ihre Seite, ihren Menüeintrag und ihre Zeile in der WordPress-Übersicht. Nichts wird geschrieben, bevor Sie die Prüfung gesehen haben.",
+    "step_what": "Welche Kategorien?",
+    "mode_simple": "Für alle dieselben",
+    "mode_table": "Eine eingefügte Tabelle",
+    "name_placeholder": "Name der Kategorie — z. B. Sport",
+    "add_row": "Kategorie hinzufügen",
+    "table_hint": "Eine Zeile je Website: die Domain, dann ihre Kategorien, durch Kommas oder Tabulatoren getrennt. Sie können direkt aus einer Tabelle einfügen.",
+    "table_read": "{sites} Website(s) gelesen, {cats} Kategorie(n) insgesamt.",
+    "table_skipped": "Übersprungene Zeilen (Domain nicht erkannt): {lines}",
+    "verify": "Prüfen",
+    "sites": "Geprüfte Websites",
+    "pick_site": "Wählen Sie eine Website aus der Liste.",
+    "piece_page": "Seite",
+    "piece_menu": "Menü",
+    "piece_summary": "Übersicht",
+    "state_present": "schon da",
+    "state_todo": "anzulegen",
+    "create_site": "Auf dieser Website anlegen",
+    "create_all": "Auf {count} Website(s) anlegen",
+    "create_go": "Anlegen",
+    "create_title": "Die Kategorien anlegen?",
+    "create_body": "{cats} Kategorie(n) werden auf {sites} Website(s) in der Produktion angelegt.",
+    "working": "{done} / {total}…",
+    "done_badge": "Angelegt",
+    "bulk_hint": "{sites} Website(s) zu vervollständigen · {cats} Kategorie(n) anzulegen",
+    "safety_note": "Die Seite der Kategorie wird angelegt, wenn sie fehlt, und ersetzt nie eine bestehende. Das Menü der Website wird über den Veröffentlichungsweg aktualisiert: Sicherung, Syntaxprüfung, erneutes Lesen. Bereits vorhandene Kategorien behalten Name, Symbol und Beschreibung.",
+    "nothing_to_do": "Es ist bereits alles vorhanden.",
+    "created": "{count} Kategorie(n) auf {sites} Website(s) angelegt.",
+    "failed": "{count} Kategorie(n) fehlgeschlagen.",
+    "config_failed": "Das Menü der Website konnte nicht aktualisiert werden — die Seite besteht, die Kategorie erscheint aber nicht.",
+    "no_summary": "Diese Website hat keine WordPress-Übersicht: die Kategorie funktioniert trotzdem.",
+    "checked": "Prüfung beendet: {sites} Website(s), {cats} Kategorie(n) anzulegen.",
+    "all_done": "Nichts anzulegen",
+    "all_done_hint": "Die geprüften Websites haben bereits alle diese Kategorien.",
+    "stat_sites": "Geprüfte Websites",
+    "stat_todo": "Anzulegen",
+    "stat_present": "Schon da",
+    "stat_created": "Angelegt",
+    "stat_errors": "Ausgelassene Websites",
+    "error_missing": "Website fehlt",
+    "error_engine": "Engine fehlt",
+    "error_missing_long": "Zu dieser Domain gibt es dort keine Website des Bestands.",
+    "error_engine_long": "Diese Website hat keine Kategorieseite (category.php): eine hier angelegte Kategorie würde nichts anzeigen."
   }
 }

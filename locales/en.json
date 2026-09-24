@@ -250,7 +250,9 @@
     "phrase_source_invalid": "The source word must be 2 to 160 characters long.",
     "phrase_target_invalid": "The translation must be 1 to 160 characters long.",
     "phrase_same": "The translation is identical to the source word.",
-    "phrase_too_many": "Dictionary full ({max} entries maximum)."
+    "phrase_too_many": "Dictionary full ({max} entries maximum).",
+    "category_none": "No category to create.",
+    "category_block_missing": "The categories block is missing from the configuration of {domain}."
   },
   "files": {
     "title": "Files",
@@ -689,7 +691,9 @@
     "pick_all": "Select all",
     "pick_none": "Clear all",
     "server_failed": "{server}: scan interrupted, the other servers carry on.",
-    "templates": "Translate templates"
+    "templates": "Translate templates",
+    "categories": "Add categories",
+    "scope_from_form": "Sites come from the pasted table"
   },
   "translate": {
     "explain": "The back office reads the home page of the selected sites and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",
@@ -798,5 +802,50 @@
     "todo_hint": "Add the word and the next scan will fix it everywhere.",
     "todo_add": "Add to dictionary",
     "todo_times": "seen {count} times"
+  },
+  "categories": {
+    "explain": "The back office creates the category on every chosen site: its page, its menu entry, and its line in the WordPress summary. Nothing is written before you have seen the check.",
+    "step_what": "Which categories?",
+    "mode_simple": "The same for all",
+    "mode_table": "A pasted table",
+    "name_placeholder": "Category name — e.g. Sport",
+    "add_row": "Add a category",
+    "table_hint": "One line per site: the domain, then its categories, separated by commas or tabs. You can paste straight from a spreadsheet.",
+    "table_read": "{sites} site(s) read, {cats} category(ies) in total.",
+    "table_skipped": "Lines ignored (domain not recognised): {lines}",
+    "verify": "Check",
+    "sites": "Sites checked",
+    "pick_site": "Pick a site from the list.",
+    "piece_page": "Page",
+    "piece_menu": "Menu",
+    "piece_summary": "Summary",
+    "state_present": "already there",
+    "state_todo": "to create",
+    "create_site": "Create on this site",
+    "create_all": "Create on {count} site(s)",
+    "create_go": "Create",
+    "create_title": "Create the categories?",
+    "create_body": "{cats} category(ies) will be created on {sites} site(s), in production.",
+    "working": "{done} / {total}…",
+    "done_badge": "Created",
+    "bulk_hint": "{sites} site(s) to complete · {cats} category(ies) to create",
+    "safety_note": "The category page is created when missing, never replacing an existing one. The site menu is updated through the publishing path: backup, syntax check, read-back. Categories already in place keep their name, icon and description.",
+    "nothing_to_do": "Everything is already in place.",
+    "created": "{count} category(ies) created on {sites} site(s).",
+    "failed": "{count} category(ies) failed.",
+    "config_failed": "The site menu could not be updated — the page exists, but the category will not show.",
+    "no_summary": "This site has no WordPress summary: the category works all the same.",
+    "checked": "Check finished: {sites} site(s), {cats} category(ies) to create.",
+    "all_done": "Nothing to create",
+    "all_done_hint": "The sites checked already have all these categories.",
+    "stat_sites": "Sites checked",
+    "stat_todo": "To create",
+    "stat_present": "Already there",
+    "stat_created": "Created",
+    "stat_errors": "Sites skipped",
+    "error_missing": "site missing",
+    "error_engine": "engine missing",
+    "error_missing_long": "This domain has no estate site at that location.",
+    "error_engine_long": "This site has no category page (category.php): a category created here would show nothing."
   }
 }

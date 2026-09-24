@@ -250,7 +250,9 @@
     "phrase_source_invalid": "Le mot à traduire doit faire entre 2 et 160 caractères.",
     "phrase_target_invalid": "La traduction doit faire entre 1 et 160 caractères.",
     "phrase_same": "La traduction est identique au mot d’origine.",
-    "phrase_too_many": "Dictionnaire plein ({max} entrées au maximum)."
+    "phrase_too_many": "Dictionnaire plein ({max} entrées au maximum).",
+    "category_none": "Aucune rubrique à créer.",
+    "category_block_missing": "Le bloc des rubriques est absent de la configuration de {domain}."
   },
   "files": {
     "title": "Fichiers",
@@ -689,7 +691,9 @@
     "pick_all": "Tout cocher",
     "pick_none": "Tout décocher",
     "server_failed": "{server} : analyse interrompue, les autres serveurs continuent.",
-    "templates": "Traduction des gabarits"
+    "templates": "Traduction des gabarits",
+    "categories": "Ajouter des rubriques",
+    "scope_from_form": "Les sites viennent du tableau collé"
   },
   "translate": {
     "explain": "Le back-office lit la page d'accueil des sites choisis et repère les textes rédigés dans une autre langue que celle du site. Rien n'est modifié pendant l'analyse.",
@@ -798,5 +802,50 @@
     "todo_hint": "Ajoutez le mot, et la prochaine analyse le corrigera partout.",
     "todo_add": "Ajouter au dictionnaire",
     "todo_times": "vu {count} fois"
+  },
+  "categories": {
+    "explain": "Le back-office crée la rubrique sur chaque site choisi : sa page, son entrée dans le menu, et sa ligne dans le résumé WordPress. Rien n'est écrit avant que vous ayez vu la vérification.",
+    "step_what": "Quelles rubriques ?",
+    "mode_simple": "Les mêmes pour tous",
+    "mode_table": "Un tableau collé",
+    "name_placeholder": "Nom de la rubrique — ex. Sport",
+    "add_row": "Ajouter une rubrique",
+    "table_hint": "Une ligne par site : le domaine, puis ses rubriques, séparés par des virgules ou des tabulations. Vous pouvez coller directement depuis un tableur.",
+    "table_read": "{sites} site(s) lus, {cats} rubrique(s) au total.",
+    "table_skipped": "Lignes ignorées (domaine non reconnu) : {lines}",
+    "verify": "Vérifier",
+    "sites": "Sites vérifiés",
+    "pick_site": "Choisissez un site dans la liste.",
+    "piece_page": "Page",
+    "piece_menu": "Menu",
+    "piece_summary": "Résumé",
+    "state_present": "déjà là",
+    "state_todo": "à créer",
+    "create_site": "Créer sur ce site",
+    "create_all": "Créer sur {count} site(s)",
+    "create_go": "Créer",
+    "create_title": "Créer les rubriques ?",
+    "create_body": "{cats} rubrique(s) seront créées sur {sites} site(s), en production.",
+    "working": "{done} / {total}…",
+    "done_badge": "Créé",
+    "bulk_hint": "{sites} site(s) à compléter · {cats} rubrique(s) à créer",
+    "safety_note": "La page de la rubrique est créée si elle manque, sans jamais remplacer l'existante. Le menu du site est mis à jour par le circuit de publication : sauvegarde, contrôle de syntaxe, relecture. Les rubriques déjà en place gardent leur nom, leur icône et leur description.",
+    "nothing_to_do": "Tout est déjà en place.",
+    "created": "{count} rubrique(s) créée(s) sur {sites} site(s).",
+    "failed": "{count} rubrique(s) en échec.",
+    "config_failed": "Le menu du site n'a pas pu être mis à jour — la page existe, mais la rubrique n'apparaîtra pas.",
+    "no_summary": "Ce site n’a pas de résumé WordPress : la rubrique fonctionne quand même.",
+    "checked": "Vérification terminée : {sites} site(s), {cats} rubrique(s) à créer.",
+    "all_done": "Rien à créer",
+    "all_done_hint": "Les sites vérifiés ont déjà toutes ces rubriques.",
+    "stat_sites": "Sites vérifiés",
+    "stat_todo": "À créer",
+    "stat_present": "Déjà en place",
+    "stat_created": "Créées",
+    "stat_errors": "Sites écartés",
+    "error_missing": "site absent",
+    "error_engine": "moteur absent",
+    "error_missing_long": "Ce domaine n'a pas de site du parc à cet emplacement.",
+    "error_engine_long": "Ce site n'a pas de page de rubrique (category.php) : une rubrique créée ici n'afficherait rien."
   }
 }

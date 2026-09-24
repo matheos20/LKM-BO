@@ -250,7 +250,9 @@
     "phrase_source_invalid": "La parola di origine deve avere da 2 a 160 caratteri.",
     "phrase_target_invalid": "La traduzione deve avere da 1 a 160 caratteri.",
     "phrase_same": "La traduzione è identica alla parola di origine.",
-    "phrase_too_many": "Dizionario pieno (massimo {max} voci)."
+    "phrase_too_many": "Dizionario pieno (massimo {max} voci).",
+    "category_none": "Nessuna rubrica da creare.",
+    "category_block_missing": "Il blocco delle rubriche manca nella configurazione di {domain}."
   },
   "files": {
     "title": "File",
@@ -689,7 +691,9 @@
     "pick_all": "Seleziona tutto",
     "pick_none": "Deseleziona tutto",
     "server_failed": "{server}: analisi interrotta, gli altri server proseguono.",
-    "templates": "Tradurre i modelli"
+    "templates": "Tradurre i modelli",
+    "categories": "Aggiungere rubriche",
+    "scope_from_form": "I siti vengono dalla tabella incollata"
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
@@ -798,5 +802,50 @@
     "todo_hint": "Aggiungi la parola e la prossima analisi la correggerà ovunque.",
     "todo_add": "Aggiungi al dizionario",
     "todo_times": "visto {count} volte"
+  },
+  "categories": {
+    "explain": "Il back-office crea la rubrica su ogni sito scelto: la sua pagina, la sua voce di menu e la sua riga nel riepilogo WordPress. Nulla viene scritto prima che tu abbia visto la verifica.",
+    "step_what": "Quali rubriche?",
+    "mode_simple": "Le stesse per tutti",
+    "mode_table": "Una tabella incollata",
+    "name_placeholder": "Nome della rubrica — es. Sport",
+    "add_row": "Aggiungere una rubrica",
+    "table_hint": "Una riga per sito: il dominio, poi le sue rubriche, separati da virgole o tabulazioni. Puoi incollare direttamente da un foglio di calcolo.",
+    "table_read": "{sites} sito/i letti, {cats} rubrica/he in totale.",
+    "table_skipped": "Righe ignorate (dominio non riconosciuto): {lines}",
+    "verify": "Verificare",
+    "sites": "Siti verificati",
+    "pick_site": "Scegli un sito nell’elenco.",
+    "piece_page": "Pagina",
+    "piece_menu": "Menu",
+    "piece_summary": "Riepilogo",
+    "state_present": "già presente",
+    "state_todo": "da creare",
+    "create_site": "Creare su questo sito",
+    "create_all": "Creare su {count} sito/i",
+    "create_go": "Creare",
+    "create_title": "Creare le rubriche?",
+    "create_body": "Saranno create {cats} rubrica/he su {sites} sito/i, in produzione.",
+    "working": "{done} / {total}…",
+    "done_badge": "Creata",
+    "bulk_hint": "{sites} sito/i da completare · {cats} rubrica/he da creare",
+    "safety_note": "La pagina della rubrica viene creata se manca, senza mai sostituire quella esistente. Il menu del sito è aggiornato dal circuito di pubblicazione: salvataggio, controllo di sintassi, rilettura. Le rubriche già presenti mantengono nome, icona e descrizione.",
+    "nothing_to_do": "È già tutto a posto.",
+    "created": "{count} rubrica/he creata/e su {sites} sito/i.",
+    "failed": "{count} rubrica/he non riuscite.",
+    "config_failed": "Non è stato possibile aggiornare il menu del sito — la pagina esiste, ma la rubrica non apparirà.",
+    "no_summary": "Questo sito non ha un riepilogo WordPress: la rubrica funziona lo stesso.",
+    "checked": "Verifica terminata: {sites} sito/i, {cats} rubrica/he da creare.",
+    "all_done": "Niente da creare",
+    "all_done_hint": "I siti verificati hanno già tutte queste rubriche.",
+    "stat_sites": "Siti verificati",
+    "stat_todo": "Da creare",
+    "stat_present": "Già presenti",
+    "stat_created": "Create",
+    "stat_errors": "Siti esclusi",
+    "error_missing": "sito assente",
+    "error_engine": "motore assente",
+    "error_missing_long": "Questo dominio non ha un sito del parco in quella posizione.",
+    "error_engine_long": "Questo sito non ha una pagina di rubrica (category.php): una rubrica creata qui non mostrerebbe nulla."
   }
 }

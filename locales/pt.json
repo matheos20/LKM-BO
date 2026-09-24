@@ -250,7 +250,9 @@
     "phrase_source_invalid": "A palavra de origem deve ter entre 2 e 160 caracteres.",
     "phrase_target_invalid": "A tradução deve ter entre 1 e 160 caracteres.",
     "phrase_same": "A tradução é idêntica à palavra de origem.",
-    "phrase_too_many": "Dicionário cheio ({max} entradas no máximo)."
+    "phrase_too_many": "Dicionário cheio ({max} entradas no máximo).",
+    "category_none": "Nenhuma categoria a criar.",
+    "category_block_missing": "Falta o bloco de categorias na configuração de {domain}."
   },
   "files": {
     "title": "Ficheiros",
@@ -689,7 +691,9 @@
     "pick_all": "Marcar tudo",
     "pick_none": "Desmarcar tudo",
     "server_failed": "{server}: análise interrompida, os outros servidores continuam.",
-    "templates": "Traduzir os modelos"
+    "templates": "Traduzir os modelos",
+    "categories": "Acrescentar categorias",
+    "scope_from_form": "Os sites vêm da tabela colada"
   },
   "translate": {
     "explain": "O back-office lê a página inicial dos sites escolhidos e assinala os textos escritos noutra língua que não a do site. Nada é alterado durante a análise.",
@@ -798,5 +802,50 @@
     "todo_hint": "Acrescente a palavra e a próxima análise corrige-a em todo o lado.",
     "todo_add": "Acrescentar ao dicionário",
     "todo_times": "visto {count} vezes"
+  },
+  "categories": {
+    "explain": "O back-office cria a categoria em cada site escolhido: a sua página, a sua entrada de menu e a sua linha no resumo WordPress. Nada é escrito antes de ver a verificação.",
+    "step_what": "Que categorias?",
+    "mode_simple": "As mesmas para todos",
+    "mode_table": "Uma tabela colada",
+    "name_placeholder": "Nome da categoria — p. ex. Desporto",
+    "add_row": "Acrescentar uma categoria",
+    "table_hint": "Uma linha por site: o domínio e depois as suas categorias, separados por vírgulas ou tabulações. Pode colar diretamente de uma folha de cálculo.",
+    "table_read": "{sites} site(s) lidos, {cats} categoria(s) no total.",
+    "table_skipped": "Linhas ignoradas (domínio não reconhecido): {lines}",
+    "verify": "Verificar",
+    "sites": "Sites verificados",
+    "pick_site": "Escolha um site na lista.",
+    "piece_page": "Página",
+    "piece_menu": "Menu",
+    "piece_summary": "Resumo",
+    "state_present": "já existe",
+    "state_todo": "a criar",
+    "create_site": "Criar neste site",
+    "create_all": "Criar em {count} site(s)",
+    "create_go": "Criar",
+    "create_title": "Criar as categorias?",
+    "create_body": "Serão criadas {cats} categoria(s) em {sites} site(s), em produção.",
+    "working": "{done} / {total}…",
+    "done_badge": "Criada",
+    "bulk_hint": "{sites} site(s) a completar · {cats} categoria(s) a criar",
+    "safety_note": "A página da categoria é criada se faltar, sem nunca substituir a existente. O menu do site é atualizado pelo circuito de publicação: cópia de segurança, verificação de sintaxe, releitura. As categorias já presentes mantêm o nome, o ícone e a descrição.",
+    "nothing_to_do": "Está tudo no lugar.",
+    "created": "{count} categoria(s) criada(s) em {sites} site(s).",
+    "failed": "{count} categoria(s) falharam.",
+    "config_failed": "Não foi possível atualizar o menu do site — a página existe, mas a categoria não aparecerá.",
+    "no_summary": "Este site não tem resumo WordPress: a categoria funciona na mesma.",
+    "checked": "Verificação concluída: {sites} site(s), {cats} categoria(s) a criar.",
+    "all_done": "Nada a criar",
+    "all_done_hint": "Os sites verificados já têm todas estas categorias.",
+    "stat_sites": "Sites verificados",
+    "stat_todo": "A criar",
+    "stat_present": "Já presentes",
+    "stat_created": "Criadas",
+    "stat_errors": "Sites ignorados",
+    "error_missing": "site ausente",
+    "error_engine": "motor ausente",
+    "error_missing_long": "Este domínio não tem nenhum site do parque nesse local.",
+    "error_engine_long": "Este site não tem página de categoria (category.php): uma categoria criada aqui não mostraria nada."
   }
 }

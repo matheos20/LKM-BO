@@ -935,3 +935,111 @@ foreach ($domains as $domain) {
 
 echo json_encode(['sites' => $sites, 'mode' => $mode], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 `;
+
+/**
+ * Rubriques d'un site : le dossier qui la sert, et le résumé WordPress.
+ *
+ * Une rubrique du parc est faite de trois choses, et il en manque toujours une quand
+ * on les ajoute à la main :
+ *   1. un dossier `<slug>/index.php` de trois lignes, qui passe la main à category.php ;
+ *   2. une entrée dans `$categories` de config.php — écrite par le back-office, pas ici,
+ *      car elle mérite le circuit de publication complet (validation, php -l, relecture) ;
+ *   3. une ligne dans `wp_summary.json`, que la synchronisation WordPress lit.
+ *
+ * Ce script s'occupe de la première et de la troisième. Il ne remplace jamais ce qui
+ * existe : une rubrique déjà en place est signalée, pas réécrite.
+ *
+ * Entrées : LKM_ROOT, LKM_MODE (scan | apply), LKM_B64 (domaine → [{slug, name}]).
+ */
+export const CATEGORY_FILES = String.raw`<?php
+error_reporting(0);
+$root = rtrim((string) getenv('LKM_ROOT'), '/');
+$mode = getenv('LKM_MODE') === 'apply' ? 'apply' : 'scan';
+$demande = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true) ?: [];
+$stamp = date('Ymd-His');
+
+/** Les rubriques déjà déclarées dans config.php, lues par PHP lui-même. */
+function categoriesActuelles(string $fichier): array {
+    $c = (function ($f) {
+        ob_start();
+        include $f;
+        ob_end_clean();
+        return $categories ?? [];
+    })($fichier);
+    return is_array($c) ? $c : [];
+}
+
+$sites = [];
+foreach ($demande as $domain => $rubriques) {
+    $domain = (string) $domain;
+    if (!preg_match('/^[a-z0-9][a-z0-9.-]{1,252}$/i', $domain) || !is_array($rubriques)) continue;
+    $doc = $root . '/' . $domain . '/public_html';
+    $site = ['domain' => $domain, 'items' => []];
+
+    if (!is_file($doc . '/config.php')) { $site['error'] = 'missing'; $sites[] = $site; continue; }
+    // Sans category.php, le dossier créé n'aurait rien à afficher.
+    if (!is_file($doc . '/category.php')) { $site['error'] = 'engine'; $sites[] = $site; continue; }
+
+    $config = categoriesActuelles($doc . '/config.php');
+    $jsonFile = $doc . '/wp_summary.json';
+    $resume = is_file($jsonFile) ? json_decode((string) @file_get_contents($jsonFile), true) : null;
+    $site['summary'] = is_array($resume);
+    $liste = is_array($resume) ? ($resume['wp_categories_list'] ?? []) : [];
+    $slugsJson = [];
+    foreach ($liste as $ligne) if (isset($ligne['slug'])) $slugsJson[$ligne['slug']] = true;
+
+    $ajoutsJson = 0;
+    foreach ($rubriques as $r) {
+        $slug = (string) ($r['slug'] ?? '');
+        $nom = trim((string) ($r['name'] ?? ''));
+        if (!preg_match('/^[a-z0-9][a-z0-9-]{0,60}$/', $slug) || $nom === '') continue;
+
+        $index = $doc . '/' . $slug . '/index.php';
+        $etat = [
+            'slug' => $slug,
+            'name' => $nom,
+            // Trois pièces, trois états : ce qui existe déjà n'est jamais réécrit.
+            'dir' => is_file($index),
+            'config' => isset($config[$slug]),
+            'json' => isset($slugsJson[$slug]),
+            'done' => [],
+            'failed' => [],
+        ];
+
+        if ($mode === 'apply' && !$etat['dir']) {
+            $dossier = dirname($index);
+            $contenu = "<?php\n" . '$category = ' . var_export($slug, true) . ";\n" . "include __DIR__ . '/../category.php';\n";
+            if ((is_dir($dossier) || @mkdir($dossier, 0755, true)) && @file_put_contents($index, $contenu) !== false) {
+                @chmod($index, 0644);
+                $etat['dir'] = true;
+                $etat['done'][] = 'dir';
+            } else {
+                $etat['failed'][] = 'dir';
+            }
+        }
+
+        if ($mode === 'apply' && is_array($resume) && !$etat['json']) {
+            $liste[] = ['slug' => $slug, 'name' => $nom];
+            $slugsJson[$slug] = true;
+            $etat['json'] = true;
+            $etat['done'][] = 'json';
+            $ajoutsJson++;
+        }
+
+        $site['items'][] = $etat;
+    }
+
+    if ($mode === 'apply' && $ajoutsJson > 0 && is_array($resume)) {
+        $resume['wp_categories_list'] = array_values($liste);
+        $resume['wp_categories'] = count($liste);
+        @copy($jsonFile, $jsonFile . '.bak-' . $stamp);
+        if (@file_put_contents($jsonFile, json_encode($resume, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) === false) {
+            $site['jsonFailed'] = true;
+        }
+    }
+
+    $sites[] = $site;
+}
+
+echo json_encode(['sites' => $sites, 'mode' => $mode], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+`;

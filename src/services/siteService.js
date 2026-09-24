@@ -476,6 +476,38 @@ export class SiteService {
   }
 
   /**
+   * Déclare de nouvelles rubriques dans `config.php`.
+   *
+   * Le fichier n'est pas rapiécé : il est reconstruit depuis la configuration relue,
+   * validée, puis écrit par le circuit de publication — sauvegarde, `php -l`, relecture
+   * de contrôle. Une rubrique déjà déclarée n'est jamais réécrite : son nom, son icône
+   * et sa description sont l'œuvre de quelqu'un, pas des valeurs à remplacer.
+   */
+  async addCategories(serverId, domain, categories, userId) {
+    this.context(serverId, domain);
+    const site = await this.readSite(serverId, domain);
+    const config = structuredClone(site.config);
+    if (!config.categories || typeof config.categories !== 'object' || Array.isArray(config.categories)) {
+      throw new AppError('errors.category_block_missing', { status: 400, vars: { domain } });
+    }
+
+    const added = [];
+    for (const { slug, name } of Array.isArray(categories) ? categories : []) {
+      if (!/^[a-z0-9][a-z0-9-]{0,60}$/.test(String(slug ?? '')) || !String(name ?? '').trim()) continue;
+      if (Object.hasOwn(config.categories, slug)) continue;
+      // Icône et description restent vides : l'agent les complète dans l'éditeur, s'il
+      // le souhaite, en voyant le rendu.
+      config.categories[slug] = { name: String(name).trim(), icon: '', description: '' };
+      added.push(slug);
+    }
+    if (!added.length) return { domain, added: [], stamp: null };
+
+    const validated = validateConfig(config, { available: site.sections });
+    const { stamp } = await this.#commitConfig(serverId, domain, { site, config: validated });
+    return { domain, added, stamp };
+  }
+
+  /**
    * Remplace des textes désignés par leur chemin (« homepage.hero.title »), sans passer
    * par un brouillon : c'est le geste de l'écran de traduction.
    *
