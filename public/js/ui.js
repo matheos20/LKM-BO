@@ -2,6 +2,35 @@ import { getLang, t } from './i18n.js';
 
 /** Briques d'interface communes au tableau de bord et au gestionnaire de fichiers. */
 
+/**
+ * Le bouton qui ouvre les fichiers d'un domaine.
+ *
+ * Il vit ici plutôt que dans l'écran Actions pour que les trois traitements le
+ * partagent sans s'importer les uns les autres. Rien ne s'affiche si l'agent n'a
+ * pas le droit de lire les fichiers : un bouton grisé n'apprendrait rien.
+ *
+ * @param {string[]} permissions droits de l'agent connecté
+ * @param {Function} onclick     ce qu'il faut ouvrir
+ * @param {{compact?: boolean}} options compact : l'icône seule, pour une liste dense
+ */
+export function folderButton(permissions, onclick, { compact = false } = {}) {
+  if (!permissions?.includes('files.read') || typeof onclick !== 'function') return null;
+  return h(
+    'button',
+    {
+      type: 'button',
+      class: compact
+        ? 'btn btn-ghost shrink-0 px-1.5 py-1 text-ink-400 hover:text-ink'
+        : 'btn btn-outline px-2.5 py-1.5 text-xs',
+      title: t('files.open_manager'),
+      'aria-label': t('files.open_manager'),
+      onclick,
+    },
+    icon('folder', 'size-3.5'),
+    compact ? null : t('files.title'),
+  );
+}
+
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export const enc = encodeURIComponent;

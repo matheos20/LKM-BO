@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { closeModal, enc, fmtNum, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
 
 /**
  * Action « Gabarits » : les mots visibles restés en français dans les fichiers du
@@ -318,7 +318,7 @@ function siteList(showServer) {
   );
 }
 
-function siteDetail(permissions) {
+function siteDetail(permissions, openFilesFor) {
   const site = current();
   if (!site) return h('div', { class: 'card px-6 py-16 text-center text-ink-400' }, t('templates.pick_site'));
   const hors = skipped(site);
@@ -378,6 +378,9 @@ function siteDetail(permissions) {
         ),
         h('p', { class: 'mt-1 text-xs text-ink-400' }, t('templates.from_lexicon')),
       ),
+      // Les gabarits touchent des fichiers que l'agent ne voit pas depuis le
+      // navigateur : le dossier est le seul endroit où il peut les relire.
+      folderButton(permissions, openFilesFor && (() => openFilesFor(site))),
       h(
         'button',
         {
@@ -468,14 +471,14 @@ export const templateAction = {
 
   ready: () => state.sites.length > 0,
 
-  results({ permissions = [] } = {}) {
+  results({ permissions = [], openFiles = null } = {}) {
     if (!state.sites.length && !state.todo.length) return null;
     const multi = new Set(state.sites.map((s) => s.server)).size > 1;
     return h(
       'div',
       { class: 'space-y-4' },
       state.sites.length ? bulkBar(permissions) : null,
-      state.sites.length ? h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(multi), siteDetail(permissions)) : null,
+      state.sites.length ? h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, siteList(multi), siteDetail(permissions, openFiles)) : null,
       todoList(permissions),
       dictionary(permissions),
     );

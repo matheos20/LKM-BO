@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { $, enc, fmtNum, h, icon, stepTitle, toast, toastError } from './ui.js';
+import { $, enc, fmtNum, folderButton, h, icon, stepTitle, toast, toastError } from './ui.js';
 import { categoryAction } from './categories.js';
 import { templateAction } from './templates.js';
 import { translateAction } from './translate.js';
@@ -646,6 +646,11 @@ function listScope() {
                 h('span', { class: 'text-ink-500' }, byServer(res.found)),
               )
             : null,
+          // Chaque domaine reconnu porte son bouton dossier : l'agent peut aller voir
+          // les fichiers tout de suite, sans lancer le traitement d'abord. Au-delà
+          // d'une poignée, la liste redevient un simple décompte : mille puces ne
+          // servent personne, et le décompte par serveur est juste au-dessus.
+          res.found.length && res.found.length <= 24 ? pucesDomaines(res.found) : null,
           // Un domaine « introuvable » alors qu'aucun serveur ne répond n'est pas
           // introuvable : il n'a pas été cherché. Le bandeau du haut dit quoi faire.
           res.unknown.length
@@ -664,6 +669,23 @@ function listScope() {
 }
 
 /** « 12 sur vps-001, 3 sur vps-003 » : l'agent voit où son travail va se faire. */
+/** Un domaine reconnu, son serveur, et le bouton qui ouvre ses fichiers. */
+function pucesDomaines(found) {
+  return h(
+    'div',
+    { class: 'flex flex-wrap gap-1.5' },
+    found.map((site) =>
+      h(
+        'span',
+        { class: 'inline-flex items-center gap-1 rounded-lg border border-ink-200 bg-white py-0.5 pl-2.5 pr-1 text-xs' },
+        h('span', { class: 'font-mono' }, site.domain),
+        h('span', { class: 'text-ink-400' }, serverLabel(site.server)),
+        folderButton(state.permissions, () => openFilesFor(site), { compact: true }),
+      ),
+    ),
+  );
+}
+
 function byServer(found) {
   const counts = new Map();
   for (const f of found) counts.set(f.server, (counts.get(f.server) ?? 0) + 1);

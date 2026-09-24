@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { closeModal, enc, fmtNum, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
 
 /**
  * Action « Traduction » : repérer et corriger les textes d'une page d'accueil rédigés
@@ -466,14 +466,7 @@ function siteDetail(permissions, openFilesFor) {
     lockControls(site, permissions),
     // Les fichiers du domaine, à un clic : l'agent y retrouve les images, les
     // articles et le config.php du site qu'il est en train de corriger.
-    openFilesFor && permissions.includes('files.read')
-      ? h(
-          'button',
-          { type: 'button', class: 'btn btn-outline px-2.5 py-1.5 text-xs', onclick: () => openFilesFor(site) },
-          icon('folder', 'size-3.5'),
-          t('files.title'),
-        )
-      : null,
+    folderButton(permissions, openFilesFor && (() => openFilesFor(site))),
     state.machine.get(site.server) && can('design.edit')
       ? h('button', { type: 'button', class: 'btn btn-outline', onclick: (e) => machineTranslateSite(site, e.currentTarget) }, icon('wrench'), h('span', {}, t('translate.autofill')))
       : null,

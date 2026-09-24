@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { closeModal, enc, fmtNum, h, icon, modalHeader, openModal, stepTitle, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, stepTitle, toast, toastError } from './ui.js';
 
 /**
  * Action « Ajouter des rubriques ».
@@ -474,7 +474,7 @@ function listeSites() {
   );
 }
 
-function detailSite(permissions) {
+function detailSite(permissions, openFilesFor) {
   const site = (state.plan?.sites ?? []).find((s) => keyOf(s) === state.selected);
   if (!site) return h('div', { class: 'card px-6 py-16 text-center text-ink-400' }, t('categories.pick_site'));
   if (site.error) {
@@ -537,6 +537,9 @@ function detailSite(permissions) {
         site.configError ? h('p', { class: 'mt-1 text-xs text-red-600' }, t('categories.config_failed')) : null,
         !site.summary ? h('p', { class: 'mt-1 text-xs text-ink-400' }, t('categories.no_summary')) : null,
       ),
+      // Après coup, c'est là que l'agent va voir le dossier de la rubrique et le
+      // menu réécrit dans config.php, sans ouvrir une session SSH.
+      folderButton(permissions, openFilesFor && (() => openFilesFor(site))),
       h(
         'button',
         {
@@ -700,13 +703,13 @@ export const categoryAction = {
 
   ready: () => Boolean(state.plan?.sites.length),
 
-  results({ permissions = [] } = {}) {
+  results({ permissions = [], openFiles = null } = {}) {
     if (!state.plan?.sites.length) return null;
     return h(
       'div',
       { class: 'space-y-4' },
       barre(permissions),
-      h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, listeSites(), detailSite(permissions)),
+      h('div', { class: 'grid gap-4 lg:grid-cols-[19rem_1fr]' }, listeSites(), detailSite(permissions, openFiles)),
     );
   },
 
