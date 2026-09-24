@@ -4,8 +4,10 @@ import { requireConnection, requirePermission, requireServerAccess } from '../mi
 /**
  * Ajout de rubriques, monté sous /api/servers/:id/categories
  *
- *  POST /plan   { request }   ce qui existe déjà, ce qui serait créé — LECTURE SEULE
- *  POST /apply  { request }   crée les dossiers, déclare les rubriques, met à jour le résumé
+ *  POST /plan   { request, operation }   ce qui existe déjà, ce qui changerait — LECTURE SEULE
+ *  POST /apply  { request, operation }   crée ou retire les rubriques
+ *
+ * `operation` vaut « add » (défaut) ou « remove ».
  *
  * `request` associe un domaine à ses rubriques : { "exemple.com": [{ name: "Sport" }] }.
  * Vérifier ne demande que le droit de lecture ; créer demande celui de publier, comme
@@ -16,19 +18,20 @@ export function categoriesRouter({ ssh, categories, audit }) {
   r.use(requireServerAccess(ssh), requireConnection(ssh));
 
   r.post('/plan', requirePermission('design.read'), async (req, res) => {
-    res.json(await categories.plan(req.params.id, req.body?.request));
+    res.json(await categories.plan(req.params.id, req.body?.request, { operation: req.body?.operation }));
   });
 
   r.post('/apply', requirePermission('design.publish'), async (req, res) => {
     const demande = req.body?.request ?? {};
+    const operation = req.body?.operation === 'remove' ? 'remove' : 'add';
     const domaines = Object.keys(demande);
     try {
-      const out = await categories.apply(req.params.id, demande, req.user?.id);
-      const creees = out.sites.reduce((n, s) => n + s.items.filter((i) => i.done.length).length, 0);
-      audit(req, { action: 'categories.add', server: req.params.id, domain: domaines.join(', ').slice(0, 253), target: `${creees} rubrique(s)`, ok: true });
+      const out = await categories.apply(req.params.id, demande, req.user?.id, { operation });
+      const touchees = out.sites.reduce((n, s) => n + s.items.filter((i) => i.done.length).length, 0);
+      audit(req, { action: `categories.${operation}`, server: req.params.id, domain: domaines.join(', ').slice(0, 253), target: `${touchees} rubrique(s)`, ok: true });
       res.json(out);
     } catch (err) {
-      audit(req, { action: 'categories.add', server: req.params.id, domain: domaines.join(', ').slice(0, 253), ok: false, error: err.key ?? err.message });
+      audit(req, { action: `categories.${operation}`, server: req.params.id, domain: domaines.join(', ').slice(0, 253), ok: false, error: err.key ?? err.message });
       throw err;
     }
   });

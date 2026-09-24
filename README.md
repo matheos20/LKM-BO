@@ -537,7 +537,7 @@ d'origine : un slogan français sur un site anglais, une question de FAQ oublié
   mention « à vérifier ».
 - L'analyse demande `design.read`, la publication `design.publish` : les mêmes droits que l'éditeur.
 
-### L'action « Ajouter des rubriques »
+### L'action « Gérer les rubriques »
 
 Reprise du script `ajout_categories.sh`, et répartie là où chaque écriture est la plus sûre.
 Une rubrique du parc tient en **trois pièces**, et c'est la raison d'être de l'action : à la
@@ -568,9 +568,34 @@ ce qui sera créé » — et l'étape suivante porte son numéro, pour qu'on sac
    pour chaque rubrique — *déjà là* ou *à créer* — et la création demande confirmation, chiffres à
    l'appui. Relancer ne recrée rien.
 
-Éprouvé sur un site jetable : rubriques créées avec les bonnes adresses (« Vie quotidienne » donne
-`/vie-quotidienne/`), rubrique existante intacte avec son icône, autres clés du JSON conservées,
-sauvegardes posées, `php -l` propre, et une relance sans effet.
+**Importer un fichier.** En mode tableau, une zone de glisser-déposer accepte le CSV du tableur :
+il est lu **dans le navigateur**, jamais envoyé. Séparateur virgule ou point-virgule, ligne
+d'en-tête reconnue toute seule, et les champs entre guillemets restent entiers — « Cuisine,
+recettes » compte pour une rubrique, pas deux. Le contenu lu remplit la zone de texte, que l'agent
+peut encore corriger.
+
+### Supprimer une rubrique
+
+Le même écran, l'autre verbe. **Les articles ne sont jamais touchés** : un dossier de rubrique en
+contient — sur le parc, `hardware/` en porte sept — et leurs adresses publiques viennent de
+`permalinks.php`, pas du dossier.
+
+| Ce qui part | Ce qui reste |
+|---|---|
+| L'entrée du menu dans `$categories` | Les articles de la rubrique, à leur adresse |
+| La page de la rubrique (`index.php`) | Le dossier, s'il contient encore quelque chose |
+| La ligne de `wp_summary.json` | Le reste du fichier |
+
+La vérification affiche, pour chaque rubrique, **combien d'articles sont en jeu**, et la fenêtre de
+confirmation le répète : « 7 articles sont conservés : seule la page de la rubrique et son entrée de
+menu disparaissent. » L'ordre est inversé par rapport à la création — **le menu part en premier**,
+car une rubrique encore au menu dont la page a disparu donne un lien mort, visible de tous.
+
+Éprouvé sur un site jetable, cycle complet : deux rubriques créées avec les bonnes adresses
+(« Vie quotidienne » donne `/vie-quotidienne/`), puis supprimées avec une troisième qui n'existait
+pas. **L'article a survécu**, le dossier vide a disparu, celui qui portait l'article est resté,
+le résumé WordPress est à jour, ses autres clés intactes, `php -l` propre et une sauvegarde par
+écriture.
 
 ### L'action « Traduction des gabarits »
 

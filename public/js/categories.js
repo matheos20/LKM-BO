@@ -24,6 +24,7 @@ import { closeModal, enc, fmtNum, h, icon, modalHeader, openModal, stepTitle, to
 const MAX_RUBRIQUES = 12;
 
 const state = {
+  operation: 'add', // add | remove
   mode: 'simple', // simple | table
   rubriques: [''], // mode simple : les noms saisis
   texte: '', // mode tableau : ce que l'agent colle
@@ -53,7 +54,9 @@ export function parseTable(texte) {
   const inconnus = [];
   for (const brut of String(texte ?? '').split(/\r?\n/)) {
     const cellules = brut
-      .split(/[\t;,]/)
+    // Une ligne tabulée vient d'un fichier : ses cellules sont déjà découpées, et une
+    // virgule à l'intérieur appartient au nom. Sinon, l'agent a tapé à la main.
+      .split(brut.includes('\t') ? /\t/ : /[;,]/)
       .map((c) => c.trim())
       .filter(Boolean);
     if (!cellules.length) continue;
@@ -70,6 +73,55 @@ export function parseTable(texte) {
     if (noms.length) lignes.push({ domain, noms });
   }
   return { lignes, inconnus };
+}
+
+/**
+ * Lit un CSV comme un tableur l'écrit : séparateur virgule, point-virgule ou
+ * tabulation, champs entre guillemets — « Sport, loisirs » compte pour une seule
+ * rubrique — et une éventuelle ligne d'en-tête, reconnue à ce que sa première cellule
+ * n'est pas un domaine.
+ */
+export function parseCsv(texte) {
+  const lignes = [];
+  let champ = '';
+  let courante = [];
+  let entreGuillemets = false;
+  const contenu = String(texte ?? '').replace(/^\uFEFF/, '');
+  const separateur = (contenu.match(/;/g)?.length ?? 0) > (contenu.match(/,/g)?.length ?? 0) ? ';' : ',';
+
+  const finChamp = () => {
+    courante.push(champ.trim());
+    champ = '';
+  };
+  const finLigne = () => {
+    finChamp();
+    if (courante.some(Boolean)) lignes.push(courante);
+    courante = [];
+  };
+
+  for (let i = 0; i < contenu.length; i += 1) {
+    const c = contenu[i];
+    if (entreGuillemets) {
+      if (c === '"' && contenu[i + 1] === '"') {
+        champ += '"';
+        i += 1;
+      } else if (c === '"') entreGuillemets = false;
+      else champ += c;
+      continue;
+    }
+    if (c === '"') entreGuillemets = true;
+    else if (c === separateur || c === '\t') finChamp();
+    else if (c === '\n') finLigne();
+    else if (c !== '\r') champ += c;
+  }
+  finLigne();
+
+  // Ligne d'en-tête : sa première cellule ne ressemble pas à un domaine.
+  if (lignes.length && !/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i.test(lignes[0][0] ?? '')) lignes.shift();
+  // Remontées par des TABULATIONS : une rubrique peut contenir une virgule
+  // (« Cuisine, recettes »), le fichier l'avait protégée par des guillemets, et la
+  // relecture ne doit pas la couper en deux.
+  return lignes.map((cellules) => cellules.filter(Boolean).join('\t')).join('\n');
 }
 
 const keyOf = (site) => `${site.server}/${site.domain}`;
@@ -154,6 +206,61 @@ function formulaireSimple() {
   );
 }
 
+/** Glisser-déposer ou parcourir : le fichier est lu dans le navigateur, jamais envoyé. */
+function zoneFichier() {
+  const choisir = h('input', {
+    type: 'file',
+    accept: '.csv,text/csv,text/plain',
+    class: 'hidden',
+    onchange: (e) => lireFichier(e.target.files?.[0]),
+  });
+
+  const zone = h(
+    'div',
+    {
+      class:
+        'flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-ink-200 bg-ink-50/40 px-4 py-6 text-center transition',
+      ondragover: (e) => {
+        e.preventDefault();
+        zone.classList.add('border-accent', 'bg-accent-50');
+      },
+      ondragleave: () => zone.classList.remove('border-accent', 'bg-accent-50'),
+      ondrop: (e) => {
+        e.preventDefault();
+        zone.classList.remove('border-accent', 'bg-accent-50');
+        lireFichier(e.dataTransfer?.files?.[0]);
+      },
+    },
+    icon('upload', 'size-6 text-ink-300'),
+    h('p', { class: 'text-sm font-medium text-ink-600' }, t('categories.drop_title')),
+    h(
+      'button',
+      { type: 'button', class: 'btn btn-outline mt-1 px-3 py-1.5 text-xs', onclick: () => choisir.click() },
+      t('categories.drop_browse'),
+    ),
+    h('p', { class: 'text-xs text-ink-400' }, t('categories.drop_hint')),
+    choisir,
+  );
+  return zone;
+}
+
+function lireFichier(fichier) {
+  if (!fichier) return;
+  if (fichier.size > 2 * 1024 * 1024) return toast(t('categories.file_too_big'), 'error');
+  const lecteur = new FileReader();
+  lecteur.onload = () => {
+    const texte = parseCsv(String(lecteur.result ?? ''));
+    state.texte = texte;
+    if (zoneTable) zoneTable.value = texte;
+    state.parse = parseTable(texte);
+    toast(t('categories.file_read', { name: fichier.name, sites: fmtNum(state.parse.lignes.length) }), 'success');
+    planifierResolution();
+    categoryAction.onChange?.();
+  };
+  lecteur.onerror = () => toast(t('categories.file_failed'), 'error');
+  lecteur.readAsText(fichier, 'utf-8');
+}
+
 function formulaireTable() {
   zoneTable ??= h('textarea', {
     class: 'input font-mono text-xs leading-5',
@@ -172,6 +279,7 @@ function formulaireTable() {
     'div',
     { class: 'mt-4 space-y-2' },
     h('p', { class: 'text-sm text-ink-500' }, t('categories.table_hint')),
+    zoneFichier(),
     zoneTable,
     p
       ? h(
@@ -239,7 +347,7 @@ async function creer(sites, bouton, etiquette) {
         const lot = liste.slice(i, i + 40);
         const request = {};
         for (const site of lot) request[site.domain] = site.items.map((it) => ({ name: it.name, slug: it.slug }));
-        const out = await api(`/api/servers/${enc(server)}/categories/apply`, { method: 'POST', body: { request } });
+        const out = await api(`/api/servers/${enc(server)}/categories/apply`, { method: 'POST', body: { request, operation: state.operation } });
         for (const res of out.sites ?? []) {
           const site = lot.find((s) => s.domain === res.domain);
           if (!site) continue;
@@ -266,13 +374,29 @@ async function creer(sites, bouton, etiquette) {
 }
 
 function creerTout() {
-  const todo = (state.plan?.sites ?? []).filter((s) => !s.error && !state.done.has(keyOf(s)) && s.items.some((it) => !it.dir || !it.config));
+  const todo = (state.plan?.sites ?? []).filter((s) => !s.error && !state.done.has(keyOf(s)) && s.items.some((it) => aFaire(it)));
   if (!todo.length) return toast(t('categories.nothing_to_do'), 'info');
-  const total = todo.reduce((n, s) => n + s.items.filter((it) => !it.dir || !it.config).length, 0);
+  confirmer(todo);
+}
 
-  const go = h('button', { type: 'button', class: 'btn btn-primary' }, icon('folderPlus'), h('span', {}, t('categories.create_go')));
+/**
+ * La fenêtre de confirmation. Elle annonce des nombres, jamais « êtes-vous sûr ? » :
+ * combien de sites, combien de rubriques, et combien d'articles seront conservés.
+ */
+function confirmer(sites) {
+  const suppr = state.operation === 'remove';
+  const total = sites.reduce((n, s) => n + s.items.filter((it) => aFaire(it)).length, 0);
+  if (!total) return toast(t('categories.nothing_to_do'), 'info');
+  const articles = suppr ? sites.reduce((n, s) => n + s.items.filter((it) => aFaire(it)).reduce((m, it) => m + (it.articles ?? 0), 0), 0) : 0;
+
+  const go = h(
+    'button',
+    { type: 'button', class: suppr ? 'btn btn-danger' : 'btn btn-primary' },
+    icon(suppr ? 'trash' : 'folderPlus'),
+    h('span', {}, t(suppr ? 'categories.remove_go' : 'categories.create_go')),
+  );
   go.addEventListener('click', async () => {
-    await creer(todo, go, go.lastChild);
+    await creer(sites, go, go.lastChild);
     closeModal();
   });
 
@@ -280,9 +404,14 @@ function creerTout() {
     h(
       'div',
       {},
-      modalHeader(t('categories.create_title'), 'bg-accent-50 text-accent-700', 'folderPlus'),
-      h('p', { class: 'text-sm text-ink-600' }, t('categories.create_body', { sites: fmtNum(todo.length), cats: fmtNum(total) })),
-      h('p', { class: 'mt-2 text-sm text-ink-500' }, t('categories.safety_note')),
+      modalHeader(
+        t(suppr ? 'categories.remove_title' : 'categories.create_title'),
+        suppr ? 'bg-red-50 text-red-600' : 'bg-accent-50 text-accent-700',
+        suppr ? 'trash' : 'folderPlus',
+      ),
+      h('p', { class: 'text-sm text-ink-600' }, t(suppr ? 'categories.remove_body' : 'categories.create_body', { sites: fmtNum(sites.length), cats: fmtNum(total) })),
+      articles ? h('p', { class: 'mt-2 text-sm font-medium text-ink-700' }, t('categories.remove_articles', { count: fmtNum(articles) })) : null,
+      h('p', { class: 'mt-2 text-sm text-ink-500' }, t(suppr ? 'categories.remove_note' : 'categories.safety_note')),
       h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), go),
     ),
   );
@@ -290,16 +419,28 @@ function creerTout() {
 
 // ───────────────────────── Résultat de la vérification ─────────────────────────
 
-const etatBadge = (ok) =>
-  ok
-    ? h('span', { class: 'badge bg-accent-50 text-accent-700' }, icon('check', 'size-3.5'), t('categories.state_present'))
-    : h('span', { class: 'badge bg-amber-50 text-amber-700' }, icon('plus', 'size-3.5'), t('categories.state_todo'));
+/**
+ * Ce qu'il reste à faire sur une rubrique, selon le verbe : à l'ajout, ce qui manque ;
+ * à la suppression, ce qui est encore là.
+ */
+const aFaire = (it) => (state.operation === 'remove' ? it.dir || it.config || it.json : !it.dir || !it.config);
+
+const etatBadge = (present) => {
+  const attendu = state.operation === 'remove' ? !present : present;
+  if (attendu) return h('span', { class: 'badge bg-accent-50 text-accent-700' }, icon('check', 'size-3.5'), t(state.operation === 'remove' ? 'categories.state_gone' : 'categories.state_present'));
+  return h(
+    'span',
+    { class: state.operation === 'remove' ? 'badge bg-red-50 text-red-700' : 'badge bg-amber-50 text-amber-700' },
+    icon(state.operation === 'remove' ? 'trash' : 'plus', 'size-3.5'),
+    t(state.operation === 'remove' ? 'categories.state_remove' : 'categories.state_todo'),
+  );
+};
 
 function listeSites() {
   const sites = state.plan?.sites ?? [];
   const rows = sites.map((site) => {
     const actif = state.selected === keyOf(site);
-    const reste = site.items.filter((it) => !it.dir || !it.config).length;
+    const reste = site.items.filter((it) => aFaire(it)).length;
     return h(
       'button',
       {
@@ -353,7 +494,16 @@ function detailSite(permissions) {
         'div',
         { class: 'min-w-0' },
         h('p', { class: 'text-sm font-medium' }, it.name),
-        h('p', { class: 'font-mono text-[11px] text-ink-400' }, `/${it.slug}/`),
+        h(
+          'p',
+          { class: 'flex flex-wrap items-center gap-2 font-mono text-[11px] text-ink-400' },
+          `/${it.slug}/`,
+          // Ce que l'agent doit savoir avant de supprimer : la rubrique porte des
+          // articles, et ils resteront en place.
+          state.operation === 'remove' && it.articles
+            ? h('span', { class: 'badge bg-ink-100 font-sans text-ink-600' }, t('categories.keeps_articles', { count: fmtNum(it.articles) }))
+            : null,
+        ),
       ),
       h(
         'div',
@@ -391,13 +541,13 @@ function detailSite(permissions) {
         'button',
         {
           type: 'button',
-          class: 'btn btn-primary',
+          class: state.operation === 'remove' ? 'btn btn-danger' : 'btn btn-primary',
           disabled: !permissions.includes('design.publish'),
           title: permissions.includes('design.publish') ? null : t('reason.permission_denied'),
-          onclick: (e) => creer([site], e.currentTarget),
+          onclick: (e) => (state.operation === 'remove' ? confirmer([site], e.currentTarget) : creer([site], e.currentTarget)),
         },
-        icon('folderPlus'),
-        t('categories.create_site'),
+        icon(state.operation === 'remove' ? 'trash' : 'folderPlus'),
+        t(state.operation === 'remove' ? 'categories.remove_site' : 'categories.create_site'),
       ),
     ),
     h('div', { class: 'divide-y divide-ink-100' }, rows),
@@ -407,23 +557,23 @@ function detailSite(permissions) {
 
 function barre(permissions) {
   const sites = (state.plan?.sites ?? []).filter((s) => !s.error);
-  const reste = sites.filter((s) => s.items.some((it) => !it.dir || !it.config));
-  const total = reste.reduce((n, s) => n + s.items.filter((it) => !it.dir || !it.config).length, 0);
+  const reste = sites.filter((s) => s.items.some((it) => aFaire(it)));
+  const total = reste.reduce((n, s) => n + s.items.filter((it) => aFaire(it)).length, 0);
   return h(
     'div',
     { class: 'card flex flex-wrap items-center gap-3 px-5 py-3' },
-    h('p', { class: 'min-w-0 flex-1 text-sm text-ink-500' }, t('categories.bulk_hint', { sites: fmtNum(reste.length), cats: fmtNum(total) })),
+    h('p', { class: 'min-w-0 flex-1 text-sm text-ink-500' }, t(state.operation === 'remove' ? 'categories.bulk_hint_remove' : 'categories.bulk_hint', { sites: fmtNum(reste.length), cats: fmtNum(total) })),
     h(
       'button',
       {
         type: 'button',
-        class: 'btn btn-primary',
+        class: state.operation === 'remove' ? 'btn btn-danger' : 'btn btn-primary',
         disabled: !reste.length || !permissions.includes('design.publish'),
         title: permissions.includes('design.publish') ? null : t('reason.permission_denied'),
         onclick: creerTout,
       },
-      icon('folderPlus'),
-      h('span', {}, t('categories.create_all', { count: fmtNum(reste.length) })),
+      icon(state.operation === 'remove' ? 'trash' : 'folderPlus'),
+      h('span', {}, t(state.operation === 'remove' ? 'categories.remove_all' : 'categories.create_all', { count: fmtNum(reste.length) })),
     ),
   );
 }
@@ -434,6 +584,7 @@ export const categoryAction = {
   key: 'categories',
   icon: 'folderPlus',
   labelKey: 'actions.categories',
+  // Le verbe choisi décide du reste : c'est la même action, pas deux entrées de menu.
   hintKey: 'categories.explain',
   startLabelKey: 'categories.verify',
   batch: 60,
@@ -446,9 +597,34 @@ export const categoryAction = {
   },
 
   /** Étape 1 : ce que l'agent saisit, avant même de choisir les sites. */
-  beforeRunKey: 'categories.before_run',
+  get beforeRunKey() {
+    return state.operation === 'remove' ? 'categories.before_run_remove' : 'categories.before_run';
+  },
 
   form({ step = 1 } = {}) {
+    const verbe = (cle, ico, libelle) => {
+      const actif = state.operation === cle;
+      const couleur = cle === 'remove' ? 'border-red-300 bg-red-50 text-red-700' : 'border-accent bg-accent-50 text-ink';
+      return h(
+        'button',
+        {
+          type: 'button',
+          class: `flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${actif ? couleur : 'border-ink-200 bg-white text-ink-400 hover:border-ink-300'}`,
+          'aria-pressed': String(actif),
+          onclick: () => {
+            if (state.operation === cle) return;
+            state.operation = cle;
+            // Changer de verbe invalide la vérification précédente : elle ne parlait
+            // pas de la même chose.
+            categoryAction.reset();
+            categoryAction.onChange?.();
+          },
+        },
+        icon(ico, 'size-3.5'),
+        libelle,
+      );
+    };
+
     const onglet = (cle, libelle) =>
       h(
         'button',
@@ -470,8 +646,16 @@ export const categoryAction = {
       h(
         'div',
         { class: 'flex flex-wrap items-center gap-3' },
-        h('div', { class: 'min-w-0 flex-1' }, stepTitle(step, t('categories.step_what'))),
+        h('div', { class: 'min-w-0 flex-1' }, stepTitle(step, t(state.operation === 'remove' ? 'categories.step_remove' : 'categories.step_what'))),
         h('div', { class: 'flex rounded-lg bg-ink-50 p-1' }, onglet('simple', t('categories.mode_simple')), onglet('table', t('categories.mode_table'))),
+      ),
+      // Deux verbes, deux couleurs : on ne supprime pas par mégarde.
+      h(
+        'div',
+        { class: 'mt-3 flex flex-wrap items-center gap-2' },
+        verbe('add', 'plus', t('categories.op_add')),
+        verbe('remove', 'trash', t('categories.op_remove')),
+        h('p', { class: 'text-xs text-ink-400' }, t(state.operation === 'remove' ? 'categories.op_remove_hint' : 'categories.op_add_hint')),
       ),
       state.mode === 'simple' ? formulaireSimple() : formulaireTable(),
     );
@@ -492,7 +676,7 @@ export const categoryAction = {
     const cibles = domains.map((domain) => ({ domain, server }));
     const request = demande(cibles);
     if (!Object.keys(request).length) return;
-    const out = await api(`/api/servers/${enc(server)}/categories/plan`, { method: 'POST', body: { request } });
+    const out = await api(`/api/servers/${enc(server)}/categories/plan`, { method: 'POST', body: { request, operation: state.operation } });
     state.plan ??= { sites: [] };
     for (const site of out.sites ?? []) state.plan.sites.push({ ...site, server, serverLabel: server });
     if (!state.selected && state.plan.sites.length) state.selected = keyOf(state.plan.sites[0]);
@@ -500,8 +684,8 @@ export const categoryAction = {
 
   stats() {
     const sites = (state.plan?.sites ?? []).filter((s) => !s.error);
-    const aCreer = sites.reduce((n, s) => n + s.items.filter((it) => !it.dir || !it.config).length, 0);
-    const deja = sites.reduce((n, s) => n + s.items.filter((it) => it.dir && it.config).length, 0);
+    const aCreer = sites.reduce((n, s) => n + s.items.filter((it) => aFaire(it)).length, 0);
+    const deja = sites.reduce((n, s) => n + s.items.filter((it) => !aFaire(it)).length, 0);
     const faites = [...state.done.values()].reduce((a, b) => a + b, 0);
     const erreurs = (state.plan?.sites ?? []).filter((s) => s.error).length;
     const cells = [
@@ -537,7 +721,7 @@ export const categoryAction = {
 
   finished() {
     const sites = (state.plan?.sites ?? []).filter((s) => !s.error);
-    const aCreer = sites.reduce((n, s) => n + s.items.filter((it) => !it.dir || !it.config).length, 0);
+    const aCreer = sites.reduce((n, s) => n + s.items.filter((it) => aFaire(it)).length, 0);
     toast(t('categories.checked', { sites: fmtNum(sites.length), cats: fmtNum(aCreer) }), 'success');
   },
 

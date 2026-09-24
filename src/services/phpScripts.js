@@ -949,12 +949,21 @@ echo json_encode(['sites' => $sites, 'mode' => $mode], JSON_UNESCAPED_UNICODE | 
  * Ce script s'occupe de la première et de la troisième. Il ne remplace jamais ce qui
  * existe : une rubrique déjà en place est signalée, pas réécrite.
  *
- * Entrées : LKM_ROOT, LKM_MODE (scan | apply), LKM_B64 (domaine → [{slug, name}]).
+ * La SUPPRESSION suit le chemin inverse, avec une règle qui ne se discute pas : les
+ * articles ne sont jamais touchés. Un dossier de rubrique en contient — sur le parc,
+ * `hardware/` en porte sept — et leurs adresses publiques viennent de
+ * `permalinks.php`, pas du dossier. Sont donc retirés la page de la rubrique
+ * (`index.php`), son entrée de menu et sa ligne de résumé ; le dossier ne disparaît
+ * que s'il ne reste rien dedans.
+ *
+ * Entrées : LKM_ROOT, LKM_OP (add | remove), LKM_MODE (scan | apply),
+ *           LKM_B64 (domaine → [{slug, name}]).
  */
 export const CATEGORY_FILES = String.raw`<?php
 error_reporting(0);
 $root = rtrim((string) getenv('LKM_ROOT'), '/');
 $mode = getenv('LKM_MODE') === 'apply' ? 'apply' : 'scan';
+$op = getenv('LKM_OP') === 'remove' ? 'remove' : 'add';
 $demande = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true) ?: [];
 $stamp = date('Ymd-His');
 
@@ -977,8 +986,9 @@ foreach ($demande as $domain => $rubriques) {
     $site = ['domain' => $domain, 'items' => []];
 
     if (!is_file($doc . '/config.php')) { $site['error'] = 'missing'; $sites[] = $site; continue; }
-    // Sans category.php, le dossier créé n'aurait rien à afficher.
-    if (!is_file($doc . '/category.php')) { $site['error'] = 'engine'; $sites[] = $site; continue; }
+    // Sans category.php, le dossier créé n'aurait rien à afficher. Pour une
+    // suppression, en revanche, son absence n'empêche rien.
+    if ($op === 'add' && !is_file($doc . '/category.php')) { $site['error'] = 'engine'; $sites[] = $site; continue; }
 
     $config = categoriesActuelles($doc . '/config.php');
     $jsonFile = $doc . '/wp_summary.json';
@@ -994,17 +1004,45 @@ foreach ($demande as $domain => $rubriques) {
         $nom = trim((string) ($r['name'] ?? ''));
         if (!preg_match('/^[a-z0-9][a-z0-9-]{0,60}$/', $slug) || $nom === '') continue;
 
-        $index = $doc . '/' . $slug . '/index.php';
+        $dossier = $doc . '/' . $slug;
+        $index = $dossier . '/index.php';
+        // Tout ce que le dossier contient d'autre, ce sont des articles.
+        $restes = is_dir($dossier) ? array_values(array_diff(scandir($dossier) ?: [], ['.', '..', 'index.php'])) : [];
         $etat = [
             'slug' => $slug,
-            'name' => $nom,
+            'name' => $op === 'remove' ? (string) (($config[$slug]['name'] ?? '') ?: $nom) : $nom,
             // Trois pièces, trois états : ce qui existe déjà n'est jamais réécrit.
             'dir' => is_file($index),
             'config' => isset($config[$slug]),
             'json' => isset($slugsJson[$slug]),
+            'articles' => count($restes),
             'done' => [],
             'failed' => [],
         ];
+
+        if ($op === 'remove') {
+            if ($mode === 'apply') {
+                if ($etat['dir']) {
+                    if (@unlink($index)) {
+                        $etat['dir'] = false;
+                        $etat['done'][] = 'dir';
+                        // Le dossier ne s'en va que s'il ne reste rien : les articles priment.
+                        if (!$restes) @rmdir($dossier);
+                    } else {
+                        $etat['failed'][] = 'dir';
+                    }
+                }
+                if (is_array($resume) && $etat['json']) {
+                    $liste = array_values(array_filter($liste, fn($l) => ($l['slug'] ?? '') !== $slug));
+                    unset($slugsJson[$slug]);
+                    $etat['json'] = false;
+                    $etat['done'][] = 'json';
+                    $ajoutsJson++;
+                }
+            }
+            $site['items'][] = $etat;
+            continue;
+        }
 
         if ($mode === 'apply' && !$etat['dir']) {
             $dossier = dirname($index);

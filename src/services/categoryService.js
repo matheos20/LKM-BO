@@ -67,19 +67,23 @@ export class CategoryService {
     this.sites = sites;
   }
 
-  /** Lecture seule : ce qui existe déjà, ce qui serait créé. */
-  plan(serverId, request) {
-    return this.#run(serverId, request, 'scan');
+  /** Lecture seule : ce qui existe déjà, ce qui serait créé ou retiré. */
+  plan(serverId, request, { operation = 'add' } = {}) {
+    return this.#run(serverId, request, 'scan', operation);
   }
 
   /**
    * Écriture. Les dossiers et `wp_summary.json` d'abord, par le script serveur ;
    * puis `config.php` de chaque site, un par un, par le circuit de publication.
    */
-  async apply(serverId, request, userId) {
+  async apply(serverId, request, userId, { operation = 'add' } = {}) {
     const demande = normalizeRequest(request);
-    const out = await this.#run(serverId, demande, 'apply');
+    return operation === 'remove' ? this.#remove(serverId, demande, userId) : this.#add(serverId, demande, userId);
+  }
 
+  /** Création : dossiers et résumé d'abord, entrée de menu ensuite. */
+  async #add(serverId, demande, userId) {
+    const out = await this.#run(serverId, demande, 'apply', 'add');
     for (const site of out.sites) {
       if (site.error) continue;
       // Ne sont déclarées que les rubriques dont le dossier existe : une entrée de
@@ -103,7 +107,44 @@ export class CategoryService {
     return out;
   }
 
-  async #run(serverId, request, mode) {
+  /**
+   * Suppression : l'ordre inverse de la création.
+   *
+   * L'entrée de menu part EN PREMIER. Une rubrique encore au menu dont la page a
+   * disparu donne un lien mort, visible de tous ; l'inverse — une page que plus rien
+   * n'annonce — ne dérange personne le temps de la seconde écriture.
+   */
+  async #remove(serverId, demande, userId) {
+    const prevu = await this.#run(serverId, demande, 'scan', 'remove');
+    const retires = new Map();
+
+    for (const site of prevu.sites) {
+      if (site.error) continue;
+      const slugs = site.items.filter((it) => it.config).map((it) => it.slug);
+      if (!slugs.length) continue;
+      try {
+        const res = await this.sites.removeCategories(serverId, site.domain, slugs, userId);
+        retires.set(site.domain, { stamp: res.stamp, slugs: res.removed });
+      } catch (err) {
+        retires.set(site.domain, { error: err.key ?? err.message, slugs: [] });
+      }
+    }
+
+    const out = await this.#run(serverId, demande, 'apply', 'remove');
+    for (const site of out.sites) {
+      const fait = retires.get(site.domain);
+      if (!fait) continue;
+      site.stamp = fait.stamp ?? null;
+      site.configError = fait.error ?? null;
+      for (const it of site.items) {
+        if (fait.slugs.includes(it.slug)) it.done.push('config');
+        else if (fait.error) it.failed.push('config');
+      }
+    }
+    return out;
+  }
+
+  async #run(serverId, request, mode, operation = 'add') {
     const server = this.ssh.server(serverId);
     const demande = normalizeRequest(request);
     const domaines = Object.keys(demande);
@@ -117,6 +158,7 @@ export class CategoryService {
       {
         LKM_ROOT: server.wwwRoot,
         LKM_MODE: mode,
+        LKM_OP: operation === 'remove' ? 'remove' : 'add',
         LKM_B64: Buffer.from(JSON.stringify(demande), 'utf8').toString('base64'),
       },
       { timeout: TIMEOUT },
@@ -124,6 +166,7 @@ export class CategoryService {
 
     return {
       mode,
+      operation,
       sites: (raw.sites ?? []).map((site) => ({
         domain: site.domain,
         error: site.error ?? null,

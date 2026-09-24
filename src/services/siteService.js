@@ -508,6 +508,34 @@ export class SiteService {
   }
 
   /**
+   * Retire des rubriques de `config.php`.
+   *
+   * Même circuit que l'ajout : fichier reconstruit, validé, sauvegardé, contrôlé et
+   * relu. Ce qui disparaît ici, c'est l'entrée du menu — les articles de la rubrique
+   * vivent dans son dossier, et leurs adresses viennent de `permalinks.php`.
+   */
+  async removeCategories(serverId, domain, slugs, userId) {
+    this.context(serverId, domain);
+    const site = await this.readSite(serverId, domain);
+    const config = structuredClone(site.config);
+    if (!config.categories || typeof config.categories !== 'object' || Array.isArray(config.categories)) {
+      throw new AppError('errors.category_block_missing', { status: 400, vars: { domain } });
+    }
+
+    const removed = [];
+    for (const slug of Array.isArray(slugs) ? slugs : []) {
+      if (!Object.hasOwn(config.categories, slug)) continue;
+      delete config.categories[slug];
+      removed.push(slug);
+    }
+    if (!removed.length) return { domain, removed: [], stamp: null };
+
+    const validated = validateConfig(config, { available: site.sections });
+    const { stamp } = await this.#commitConfig(serverId, domain, { site, config: validated });
+    return { domain, removed, stamp };
+  }
+
+  /**
    * Remplace des textes désignés par leur chemin (« homepage.hero.title »), sans passer
    * par un brouillon : c'est le geste de l'écran de traduction.
    *
