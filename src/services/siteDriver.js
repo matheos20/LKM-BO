@@ -107,11 +107,14 @@ export function publishCommand(docroot, { styleB64 = '', expectMd5 = '' } = {}) 
     `STAMP=$(date +%Y%m%d-%H%M%S)`,
     expectMd5 ? `[ "$(md5sum "$DOC/config.php" | cut -d" " -f1)" = ${shq(expectMd5)} ] || exit 80` : '',
     `mkdir -p "$BK" || exit 81`,
-    `[ -f "$DOC/config.php" ] && cp -a "$DOC/config.php" "$BK/config-$STAMP.php"`,
-    `[ -f "$DOC/style.css" ] && cp -a "$DOC/style.css" "$BK/style-$STAMP.css"`,
+    // Le fichier produit est écrit et CONTRÔLÉ avant qu'on touche à quoi que ce soit :
+    // un fichier refusé par PHP ne doit pas consommer une place de sauvegarde, ni
+    // faire tourner les dix précédentes.
     `TMP="$BK/.new-config.php"`,
     `base64 -d > "$TMP" || exit 82`,
     `php -l "$TMP" > /dev/null || { rm -f "$TMP"; exit 83; }`,
+    `[ -f "$DOC/config.php" ] && cp -a "$DOC/config.php" "$BK/config-$STAMP.php"`,
+    `[ -f "$DOC/style.css" ] && cp -a "$DOC/style.css" "$BK/style-$STAMP.css"`,
     `cat "$TMP" > "$DOC/config.php" || exit 84`,
     `rm -f "$TMP"`,
     styleB64
