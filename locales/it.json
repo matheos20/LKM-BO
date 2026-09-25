@@ -1063,6 +1063,7 @@
     "hint_not_writable": "Lancia «Riparare i permessi» su questo dominio: riapplica i diritti attesi, e il reindirizzamento potrà poi essere scritto.",
     "hint_backup_failed": "Il salvataggio non ha potuto essere creato, quindi non è stato scritto nulla.",
     "hint_write_failed": "La scrittura è fallita e il file originale è stato rimesso.",
-    "hint_verify_failed": "Il file riletto non corrispondeva a ciò che doveva essere scritto: il salvataggio è stato ripristinato automaticamente."
+    "hint_verify_failed": "Il file riletto non corrispondeva a ciò che doveva essere scritto: il salvataggio è stato ripristinato automaticamente.",
+    "state_to_upgrade": "da riscrivere"
   }
 }

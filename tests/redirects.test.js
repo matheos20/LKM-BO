@@ -7,10 +7,13 @@ import { join } from 'node:path';
 import { HTACCESS_REDIRECTS } from '../src/services/phpScripts.js';
 import { ligne, normalizeRequest, urlValide } from '../src/services/redirectService.js';
 
-test('redirections : la ligne écrite est celle demandée', () => {
+test('redirections : la ligne écrite est celle qui fonctionne', () => {
+  // Le format demandé était « Redirect 301 <de> <vers> ». Mesuré en direct : les 12
+  // règles de cette forme déjà posées sur le parc renvoyaient toutes 404, car
+  // « RewriteRule ^.*\.php$ /404.php [L] » s'applique avant. Celle-ci fonctionne.
   assert.equal(
     ligne({ from: '/cystite-comprendre-les-causes.php', to: '/cystite-comprendre-les-causes' }),
-    'Redirect 301 /cystite-comprendre-les-causes.php /cystite-comprendre-les-causes',
+    String.raw`RewriteRule ^cystite\-comprendre\-les\-causes\.php$ /cystite-comprendre-les-causes [R=301,L]`,
   );
 });
 
@@ -128,11 +131,12 @@ test('redirections : la règle atterrit juste après la ligne de repère', { ski
   // ligne vide qui suivait déjà le repère est réutilisée, on n'en ajoute pas une
   // seconde — sans quoi chaque cycle poser/retirer en laisserait une de plus.
   assert.equal(lignes[iRepere + 1], '# >>> LKM-BO redirections 301');
-  assert.equal(lignes[iRepere + 2], 'Redirect 301 /vieille.php /nouvelle');
-  assert.equal(lignes[iRepere + 3], '# <<< LKM-BO redirections 301');
+  assert.equal(lignes[iRepere + 2], 'RewriteCond %{ENV:REDIRECT_STATUS} ^$');
+  assert.equal(lignes[iRepere + 3], ligne({ from: '/vieille.php', to: '/nouvelle' }));
+  assert.equal(lignes[iRepere + 4], '# <<< LKM-BO redirections 301');
 
   // Et le reste du fichier est conservé, ligne pour ligne.
-  const sansBloc = lignes.filter((l, i) => i <= iRepere || i > iRepere + 3);
+  const sansBloc = lignes.filter((l, i) => i <= iRepere || i > iRepere + 4);
   assert.deepEqual(sansBloc, HTACCESS.split('\n'));
   assert.deepEqual(site.existing, [{ from: '/vieille.php', to: '/nouvelle' }]);
   assert.ok(site.stamp);
@@ -152,7 +156,9 @@ test('redirections : changer la destination remplace la ligne, sans la dupliquer
   assert.equal(change.items[0].state, 'conflict');
   assert.equal(change.items[0].current, '/nouvelle');
   assert.deepEqual(change.existing, [{ from: '/vieille.php', to: '/autre-cible' }]);
-  assert.equal((change.fichier.match(/^Redirect 301 /gm) ?? []).length, 1);
+  // Le fichier porte d'autres RewriteRule : on ne compte que celles de NOTRE bloc.
+  const bloc = change.fichier.split('# >>> LKM-BO redirections 301')[1].split('# <<< LKM-BO')[0];
+  assert.equal((bloc.match(/^RewriteRule /gm) ?? []).length, 1);
 });
 
 test('redirections : poser puis retirer rend le fichier d’origine', { skip: phpAbsent && 'php absent' }, () => {
@@ -214,4 +220,83 @@ test('redirections : les fins de ligne du fichier sont conservées', { skip: php
   assert.ok(site.fichier.includes('\r\n'));
   // Aucun \n solitaire : on n'a pas mélangé les deux conventions.
   assert.equal((site.fichier.match(/(?<!\r)\n/g) ?? []).length, 0);
+});
+
+// ── Les trois implémentations doivent tomber d'accord ───────────────────────
+
+test('redirections : l’écran, le service et PHP écrivent la même règle', { skip: phpAbsent && 'php absent' }, async () => {
+  const srv = await import('../src/services/redirectService.js');
+  const ecran = await import('../public/js/redirects.js');
+
+  const CAS = ['/a.php', '/actu/page.php', '/cystite-comprendre-le-causes.php', '/prix-a+b.php', '/x(1).php', '/tiret-et.point.php'];
+  for (const from of CAS) {
+    // L'aperçu montré à l'agent ne doit pas mentir sur ce qui sera écrit.
+    assert.equal(ecran.motif(from), srv.motif(from), `motif divergent pour ${from}`);
+  }
+
+  // Et le script PHP, qui a le dernier mot, écrit bien cette ligne-là.
+  const site = lancer(HTACCESS, { 'exemple.com': { rules: [{ from: '/cystite-comprendre-le-causes.php', to: '/cystite.php' }] } }, 'apply');
+  const attendue = srv.ligne({ from: '/cystite-comprendre-le-causes.php', to: '/cystite.php' });
+  assert.ok(site.fichier.includes(attendue), `attendu « ${attendue} »`);
+  // La condition précède la règle, comme dans le bloc voisin du moteur.
+  assert.ok(site.fichier.includes(`RewriteCond %{ENV:REDIRECT_STATUS} ^$\n${attendue}`));
+  // Et la règle se relit : elle doit reparaître dans le tableau récapitulatif.
+  assert.deepEqual(site.existing, [{ from: '/cystite-comprendre-le-causes.php', to: '/cystite.php' }]);
+});
+
+test('redirections : une fin de bloc orpheline est réparée, pas dupliquée', { skip: phpAbsent && 'php absent' }, () => {
+  // Le cas vu en production : le fichier a été retouché à la main dans l'éditeur et
+  // la ligne d'ouverture a sauté, laissant une règle et une fin de bloc orphelines.
+  const abime = HTACCESS.replace(
+    REPERE,
+    `${REPERE}\nRedirect 301 /vieux.php /neuf.php\n# <<< LKM-BO redirections 301`,
+  );
+  const site = lancer(abime, UNE, 'apply');
+  assert.equal(site.error, undefined);
+  assert.equal(site.repaired, true);
+  // La règle orpheline est adoptée, la nouvelle s'y ajoute, et il ne reste qu'un bloc.
+  assert.equal((site.fichier.match(/# >>> LKM-BO/g) ?? []).length, 1);
+  assert.equal((site.fichier.match(/# <<< LKM-BO/g) ?? []).length, 1);
+  assert.deepEqual(
+    site.existing.map((r) => r.from),
+    ['/vieux.php', '/vieille.php'],
+  );
+});
+
+test('redirections : ce qui n’est pas à nous n’est jamais avalé', { skip: phpAbsent && 'php absent' }, () => {
+  // Une fin de bloc orpheline, mais du vrai contenu entre elle et le repère : on
+  // refuse, plutôt que d'emporter des directives qui ne nous appartiennent pas.
+  const piege = HTACCESS.replace(REPERE, `${REPERE}\nHeader set X-Truc "valeur"\n# <<< LKM-BO redirections 301`);
+  const site = lancer(piege, UNE, 'apply');
+  assert.equal(site.error, 'block_broken');
+  assert.equal(site.fichier, piege);
+});
+
+test('redirections : réparer un bloc orphelin ne touche JAMAIS à la ligne de repère', { skip: phpAbsent && 'php absent' }, () => {
+  // Ce test existe parce que la première version a effacé le repère sur un site de
+  // production : la zone à remplacer commençait au repère au lieu de la ligne d'après.
+  const abime = HTACCESS.replace(REPERE, `${REPERE}\nRedirect 301 /vieux.php /neuf.php\n# <<< LKM-BO redirections 301`);
+  const pose = lancer(abime, UNE, 'apply');
+  assert.equal(pose.fichier.split(REPERE).length - 1, 1);
+  assert.equal(pose.error, undefined);
+
+  // Et tout retirer rend le fichier d'origine, repère compris.
+  const vide = lancer(pose.fichier, { 'exemple.com': { rules: [{ from: '/vieux.php', to: '' }, { from: '/vieille.php', to: '' }] } }, 'apply', 'remove');
+  assert.ok(vide.fichier.includes(REPERE));
+  assert.ok(!vide.fichier.includes('LKM-BO'));
+});
+
+test('redirections : une règle à l’ancien format est réécrite, pas déclarée « déjà là »', { skip: phpAbsent && 'php absent' }, () => {
+  // Une règle « Redirect 301 » ne redirige personne sur ce parc : la voir « présente »
+  // laisserait l'agent croire que c'est fait.
+  const ancien = HTACCESS.replace(
+    REPERE,
+    `${REPERE}\n# >>> LKM-BO redirections 301\nRedirect 301 /vieille.php /nouvelle\n# <<< LKM-BO redirections 301`,
+  );
+  const site = lancer(ancien, UNE, 'apply');
+  assert.equal(site.legacy, 1);
+  assert.equal(site.items[0].state, 'to_upgrade');
+  assert.deepEqual(site.items[0].done, ['rule']);
+  assert.ok(site.fichier.includes(ligne({ from: '/vieille.php', to: '/nouvelle' })));
+  assert.ok(!site.fichier.includes('Redirect 301 /vieille.php'));
 });

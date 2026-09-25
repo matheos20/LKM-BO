@@ -1063,6 +1063,7 @@
     "hint_not_writable": "Führen Sie „Rechte reparieren“ auf dieser Domain aus: sie stellt die erwarteten Rechte wieder her, danach kann die Weiterleitung geschrieben werden.",
     "hint_backup_failed": "Die Sicherung konnte nicht angelegt werden, deshalb wurde nichts geschrieben.",
     "hint_write_failed": "Das Schreiben schlug fehl und die Originaldatei wurde zurückgelegt.",
-    "hint_verify_failed": "Die erneut gelesene Datei entsprach nicht dem, was geschrieben werden sollte: die Sicherung wurde automatisch zurückgespielt."
+    "hint_verify_failed": "Die erneut gelesene Datei entsprach nicht dem, was geschrieben werden sollte: die Sicherung wurde automatisch zurückgespielt.",
+    "state_to_upgrade": "neu zu schreiben"
   }
 }

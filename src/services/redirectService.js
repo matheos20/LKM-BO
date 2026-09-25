@@ -30,8 +30,31 @@ const MAX_DOMAINS = 150;
 const MAX_RULES = 50;
 const TIMEOUT = 180000;
 
-/** La ligne écrite dans le fichier, et le seul endroit où le format est décidé. */
-export const ligne = ({ from, to }) => `Redirect 301 ${from} ${to}`;
+/**
+ * Le chemin devient un motif mod_rewrite : sans sa barre oblique de tête, et avec les
+ * caractères spéciaux neutralisés. L'échappement des tirets suit la convention déjà
+ * présente dans ces fichiers.
+ */
+const SPECIAUX = /[.\\+*?[\]^$(){}=!<>|:-]/g;
+
+export const motif = (chemin) => `^${String(chemin ?? '').replace(/^\//, '').replace(SPECIAUX, (c) => `\\${c}`)}$`;
+
+/**
+ * Les lignes écrites dans le fichier, et le seul endroit où le format est décidé.
+ *
+ * C'était « Redirect 301 <de> <vers> », le format demandé. Mesuré en direct sur le
+ * parc : les 12 règles de cette forme déjà posées renvoyaient toutes 404, et l'essai
+ * de l'agent sur sante-creative.fr l'a confirmé. La dernière règle de chaque fichier,
+ * « RewriteRule ^.*\.php$ /404.php [L] », s'applique avant, parce que mod_rewrite
+ * passe avant mod_alias. La forme ci-dessous, elle, fonctionne : 12 sur 12 vérifiées.
+ *
+ * La condition précède la règle comme dans le bloc voisin du moteur : elle empêche
+ * qu'une redirection interne ne relance la règle.
+ */
+export const lignes = ({ from, to }) => ['RewriteCond %{ENV:REDIRECT_STATUS} ^$', `RewriteRule ${motif(from)} ${to} [R=301,L]`];
+
+/** La règle en une ligne, pour l'aperçu et les journaux. */
+export const ligne = ({ from, to }) => lignes({ from, to })[1];
 
 /**
  * Une URL acceptable.
@@ -145,6 +168,10 @@ export class RedirectService {
         md5: s.md5 ?? null,
         bytes: s.bytes ?? 0,
         markerAt: s.markerAt ?? null,
+        // Un bloc dont la ligne d'ouverture avait saute, reconstitue.
+        repaired: Boolean(s.repaired),
+        // Des regles encore au format « Redirect 301 », qui ne redirigent personne.
+        legacy: s.legacy ?? 0,
         writable: Boolean(s.writable),
         // Les règles du bloc du back-office…
         existing: s.existing ?? [],

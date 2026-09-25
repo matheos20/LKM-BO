@@ -1063,6 +1063,7 @@
     "hint_not_writable": "Lance «Reparar as permissões» neste domínio: repõe os direitos esperados, e o redireccionamento poderá então ser escrito.",
     "hint_backup_failed": "A cópia de segurança não pôde ser criada, por isso nada foi escrito.",
     "hint_write_failed": "A escrita falhou e o ficheiro original foi reposto.",
-    "hint_verify_failed": "O ficheiro relido não correspondia ao que devia ser escrito: a cópia foi reposta automaticamente."
+    "hint_verify_failed": "O ficheiro relido não correspondia ao que devia ser escrito: a cópia foi reposta automaticamente.",
+    "state_to_upgrade": "a reescrever"
   }
 }

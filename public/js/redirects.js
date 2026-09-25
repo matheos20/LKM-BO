@@ -37,6 +37,18 @@ const reglesSaisies = () =>
     .map((r) => ({ from: r.from.trim(), to: r.to.trim() }))
     .filter((r) => r.from && (state.operation === 'remove' || r.to));
 
+const SPECIAUX = /[.\\+*?[\]^$(){}=!<>|:-]/g;
+
+/**
+ * Le chemin devient un motif mod_rewrite : sans sa barre oblique de tête, et avec les
+ * caractères spéciaux neutralisés. Même règle que côté serveur, qui a le dernier mot
+ * — ici elle ne sert qu'à montrer à l'agent la ligne exacte qu'il obtiendra.
+ */
+export const motif = (chemin) => `^${String(chemin ?? '').replace(/^\//, '').replace(SPECIAUX, (c) => `\\${c}`)}$`;
+
+/** La règle telle qu'elle sera écrite, pour l'aperçu et les fenêtres de confirmation. */
+export const ligne = ({ from, to }) => `RewriteRule ${motif(from)} ${to} [R=301,L]`;
+
 /**
  * Une adresse acceptable. Même règle que côté serveur, qui a le dernier mot — et qui
  * la revérifie, puis le script PHP une troisième fois.
@@ -168,7 +180,7 @@ function apercu(r) {
   if (!to) return h('span', {});
   if (!urlValide(to, { destination: true })) return h('p', { class: 'text-xs text-red-600' }, t('redirects.bad_to'));
   if (from === to) return h('p', { class: 'text-xs text-red-600' }, t('redirects.loop'));
-  return h('p', { class: 'font-mono text-[11px] break-all text-ink-400' }, `Redirect 301 ${from} ${to}`);
+  return h('p', { class: 'font-mono text-[11px] break-all text-ink-400' }, ligne({ from, to }));
 }
 
 function formulaire() {
@@ -243,6 +255,7 @@ const ETATS = {
   to_add: 'bg-accent-100 text-accent-800',
   present: 'bg-ink-100 text-ink-500',
   conflict: 'bg-amber-100 text-amber-800',
+  to_upgrade: 'bg-amber-100 text-amber-800',
   to_remove: 'bg-red-100 text-red-700',
   absent: 'bg-ink-100 text-ink-400',
   invalid: 'bg-red-100 text-red-700',
@@ -433,7 +446,7 @@ function confirmerPose(sites) {
         h(
           'div',
           { class: 'rounded-lg bg-ink-50 p-3 font-mono text-[11px] break-all' },
-          regles.slice(0, 4).map((r) => h('p', {}, `Redirect 301 ${r.from} ${r.to}`)),
+          regles.slice(0, 4).map((r) => h('p', {}, ligne(r))),
           regles.length > 4 ? h('p', { class: 'text-ink-400' }, `… ${fmtNum(regles.length - 4)}`) : null,
         ),
         h('p', { class: 'text-xs text-ink-500' }, t('redirects.confirm_note')),
@@ -463,7 +476,7 @@ function confirmerRetrait(site, regle) {
         'div',
         { class: 'space-y-3 px-6 py-5' },
         h('p', { class: 'text-sm' }, t('redirects.remove_body', { domain: site.domain })),
-        h('p', { class: 'rounded-lg bg-ink-50 p-3 font-mono text-[11px] break-all' }, `Redirect 301 ${regle.from} ${regle.to}`),
+        h('p', { class: 'rounded-lg bg-ink-50 p-3 font-mono text-[11px] break-all' }, ligne(regle)),
         h('p', { class: 'text-xs text-ink-500' }, t('redirects.remove_note')),
       ),
       h(

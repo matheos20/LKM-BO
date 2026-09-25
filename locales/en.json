@@ -1063,6 +1063,7 @@
     "hint_not_writable": "Run \"Fix permissions\" on this domain: it reapplies the expected rights, and the redirect can then be written.",
     "hint_backup_failed": "The backup could not be created, so nothing was written.",
     "hint_write_failed": "The write failed and the original file was put back.",
-    "hint_verify_failed": "The file read back did not match what should have been written: the backup was restored automatically."
+    "hint_verify_failed": "The file read back did not match what should have been written: the backup was restored automatically.",
+    "state_to_upgrade": "to rewrite"
   }
 }

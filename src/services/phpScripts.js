@@ -1003,6 +1003,22 @@ $REPERE = '# Direct access to .php files redirects 301 to the old URL.';
 $DEBUT = '# >>> LKM-BO redirections 301';
 $FIN   = '# <<< LKM-BO redirections 301';
 
+/**
+ * Le chemin devient un motif mod_rewrite.
+ *
+ * Deux choses à savoir. Dans un .htaccess, mod_rewrite compare le chemin SANS sa barre
+ * oblique de tête : « /page.php » se cherche donc par « ^page\.php$ ». Et les
+ * caractères spéciaux d'expression régulière doivent être neutralisés, sans quoi
+ * « prix-a+b.php » attraperait autre chose que lui-même. L'échappement des tirets suit
+ * la convention déjà présente dans ces fichiers.
+ */
+function motif($chemin) {
+    $sans = ltrim((string) $chemin, '/');
+    // Dans la classe, \x5C et \x2D désignent l'antislash et le tiret sans avoir à les
+    // échapper ; dans le remplacement, '\\\\$1' rend UN antislash suivi du caractère.
+    return '^' . preg_replace('/([.\x5C+*?\[\]^$(){}=!<>|:\x2D])/', '\\\\$1', $sans) . '$';
+}
+
 /** Une URL acceptable : un chemin absolu, sans rien qui puisse casser une ligne. */
 function urlValide($u) {
     if (!is_string($u) || $u === '' || strlen($u) > 512) return false;
@@ -1049,15 +1065,54 @@ foreach ($demande as $domain => $entree) {
     }
     if ($iDebut >= 0 && $iFin < 0) { $site['error'] = 'block_broken'; $sites[] = $site; continue; }
 
-    // Ce que le bloc contient aujourd'hui, dans l'ordre.
+    // Une fin de bloc orpheline : cela arrive quand le fichier a été retouché à la main
+    // et que la ligne d'ouverture a sauté. On l'adopte — mais seulement si tout ce qui
+    // la sépare du repère est du vide ou une règle de redirection. Au moindre doute on
+    // refuse, plutôt que d'avaler des lignes qui ne sont pas à nous.
+    if ($iDebut < 0) {
+        $orphelin = -1;
+        foreach ($lignes as $i => $l) if ($i > $iRepere && trim($l) === $FIN) { $orphelin = $i; break; }
+        if ($orphelin >= 0) {
+            $sur = true;
+            for ($k = $iRepere + 1; $k < $orphelin; $k++) {
+                $t = trim($lignes[$k]);
+                if ($t === '' || preg_match('/^(Redirect\s+301\s|RewriteRule\s|RewriteCond\s)/', $t)) continue;
+                $sur = false;
+                break;
+            }
+            if (!$sur) { $site['error'] = 'block_broken'; $sites[] = $site; continue; }
+            $iDebut = $iRepere;
+            $iFin = $orphelin;
+            $site['repaired'] = true;
+        }
+    }
+
+    // OÙ COMMENCE LA ZONE À REMPLACER. Elle ne se confond pas avec $iDebut : dans le
+    // cas réparé, $iDebut vaut le repère lui-même — c'est ce qu'il faut pour LIRE les
+    // règles qui suivent, mais splicer à partir de là EFFACERAIT le repère. Ce n'est
+    // pas une hypothèse : la première version l'a fait sur un site de production.
+    $iSplice = empty($site['repaired']) ? $iDebut : $iRepere + 1;
+
+    // Ce que le bloc contient aujourd'hui, dans l'ordre. Les deux formes sont lues :
+    // celle écrite aujourd'hui, et celle des premières versions, pour que le tableau
+    // n'oublie aucune règle déjà posée.
     $existantes = [];
+    // Les règles écrites par les premières versions, au format « Redirect 301 », ne
+    // s'appliquent jamais sur ce parc : la règle attrape-tout du bas du fichier passe
+    // avant. Elles sont comptées ici pour être RÉÉCRITES au format qui fonctionne.
+    $anciennes = 0;
     if ($iDebut >= 0) {
         for ($k = $iDebut + 1; $k < $iFin; $k++) {
-            if (preg_match('/^\s*Redirect\s+301\s+(\S+)\s+(\S+)\s*$/', $lignes[$k], $m)) {
+            $l = $lignes[$k];
+            if (preg_match('/^\s*RewriteRule\s+\^(\S+)\$\s+(\S+)\s+\[R=301,L\]/', $l, $m)) {
+                $existantes[] = ['from' => '/' . preg_replace('/\x5C(.)/', '$1', $m[1]), 'to' => $m[2]];
+            } elseif (preg_match('/^\s*Redirect\s+301\s+(\S+)\s+(\S+)\s*$/', $l, $m)) {
                 $existantes[] = ['from' => $m[1], 'to' => $m[2]];
+                $anciennes++;
             }
         }
     }
+    $site['legacy'] = $anciennes;
     $site['existing'] = $existantes;
 
     // Les Redirect 301 posés AILLEURS : on les compte sans y toucher, ils ne sont
@@ -1088,7 +1143,9 @@ foreach ($demande as $domain => $entree) {
             $etat['state'] = $presente ? 'to_remove' : 'absent';
             if ($presente) $etat['to'] = $index[$de];
         } else {
-            if ($presente && $index[$de] === $vers) $etat['state'] = 'present';
+            // Une règle déjà là, à la bonne destination, mais écrite à l'ancien format :
+            // elle ne s'applique pas, et la dire « déjà là » tromperait l'agent.
+            if ($presente && $index[$de] === $vers) $etat['state'] = $anciennes ? 'to_upgrade' : 'present';
             elseif ($presente) { $etat['state'] = 'conflict'; $etat['current'] = $index[$de]; }
             else $etat['state'] = 'to_add';
         }
@@ -1102,7 +1159,8 @@ foreach ($demande as $domain => $entree) {
                 $apres[] = ['from' => $de, 'to' => $vers];
                 $index[$de] = $vers;
                 $etat['done'][] = 'rule';
-            } elseif ($op === 'add' && $etat['state'] === 'conflict') {
+            } elseif ($op === 'add' && ($etat['state'] === 'conflict' || $etat['state'] === 'to_upgrade')) {
+                // Réécrire suffit : le bloc entier repart au format qui fonctionne.
                 foreach ($apres as &$x) if ($x['from'] === $de) $x['to'] = $vers;
                 unset($x);
                 $index[$de] = $vers;
@@ -1116,22 +1174,29 @@ foreach ($demande as $domain => $entree) {
 
     $change = 0;
     foreach ($site['items'] as $it) if ($it['done']) $change++;
-    if (!$change) { $sites[] = $site; continue; }
+    // Un bloc qui porte encore d'anciennes règles est réécrit même si la demande
+    // n'ajoute rien : ces lignes-là ne redirigent personne tant qu'elles restent.
+    if (!$change && !$anciennes) { $sites[] = $site; continue; }
 
     // Rien n'est écrit si le fichier a bougé depuis la vérification : la règle
     // atterrirait dans un fichier qu'on n'a pas montré à l'agent.
     if ($attendu !== '' && $attendu !== $site['md5']) { $site['error'] = 'changed'; $sites[] = $site; continue; }
     if (!is_writable($f)) { $site['error'] = 'not_writable'; $sites[] = $site; continue; }
 
-    // Le bloc reconstruit, à la place exacte demandée : juste après le repère.
+    // Le bloc reconstruit, à la place exacte demandée : juste après le repère. La
+    // condition précède la règle, exactement comme le bloc voisin du moteur : elle
+    // empêche qu'une redirection interne ne relance la règle.
     $bloc = [$DEBUT];
-    foreach ($apres as $x) $bloc[] = 'Redirect 301 ' . $x['from'] . ' ' . $x['to'];
+    foreach ($apres as $x) {
+        $bloc[] = 'RewriteCond %{ENV:REDIRECT_STATUS} ^$';
+        $bloc[] = 'RewriteRule ' . motif($x['from']) . ' ' . $x['to'] . ' [R=301,L]';
+    }
     $bloc[] = $FIN;
     if (count($apres) === 0) $bloc = [];
 
     if ($iDebut >= 0) {
-        $de = $iDebut;
-        $combien = $iFin - $iDebut + 1;
+        $de = $iSplice;
+        $combien = $iFin - $iSplice + 1;
         // Le bloc s'en va entièrement : la ligne vide qu'on avait posée devant lui
         // part avec. Sans cela, chaque cycle poser/retirer en laisserait une de plus.
         if (!$bloc && $de > 0 && trim($lignes[$de - 1]) === '' && $de - 1 > $iRepere) {
