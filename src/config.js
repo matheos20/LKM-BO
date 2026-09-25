@@ -52,6 +52,9 @@ export const config = {
   serversFile: file(env.SERVERS_FILE, 'config/servers.json'),
   knownHostsFile: file(env.KNOWN_HOSTS_FILE, 'config/known_hosts.json'),
   auditLog: file(env.AUDIT_LOG, 'logs/audit.log'),
+  // Un journal qui grossit sans fin finit par ne plus être consulté. À 0, rien n'est
+  // effacé ; le fichier `audit.log`, lui, n'est jamais purgé.
+  auditRetentionDays: Number(env.AUDIT_RETENTION_DAYS ?? 180),
 };
 
 /** Refuse de démarrer avec une configuration dangereuse ou incomplète. */

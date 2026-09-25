@@ -351,6 +351,9 @@
       "read": "View design and content",
       "edit": "Edit (draft and preview)",
       "publish": "Publish live"
+    },
+    "audit": {
+      "read": "Read the audit log"
     }
   },
   "perm_group": {
@@ -415,7 +418,8 @@
     "password_reset": "Password of {username} reset.",
     "role_created": "Role {name} created.",
     "role_updated": "Role {name} updated.",
-    "role_deleted": "Role {name} deleted."
+    "role_deleted": "Role {name} deleted.",
+    "tab_audit": "Audit log"
   },
   "account": {
     "title": "My account",
@@ -887,5 +891,95 @@
     "on_sites": "{count} site(s)",
     "clear_choice": "Clear all",
     "or_type": "Or type a category name that is not listed above"
+  },
+  "audit": {
+    "search_placeholder": "Search a user, a domain, an action…",
+    "period_today": "Today",
+    "period_7d": "7 days",
+    "period_30d": "30 days",
+    "all_users": "All users",
+    "all_actions": "All actions",
+    "all_families": "All types",
+    "all_results": "All results",
+    "only_ok": "Succeeded",
+    "only_failed": "Failed",
+    "family_create": "Creation",
+    "family_update": "Change",
+    "family_delete": "Deletion",
+    "family_auth": "Sign-in",
+    "family_read": "Read",
+    "from": "From",
+    "to": "To",
+    "clear_filters": "Clear filters ({count})",
+    "col_when": "When",
+    "col_who": "Who",
+    "col_action": "Action",
+    "col_target": "On what",
+    "col_result": "Result",
+    "ok": "Succeeded",
+    "failed": "Failed",
+    "no_user": "No author",
+    "range": "{from} to {to} of {total}",
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {page} of {pages}",
+    "none": "The log is empty",
+    "none_hint": "User actions will appear here as they happen.",
+    "none_matching": "No action matches",
+    "none_matching_hint": "Widen the period, or clear the filters.",
+    "action": {
+      "login": "Sign-in",
+      "logout": "Sign-out",
+      "connect": "Server session opened",
+      "disconnect": "Server session closed",
+      "create": "Domain created",
+      "delete": "Domain deleted",
+      "rm": "File deleted",
+      "lock": "Locked",
+      "unlock": "Unlocked",
+      "password": {
+        "self": "Own password changed"
+      },
+      "user": {
+        "create": "Account created",
+        "update": "Account changed",
+        "delete": "Account deleted",
+        "password": "Password reset"
+      },
+      "role": {
+        "create": "Role created",
+        "update": "Role changed",
+        "delete": "Role deleted"
+      },
+      "file": {
+        "save": "File saved",
+        "create": "File created",
+        "delete": "File deleted",
+        "rename": "Renamed",
+        "mkdir": "Folder created",
+        "upload": "File uploaded",
+        "download": "Download",
+        "download_zip": "Download (zip)",
+        "compress": "Compressed",
+        "extract": "Extracted"
+      },
+      "design": {
+        "draft": "Site draft",
+        "preview": "Preview",
+        "publish": "Site published",
+        "article_draft": "Article draft",
+        "article_publish": "Article published",
+        "restore": "Backup restored",
+        "image": "Site image"
+      },
+      "categories": {
+        "add": "Categories added",
+        "remove": "Categories removed"
+      },
+      "translate": {
+        "apply": "Translation applied",
+        "templates": "Templates translated"
+      }
+    }
   }
 }

@@ -102,6 +102,32 @@ const MIGRATIONS = [
     UNIQUE (source, lang)
   );
   `,
+
+  // v4 — journal d'audit : qui a fait quoi, quand, sur quoi, avec quel résultat
+  `
+  CREATE TABLE audit_events (
+    id INTEGER PRIMARY KEY,
+    at INTEGER NOT NULL,
+    -- Pas de clé étrangère vers users : un événement doit survivre à la suppression
+    -- du compte qu'il nomme. Le nom et le rôle sont recopiés au moment des faits.
+    user_id INTEGER,
+    username TEXT NOT NULL DEFAULT '',
+    display_name TEXT NOT NULL DEFAULT '',
+    role TEXT NOT NULL DEFAULT '',
+    action TEXT NOT NULL,
+    family TEXT NOT NULL DEFAULT 'other',
+    server_id TEXT,
+    domain TEXT,
+    target TEXT,
+    ok INTEGER NOT NULL DEFAULT 1,
+    error TEXT,
+    ip TEXT
+  );
+  CREATE INDEX idx_audit_at ON audit_events(at DESC);
+  CREATE INDEX idx_audit_user ON audit_events(username, at DESC);
+  CREATE INDEX idx_audit_action ON audit_events(action, at DESC);
+  CREATE INDEX idx_audit_domain ON audit_events(domain, at DESC);
+  `,
 ];
 
 let db = null;

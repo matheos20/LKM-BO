@@ -351,6 +351,9 @@
       "read": "Ver diseño y contenido",
       "edit": "Modificar (borrador y previsualización)",
       "publish": "Publicar en línea"
+    },
+    "audit": {
+      "read": "Leer el registro de auditoría"
     }
   },
   "perm_group": {
@@ -415,7 +418,8 @@
     "password_reset": "Contraseña de {username} restablecida.",
     "role_created": "Rol {name} creado.",
     "role_updated": "Rol {name} actualizado.",
-    "role_deleted": "Rol {name} eliminado."
+    "role_deleted": "Rol {name} eliminado.",
+    "tab_audit": "Registro"
   },
   "account": {
     "title": "Mi cuenta",
@@ -887,5 +891,95 @@
     "on_sites": "{count} sitio(s)",
     "clear_choice": "Desmarcar todo",
     "or_type": "O escriba un nombre de categoría que no figure arriba"
+  },
+  "audit": {
+    "search_placeholder": "Buscar un usuario, un dominio, una acción…",
+    "period_today": "Hoy",
+    "period_7d": "7 días",
+    "period_30d": "30 días",
+    "all_users": "Todos los usuarios",
+    "all_actions": "Todas las acciones",
+    "all_families": "Todos los tipos",
+    "all_results": "Todos los resultados",
+    "only_ok": "Con éxito",
+    "only_failed": "Fallidas",
+    "family_create": "Creación",
+    "family_update": "Modificación",
+    "family_delete": "Eliminación",
+    "family_auth": "Conexión",
+    "family_read": "Consulta",
+    "from": "Desde",
+    "to": "Hasta",
+    "clear_filters": "Borrar los filtros ({count})",
+    "col_when": "Cuándo",
+    "col_who": "Quién",
+    "col_action": "Acción",
+    "col_target": "Sobre qué",
+    "col_result": "Resultado",
+    "ok": "Con éxito",
+    "failed": "Fallo",
+    "no_user": "Sin autor",
+    "range": "{from} a {to} de {total}",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "page_of": "Página {page} de {pages}",
+    "none": "El registro está vacío",
+    "none_hint": "Las acciones de los usuarios aparecerán aquí a medida que ocurran.",
+    "none_matching": "Ninguna acción coincide",
+    "none_matching_hint": "Amplíe el periodo o borre los filtros.",
+    "action": {
+      "login": "Inicio de sesión",
+      "logout": "Cierre de sesión",
+      "connect": "Sesión de servidor abierta",
+      "disconnect": "Sesión de servidor cerrada",
+      "create": "Dominio creado",
+      "delete": "Dominio eliminado",
+      "rm": "Archivo eliminado",
+      "lock": "Bloqueo",
+      "unlock": "Desbloqueo",
+      "password": {
+        "self": "Contraseña propia cambiada"
+      },
+      "user": {
+        "create": "Cuenta creada",
+        "update": "Cuenta modificada",
+        "delete": "Cuenta eliminada",
+        "password": "Contraseña restablecida"
+      },
+      "role": {
+        "create": "Rol creado",
+        "update": "Rol modificado",
+        "delete": "Rol eliminado"
+      },
+      "file": {
+        "save": "Archivo guardado",
+        "create": "Archivo creado",
+        "delete": "Archivo eliminado",
+        "rename": "Renombrado",
+        "mkdir": "Carpeta creada",
+        "upload": "Archivo subido",
+        "download": "Descarga",
+        "download_zip": "Descarga (zip)",
+        "compress": "Comprimido",
+        "extract": "Extraído"
+      },
+      "design": {
+        "draft": "Borrador de sitio",
+        "preview": "Vista previa",
+        "publish": "Sitio publicado",
+        "article_draft": "Borrador de artículo",
+        "article_publish": "Artículo publicado",
+        "restore": "Copia restaurada",
+        "image": "Imagen del sitio"
+      },
+      "categories": {
+        "add": "Categorías añadidas",
+        "remove": "Categorías eliminadas"
+      },
+      "translate": {
+        "apply": "Traducción aplicada",
+        "templates": "Plantillas traducidas"
+      }
+    }
   }
 }

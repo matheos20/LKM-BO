@@ -351,6 +351,9 @@
       "read": "Voir le design et le contenu",
       "edit": "Modifier (brouillon et prévisualisation)",
       "publish": "Publier en ligne"
+    },
+    "audit": {
+      "read": "Lire le journal d'audit"
     }
   },
   "perm_group": {
@@ -415,7 +418,8 @@
     "password_reset": "Mot de passe de {username} réinitialisé.",
     "role_created": "Rôle {name} créé.",
     "role_updated": "Rôle {name} mis à jour.",
-    "role_deleted": "Rôle {name} supprimé."
+    "role_deleted": "Rôle {name} supprimé.",
+    "tab_audit": "Journal"
   },
   "account": {
     "title": "Mon compte",
@@ -887,5 +891,95 @@
     "on_sites": "{count} site(s)",
     "clear_choice": "Tout décocher",
     "or_type": "Ou saisir un nom de rubrique qui ne figure pas ci-dessus"
+  },
+  "audit": {
+    "search_placeholder": "Chercher un utilisateur, un domaine, une action…",
+    "period_today": "Aujourd'hui",
+    "period_7d": "7 jours",
+    "period_30d": "30 jours",
+    "all_users": "Tous les utilisateurs",
+    "all_actions": "Toutes les actions",
+    "all_families": "Tous les types",
+    "all_results": "Tous les résultats",
+    "only_ok": "Réussies",
+    "only_failed": "Échouées",
+    "family_create": "Création",
+    "family_update": "Modification",
+    "family_delete": "Suppression",
+    "family_auth": "Connexion",
+    "family_read": "Consultation",
+    "from": "Du",
+    "to": "Au",
+    "clear_filters": "Effacer les filtres ({count})",
+    "col_when": "Quand",
+    "col_who": "Qui",
+    "col_action": "Action",
+    "col_target": "Sur quoi",
+    "col_result": "Résultat",
+    "ok": "Réussi",
+    "failed": "Échec",
+    "no_user": "Sans auteur",
+    "range": "{from} à {to} sur {total}",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "page_of": "Page {page} sur {pages}",
+    "none": "Le journal est vide",
+    "none_hint": "Les actions des utilisateurs s'inscriront ici au fur et à mesure.",
+    "none_matching": "Aucune action ne correspond",
+    "none_matching_hint": "Élargissez la période, ou effacez les filtres.",
+    "action": {
+      "login": "Connexion",
+      "logout": "Déconnexion",
+      "connect": "Ouverture de session serveur",
+      "disconnect": "Fermeture de session serveur",
+      "create": "Création de domaine",
+      "delete": "Suppression de domaine",
+      "rm": "Suppression de fichier",
+      "lock": "Verrouillage",
+      "unlock": "Déverrouillage",
+      "password": {
+        "self": "Changement de son mot de passe"
+      },
+      "user": {
+        "create": "Création de compte",
+        "update": "Modification de compte",
+        "delete": "Suppression de compte",
+        "password": "Réinitialisation de mot de passe"
+      },
+      "role": {
+        "create": "Création de rôle",
+        "update": "Modification de rôle",
+        "delete": "Suppression de rôle"
+      },
+      "file": {
+        "save": "Enregistrement de fichier",
+        "create": "Création de fichier",
+        "delete": "Suppression de fichier",
+        "rename": "Renommage",
+        "mkdir": "Création de dossier",
+        "upload": "Envoi de fichier",
+        "download": "Téléchargement",
+        "download_zip": "Téléchargement (zip)",
+        "compress": "Compression",
+        "extract": "Extraction"
+      },
+      "design": {
+        "draft": "Brouillon de site",
+        "preview": "Prévisualisation",
+        "publish": "Publication du site",
+        "article_draft": "Brouillon d'article",
+        "article_publish": "Publication d'article",
+        "restore": "Restauration de sauvegarde",
+        "image": "Image de site"
+      },
+      "categories": {
+        "add": "Ajout de rubriques",
+        "remove": "Suppression de rubriques"
+      },
+      "translate": {
+        "apply": "Traduction appliquée",
+        "templates": "Traduction des gabarits"
+      }
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { auditCount, auditView, loadAudit, onAuditChange, resetAudit } from './audit.js';
 import { t } from './i18n.js';
 import { $, closeModal, fmtDate, fmtNum, formError, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
 
@@ -8,9 +9,14 @@ const state = { open: false, tab: 'users', users: [], roles: [], permissions: []
 
 export const isAdminOpen = () => state.open;
 
-export async function openAdmin({ servers, onClose }) {
+export async function openAdmin({ servers, permissions = [], onClose }) {
   state.open = true;
   state.tab = 'users';
+  state.canAudit = permissions.includes('audit.read');
+  state.auditLu = false;
+  resetAudit();
+  // Le journal redessine l'onglet tout seul quand une page arrive.
+  onAuditChange(() => state.open && state.tab === 'audit' && render());
   state.servers = servers ?? [];
   state.onClose = onClose;
   $('#domains-view').hidden = true;
@@ -68,19 +74,37 @@ function render({ loading = false, error = null } = {}) {
         onclick: () => {
           state.tab = key;
           render();
+          // Le journal se lit à la demande : on ne va pas le chercher tant que
+          // personne ne l'a ouvert.
+          if (key === 'audit' && !state.auditLu) {
+            state.auditLu = true;
+            loadAudit({ force: true });
+          }
         },
       },
-      `${label} (${fmtNum(count)})`,
+      // Le journal n'annonce son total qu'une fois chargé : « (0) » avant la
+      // première lecture ferait croire qu'il est vide.
+      count == null ? label : `${label} (${fmtNum(count)})`,
     );
 
   const toolbar = h(
     'div',
     { class: 'card flex flex-wrap items-center gap-3 px-4 py-3' },
-    h('div', { class: 'flex rounded-lg bg-ink-50 p-1' }, tab('users', t('admin.tab_users'), state.users.length), tab('roles', t('admin.tab_roles'), state.roles.length)),
+    h(
+      'div',
+      { class: 'flex rounded-lg bg-ink-50 p-1' },
+      tab('users', t('admin.tab_users'), state.users.length),
+      tab('roles', t('admin.tab_roles'), state.roles.length),
+      // Le journal n'apparaît que pour qui peut le lire : un onglet vide qui refuse
+      // de s'ouvrir ne renseigne personne.
+      state.canAudit ? tab('audit', t('admin.tab_audit'), state.auditLu ? auditCount() : null) : null,
+    ),
     h('span', { class: 'flex-1' }),
     state.tab === 'users'
       ? h('button', { type: 'button', class: 'btn btn-primary px-3 py-1.5', onclick: () => userForm() }, icon('plus'), t('admin.new_user'))
-      : h('button', { type: 'button', class: 'btn btn-primary px-3 py-1.5', onclick: () => roleForm() }, icon('plus'), t('admin.new_role')),
+      : state.tab === 'roles'
+        ? h('button', { type: 'button', class: 'btn btn-primary px-3 py-1.5', onclick: () => roleForm() }, icon('plus'), t('admin.new_role'))
+        : null,
   );
 
   const body = loading
@@ -89,7 +113,9 @@ function render({ loading = false, error = null } = {}) {
       ? h('div', { class: 'card px-6 py-14 text-center text-red-600' }, error.message)
       : state.tab === 'users'
         ? usersTable()
-        : rolesTable();
+        : state.tab === 'roles'
+          ? rolesTable()
+          : auditView();
 
   $('#admin-view').replaceChildren(toolbar, body);
 }

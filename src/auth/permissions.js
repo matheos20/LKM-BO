@@ -25,6 +25,9 @@ export const PERMISSIONS = [
   { key: 'files.write', group: 'files' },
   { key: 'files.delete', group: 'files' },
   { key: 'users.manage', group: 'admin' },
+  // Lire le journal, c'est voir ce que font les autres : un droit de supervision,
+  // distinct de la gestion des comptes, qu'on peut accorder sans donner les clés.
+  { key: 'audit.read', group: 'admin' },
 ];
 
 export const PERMISSION_KEYS = PERMISSIONS.map((p) => p.key);

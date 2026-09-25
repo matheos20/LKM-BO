@@ -15,9 +15,17 @@ import {
   updateUser,
 } from '../db/repositories.js';
 import { revokeUserSessions } from '../db/sessionStore.js';
+import { eventFacets, queryEvents } from '../db/audit.js';
 
 /**
- * Administration des comptes et des rôles (permission « users.manage »).
+ * Administration des comptes, des rôles et du journal d'audit.
+ *
+ * Les comptes et les rôles demandent « users.manage » ; le journal demande
+ * « audit.read », un droit distinct : superviser ce que font les autres n'oblige pas à
+ * pouvoir créer des comptes, et l'inverse est vrai aussi.
+ *
+ *  GET    /audit                 le journal, filtré et paginé
+ *  GET    /audit/facets          de quoi remplir les listes de filtres
  *
  *  GET    /permissions           catalogue des permissions
  *  GET    /roles                 rôles + permissions + nombre de comptes
@@ -129,6 +137,43 @@ export function adminRouter({ audit, ssh }) {
     const out = audited(req, 'user.delete', getUser(target).username, () => deleteUser(target));
     revokeUserSessions(target);
     res.json(out);
+  });
+
+  // ── Journal d'audit ─────────────────────────────────────────────────────
+  //
+  // Lecture seule, et volontairement sans route d'effacement : un journal qu'on peut
+  // vider depuis l'interface ne prouve plus rien. La purge se fait par ancienneté, au
+  // démarrage, selon AUDIT_RETENTION_DAYS.
+
+  r.get('/audit', requirePermission('audit.read'), (req, res) => {
+    const q = req.query ?? {};
+    const date = (v) => {
+      const d = Date.parse(String(v ?? ''));
+      return Number.isNaN(d) ? undefined : d;
+    };
+    // « to » arrive comme un jour ; on prend le jour entier, sans quoi une recherche
+    // du 25 au 25 ne rendrait rien.
+    const fin = date(q.to);
+
+    res.json(
+      queryEvents({
+        user: q.user || undefined,
+        action: q.action || undefined,
+        family: q.family || undefined,
+        server: q.server || undefined,
+        domain: q.domain || undefined,
+        ok: q.ok === 'true' ? true : q.ok === 'false' ? false : undefined,
+        from: date(q.from),
+        to: fin === undefined ? undefined : fin + (String(q.to).length <= 10 ? 86399999 : 0),
+        search: q.search,
+        page: Number(q.page) || 1,
+        perPage: Number(q.perPage) || 50,
+      }),
+    );
+  });
+
+  r.get('/audit/facets', requirePermission('audit.read'), (_req, res) => {
+    res.json(eventFacets());
   });
 
   return r;

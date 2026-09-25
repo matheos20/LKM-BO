@@ -351,6 +351,9 @@
       "read": "Vedere design e contenuti",
       "edit": "Modificare (bozza e anteprima)",
       "publish": "Pubblicare online"
+    },
+    "audit": {
+      "read": "Leggere il registro di controllo"
     }
   },
   "perm_group": {
@@ -415,7 +418,8 @@
     "password_reset": "Password di {username} reimpostata.",
     "role_created": "Ruolo {name} creato.",
     "role_updated": "Ruolo {name} aggiornato.",
-    "role_deleted": "Ruolo {name} eliminato."
+    "role_deleted": "Ruolo {name} eliminato.",
+    "tab_audit": "Registro"
   },
   "account": {
     "title": "Il mio account",
@@ -887,5 +891,95 @@
     "on_sites": "{count} sito/i",
     "clear_choice": "Deseleziona tutto",
     "or_type": "Oppure scrivi il nome di una rubrica che non compare sopra"
+  },
+  "audit": {
+    "search_placeholder": "Cerca un utente, un dominio, un’azione…",
+    "period_today": "Oggi",
+    "period_7d": "7 giorni",
+    "period_30d": "30 giorni",
+    "all_users": "Tutti gli utenti",
+    "all_actions": "Tutte le azioni",
+    "all_families": "Tutti i tipi",
+    "all_results": "Tutti gli esiti",
+    "only_ok": "Riuscite",
+    "only_failed": "Fallite",
+    "family_create": "Creazione",
+    "family_update": "Modifica",
+    "family_delete": "Eliminazione",
+    "family_auth": "Accesso",
+    "family_read": "Consultazione",
+    "from": "Dal",
+    "to": "Al",
+    "clear_filters": "Cancella i filtri ({count})",
+    "col_when": "Quando",
+    "col_who": "Chi",
+    "col_action": "Azione",
+    "col_target": "Su cosa",
+    "col_result": "Esito",
+    "ok": "Riuscita",
+    "failed": "Fallita",
+    "no_user": "Senza autore",
+    "range": "Da {from} a {to} su {total}",
+    "previous": "Precedente",
+    "next": "Successivo",
+    "page_of": "Pagina {page} di {pages}",
+    "none": "Il registro è vuoto",
+    "none_hint": "Le azioni degli utenti compariranno qui man mano.",
+    "none_matching": "Nessuna azione corrisponde",
+    "none_matching_hint": "Allarga il periodo, oppure cancella i filtri.",
+    "action": {
+      "login": "Accesso",
+      "logout": "Disconnessione",
+      "connect": "Sessione server aperta",
+      "disconnect": "Sessione server chiusa",
+      "create": "Dominio creato",
+      "delete": "Dominio eliminato",
+      "rm": "File eliminato",
+      "lock": "Blocco",
+      "unlock": "Sblocco",
+      "password": {
+        "self": "Password personale cambiata"
+      },
+      "user": {
+        "create": "Account creato",
+        "update": "Account modificato",
+        "delete": "Account eliminato",
+        "password": "Password reimpostata"
+      },
+      "role": {
+        "create": "Ruolo creato",
+        "update": "Ruolo modificato",
+        "delete": "Ruolo eliminato"
+      },
+      "file": {
+        "save": "File salvato",
+        "create": "File creato",
+        "delete": "File eliminato",
+        "rename": "Rinominato",
+        "mkdir": "Cartella creata",
+        "upload": "File caricato",
+        "download": "Scaricamento",
+        "download_zip": "Scaricamento (zip)",
+        "compress": "Compresso",
+        "extract": "Estratto"
+      },
+      "design": {
+        "draft": "Bozza del sito",
+        "preview": "Anteprima",
+        "publish": "Sito pubblicato",
+        "article_draft": "Bozza di articolo",
+        "article_publish": "Articolo pubblicato",
+        "restore": "Backup ripristinato",
+        "image": "Immagine del sito"
+      },
+      "categories": {
+        "add": "Rubriche aggiunte",
+        "remove": "Rubriche eliminate"
+      },
+      "translate": {
+        "apply": "Traduzione applicata",
+        "templates": "Modelli tradotti"
+      }
+    }
   }
 }

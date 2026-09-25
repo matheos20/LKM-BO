@@ -645,6 +645,7 @@ function wireEvents() {
     $('#nav-admin').setAttribute('aria-current', 'true');
     await openAdmin({
       servers: state.servers,
+      permissions: state.user?.permissions ?? [],
       onClose: () => {
         $('#nav-admin').setAttribute('aria-current', 'false');
         renderHeader();

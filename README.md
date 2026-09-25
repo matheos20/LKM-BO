@@ -302,6 +302,79 @@ Trois permissions distinctes : `design.read` (consulter), `design.edit` (brouill
 
 ---
 
+## 6 bis. Le journal d'audit
+
+Toute action qui écrit laisse une trace : **qui**, **quoi**, **sur quoi**, **quand**, et
+**avec quel résultat**. Elle s'écrit à deux endroits, volontairement :
+
+| Destination | Rôle |
+|---|---|
+| `logs/audit.log` (JSON Lines) | La trace brute, ajoutée ligne à ligne, lisible avec n'importe quel outil, qui survit à une remise à zéro de la base |
+| La table `audit_events` | La seule forme qu'on puisse filtrer, chercher et paginer — c'est elle que lit l'écran |
+
+### L'auteur, qui manquait
+
+Le journal existait déjà, mais il notait l'auteur dans `req.session.user` — un champ qui
+n'existe pas : la session ne garde qu'un `userId`. **446 des 703 premières lignes sont
+donc anonymes** (63 %). Un journal d'audit sans auteur ne répond pas à la question qu'on
+lui pose. L'auteur est désormais lu dans `req.user`, que le middleware charge depuis la
+base à chaque requête.
+
+Le nom, le nom d'affichage et le rôle sont **recopiés au moment des faits**, et la table
+ne porte **aucune clé étrangère** vers `users`. Deux conséquences voulues : effacer un
+compte n'efface pas ses traces, et une ligne dit quel rôle son auteur avait *alors*, même
+s'il en a changé depuis.
+
+### L'écran
+
+Troisième onglet de l'**Administration**, derrière une permission distincte,
+`audit.read` : superviser ce que font les autres n'oblige pas à pouvoir créer des
+comptes, et l'inverse est vrai aussi.
+
+L'écran s'adresse à quelqu'un qui cherche une chose précise — « qu'est-ce qui s'est passé
+sur ce domaine hier ? » — et non à quelqu'un qui lit du début à la fin :
+
+- **une recherche libre** qui balaie l'auteur, le domaine, l'action et la cible, sans
+  avoir à choisir la colonne ;
+- **des raccourcis de période** (aujourd'hui, 7 jours, 30 jours) avant les dates exactes,
+  parce que c'est ce qu'on demande neuf fois sur dix ;
+- **des listes qui ne proposent que ce qui figure vraiment au journal**, avec leur
+  nombre : « Anna Dupont (12) ». Un filtre qui ne rendrait rien ne s'affiche pas.
+
+Chaque action porte une couleur tirée de son nom, jamais déclarée à côté — une action
+ajoutée demain se range sans qu'on y pense :
+
+| Couleur | Famille | Exemples |
+|---|---|---|
+| 🟢 Vert | Création | `user.create`, `categories.add`, `file.upload` |
+| 🟠 Orange | Modification | `file.save`, `design.publish`, `translate.apply` |
+| 🔴 Rouge | Suppression | `user.delete`, `categories.remove`, `rm` |
+| 🔵 Bleu | Connexion | `login`, `logout`, `connect` |
+| ⚪ Gris | Consultation | `file.download`, `design.preview` |
+
+« Supprimer » est reconnu **en premier** : une action qui supprime ne doit jamais finir en
+vert par accident. Et `unlock` ne se confond pas avec `lock`.
+
+### Ce qui tient l'écran à l'échelle
+
+Le filtrage et la pagination se font **en base**, jamais dans le navigateur : l'écran reste
+le même à dix mille lignes. La taille de page est bornée à 200, une page hors bornes se
+replie sur la dernière au lieu de rendre du vide, et les jokers de `LIKE` sont neutralisés
+— chercher « 100 % » ne rend pas tout le journal.
+
+Il n'existe **aucune route d'effacement** : un journal qu'on peut vider depuis l'interface
+ne prouve plus rien. La purge se fait par ancienneté, au démarrage, selon
+`AUDIT_RETENTION_DAYS` (180 jours par défaut, 0 pour ne rien effacer). Le fichier, lui,
+n'est jamais purgé.
+
+Éprouvé de bout en bout sur une copie jetable de la base : connexion, création de compte,
+renommage, réinitialisation de mot de passe, suppression, ouverture de session serveur et
+une création de domaine refusée. Les dix événements portent tous leur auteur, les cinq
+familles tombent juste, l'échec est distingué de la réussite, et les six filtres rendent
+le compte attendu.
+
+---
+
 ## 7. État actuel des droits SSH (relevé le 15/09/2026)
 
 | Serveur | Domaines | Réparer les droits | Créer | Supprimer |
@@ -417,6 +490,7 @@ Chaque route SSH vérifie qu'une connexion active existe (sinon `409 errors.ssh_
 - **Session tombée** : une coupure réseau ou la fermeture pour inactivité n'oblige pas à se reconnecter à la main. La session est rouverte **au moment d'ouvrir le canal**, c'est-à-dire avant que la commande ne démarre : la relancer ne peut donc rien exécuter deux fois. Une coupure survenue *pendant* une commande remonte telle quelle, et une session fermée par l'utilisateur n'est jamais rouverte toute seule.
 - **Web** : écoute sur `127.0.0.1` par défaut, mot de passe hashé (scrypt), session régénérée à la connexion, cookie `HttpOnly` + `SameSite=Strict`, anti-CSRF, 10 tentatives de connexion par 15 min, CSP stricte (aucun script inline, aucune feuille de style extérieure), rendu DOM sans `innerHTML`. L'éditeur colorant du texte, seuls les **attributs** `style` sont autorisés (`style-src-attr`) : une couleur choisie ne peut vivre ailleurs, et cette ouverture ne permet aucun script.
 - **Suppression** : confirmation par saisie du nom, refus si le domaine est verrouillé.
+- **Traçabilité** : toute action qui écrit est journalisée avec son auteur, dans un fichier et en base. Le journal se lit derrière la permission `audit.read` et ne s'efface pas depuis l'interface.
 
 Pour exposer l'outil au-delà du poste local, placez-le derrière un reverse-proxy HTTPS, avec `SECURE_COOKIES=true` et un filtrage IP.
 

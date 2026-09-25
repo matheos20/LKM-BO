@@ -16,6 +16,7 @@ import { SiteService } from './services/siteService.js';
 import { TranslationService } from './services/translationService.js';
 import { CategoryService } from './services/categoryService.js';
 import { createAudit } from './services/audit.js';
+import { purgeOlderThan } from './db/audit.js';
 import { attachUser, csrfGuard, errorHandler, langMiddleware, requireAuth } from './middleware/index.js';
 import { authRouter } from './routes/auth.js';
 import { i18nRouter } from './routes/i18n.js';
@@ -47,6 +48,11 @@ const sites = new SiteService(ssh);
 const translation = new TranslationService(ssh, sites, config.translate);
 const categories = new CategoryService(ssh, sites);
 const audit = createAudit(config.auditLog);
+
+// Un journal qui grossit sans fin finit par ne plus être consulté : on efface au
+// démarrage ce qui dépasse la durée de conservation. Le fichier, lui, garde tout.
+const purges = purgeOlderThan(config.auditRetentionDays);
+if (purges) console.log(`[audit] ${purges} événement(s) de plus de ${config.auditRetentionDays} jours effacés`);
 const SESSION_TTL = 8 * 3600 * 1000;
 
 const app = express();

@@ -351,6 +351,9 @@
       "read": "Design und Inhalt ansehen",
       "edit": "Bearbeiten (Entwurf und Vorschau)",
       "publish": "Live veröffentlichen"
+    },
+    "audit": {
+      "read": "Das Prüfprotokoll lesen"
     }
   },
   "perm_group": {
@@ -415,7 +418,8 @@
     "password_reset": "Passwort von {username} zurückgesetzt.",
     "role_created": "Rolle {name} erstellt.",
     "role_updated": "Rolle {name} aktualisiert.",
-    "role_deleted": "Rolle {name} gelöscht."
+    "role_deleted": "Rolle {name} gelöscht.",
+    "tab_audit": "Protokoll"
   },
   "account": {
     "title": "Mein Konto",
@@ -887,5 +891,95 @@
     "on_sites": "{count} Website(s)",
     "clear_choice": "Alle abwählen",
     "or_type": "Oder einen Kategorienamen eingeben, der oben nicht steht"
+  },
+  "audit": {
+    "search_placeholder": "Nach Benutzer, Domain oder Aktion suchen…",
+    "period_today": "Heute",
+    "period_7d": "7 Tage",
+    "period_30d": "30 Tage",
+    "all_users": "Alle Benutzer",
+    "all_actions": "Alle Aktionen",
+    "all_families": "Alle Arten",
+    "all_results": "Alle Ergebnisse",
+    "only_ok": "Erfolgreich",
+    "only_failed": "Fehlgeschlagen",
+    "family_create": "Anlegen",
+    "family_update": "Ändern",
+    "family_delete": "Löschen",
+    "family_auth": "Anmeldung",
+    "family_read": "Lesen",
+    "from": "Von",
+    "to": "Bis",
+    "clear_filters": "Filter löschen ({count})",
+    "col_when": "Wann",
+    "col_who": "Wer",
+    "col_action": "Aktion",
+    "col_target": "Woran",
+    "col_result": "Ergebnis",
+    "ok": "Erfolgreich",
+    "failed": "Fehlgeschlagen",
+    "no_user": "Ohne Urheber",
+    "range": "{from} bis {to} von {total}",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "page_of": "Seite {page} von {pages}",
+    "none": "Das Protokoll ist leer",
+    "none_hint": "Die Aktionen der Benutzer erscheinen hier, sobald sie geschehen.",
+    "none_matching": "Keine Aktion passt",
+    "none_matching_hint": "Erweitern Sie den Zeitraum oder löschen Sie die Filter.",
+    "action": {
+      "login": "Anmeldung",
+      "logout": "Abmeldung",
+      "connect": "Serversitzung geöffnet",
+      "disconnect": "Serversitzung geschlossen",
+      "create": "Domain angelegt",
+      "delete": "Domain gelöscht",
+      "rm": "Datei gelöscht",
+      "lock": "Gesperrt",
+      "unlock": "Entsperrt",
+      "password": {
+        "self": "Eigenes Passwort geändert"
+      },
+      "user": {
+        "create": "Konto angelegt",
+        "update": "Konto geändert",
+        "delete": "Konto gelöscht",
+        "password": "Passwort zurückgesetzt"
+      },
+      "role": {
+        "create": "Rolle angelegt",
+        "update": "Rolle geändert",
+        "delete": "Rolle gelöscht"
+      },
+      "file": {
+        "save": "Datei gespeichert",
+        "create": "Datei angelegt",
+        "delete": "Datei gelöscht",
+        "rename": "Umbenannt",
+        "mkdir": "Ordner angelegt",
+        "upload": "Datei hochgeladen",
+        "download": "Download",
+        "download_zip": "Download (zip)",
+        "compress": "Komprimiert",
+        "extract": "Entpackt"
+      },
+      "design": {
+        "draft": "Website-Entwurf",
+        "preview": "Vorschau",
+        "publish": "Website veröffentlicht",
+        "article_draft": "Artikelentwurf",
+        "article_publish": "Artikel veröffentlicht",
+        "restore": "Sicherung wiederhergestellt",
+        "image": "Website-Bild"
+      },
+      "categories": {
+        "add": "Kategorien hinzugefügt",
+        "remove": "Kategorien entfernt"
+      },
+      "translate": {
+        "apply": "Übersetzung angewendet",
+        "templates": "Vorlagen übersetzt"
+      }
+    }
   }
 }
