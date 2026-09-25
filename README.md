@@ -702,6 +702,91 @@ estate » (6 articles), « Woman / fashion » (3), « Health » (2) et « Touris
 premières cochées dans la liste, **11 articles sur 11 conservés**, la page de la rubrique retirée,
 le dossier plein gardé, le dossier vide effacé, le résumé WordPress à jour et `php -l` propre.
 
+### L'action « Redirections 301 »
+
+Une page renvoie 404 ; l'agent saisit son adresse et celle où envoyer le visiteur. Le
+back-office écrit la règle dans le `.htaccess` du site, **juste après la ligne de
+repère du moteur** :
+
+```
+# Direct access to .php files redirects 301 to the old URL.
+
+# >>> LKM-BO redirections 301
+Redirect 301 /cystite-comprendre-les-causes.php /cystite-comprendre-les-causes
+# <<< LKM-BO redirections 301
+```
+
+Le bloc délimité sépare ce que le back-office a écrit de ce qui était là avant : les
+règles posées ailleurs dans le fichier sont **comptées et laissées intactes**, et le
+tableau récapitulatif ne montre que les nôtres. Retirer la dernière règle efface le
+bloc entier, ligne vide comprise — cinq cycles poser/retirer rendent un fichier
+identique à l'octet près.
+
+#### Ce que la mesure a dit avant d'écrire une ligne de code
+
+| Mesure (VPS 003) | Résultat |
+|---|---|
+| Sites portant la ligne de repère, une seule fois | **395 / 400** |
+| `.htaccess` modifiables par le compte SSH | **1 138 / 5 273** (21,6 %) |
+| Taille médiane / maximale du fichier | 11,8 Ko / 99,1 Ko |
+| `Redirect 301` déjà présents sur le parc | 12 sites, 21 règles |
+
+Les 4 sites sur 5 non modifiables n'ont pas l'ACL `editors`. L'écran le dit avant
+d'écrire, nomme les sites concernés et renvoie vers **« Réparer les droits »**
+(`fixdroits`), qui réapplique les droits attendus.
+
+#### Un résultat mesuré qu'il faut connaître
+
+Les **12 `Redirect 301` déjà posés sur le parc renvoient tous 404**. Vérifié en direct,
+domaine par domaine : `16secrets.com`, `bizactuel.fr`, `caraventure.fr`… La cause est
+la dernière règle de chaque fichier :
+
+```
+# Catch non-existent .php files before PHP-FPM
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^.*\.php$ /404.php [L]
+```
+
+mod_rewrite s'exécute **avant** mod_alias : pour une URL dont le fichier `.php` n'existe
+pas — exactement le cas 404 que la fonctionnalité vise — la réécriture vers `/404.php`
+l'emporte, et le `Redirect` n'est jamais atteint. La forme `RewriteRule … [R=301,L]`,
+posée au même endroit, fonctionne : **12 sur 12 vérifiées en direct** renvoient bien 301.
+
+Le format écrit reste `Redirect 301`, comme demandé. En changer ne touche qu'une
+fonction, `ligne()` dans `redirectService.js`.
+
+#### Ce qui protège le fichier
+
+Le `.htaccess` porte tout le routage d'un site : une écriture ratée le casse
+entièrement. Quatre garde-fous, dans cet ordre :
+
+1. **La ligne de repère doit être là, une seule fois.** Absente, on ne sait pas où
+   écrire ; en double, il y aurait deux endroits possibles. Dans les deux cas on refuse
+   plutôt que de choisir.
+2. **Rien n'est écrit si le fichier a changé** depuis la vérification : la somme de
+   contrôle vue à l'étape 2 est comparée avant d'écrire.
+3. **Une sauvegarde horodatée** part dans `.lkm-backups/` avant toute écriture.
+4. **Le fichier est relu et comparé octet à octet** à ce qu'on voulait écrire. Au moindre
+   écart, la sauvegarde est remise en place.
+
+L'écriture se fait **sur place**, pas par un renommage : un renommage donnerait au
+`.htaccess` le propriétaire du compte SSH au lieu de celui du site.
+
+#### Les adresses refusées
+
+Un saut de ligne dans une adresse laisserait écrire n'importe quelle directive Apache.
+C'est la seule injection possible par cette fonctionnalité, et elle est fermée **trois
+fois** : dans l'écran, dans le service, et dans le script PHP. Sont refusés les blancs,
+les caractères de contrôle, les guillemets, une source qui ne commence pas par `/`, et
+une redirection vers elle-même. Une destination peut être un chemin ou une adresse
+`https://` complète — un article déplacé sur un autre site du parc est un cas courant.
+
+Éprouvé sur un bac à sable portant un **vrai `.htaccess` du parc** (259 lignes, copié
+depuis un site) : la règle atterrit ligne 29, aucune ligne n'est retirée, la demande
+rejouée se dit « déjà là » sans toucher au fichier, une somme de contrôle périmée bloque
+l'écriture, et les cinq formes d'adresse interdites sont refusées avant d'atteindre le
+serveur.
+
 ### L'action « Traduction des gabarits »
 
 La seconde action du menu traite les fichiers du moteur — `parts/`, `404.php`, `sitemap.php`… —

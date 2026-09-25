@@ -3,6 +3,7 @@ import { t } from './i18n.js';
 import { $, enc, fmtNum, folderButton, h, icon, stepTitle, toast, toastError } from './ui.js';
 import { categoryAction } from './categories.js';
 import { templateAction } from './templates.js';
+import { redirectAction } from './redirects.js';
 import { translateAction } from './translate.js';
 
 /**
@@ -34,7 +35,7 @@ import { translateAction } from './translate.js';
  *               collé) ; le périmètre de l'écran s'efface alors ;
  *   canRun()    false tant que la saisie est incomplète — le bouton reste inerte.
  */
-const ACTIONS = [translateAction, templateAction, categoryAction];
+const ACTIONS = [translateAction, templateAction, categoryAction, redirectAction];
 
 const state = {
   open: false,

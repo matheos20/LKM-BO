@@ -970,6 +970,218 @@ echo json_encode(['sites' => $sites, 'mode' => $mode], JSON_UNESCAPED_UNICODE | 
  * Le nombre d'articles est compté ici parce qu'il décide de tout : la suppression
  * retire la page de la rubrique, jamais les articles, et l'agent doit le voir avant.
  */
+/**
+ * Redirections 301 dans le .htaccess d'un site.
+ *
+ * Le fichier fait de 4 à 99 Ko sur le parc et porte tout le routage du site : une
+ * écriture ratée le casse entièrement. Quatre garde-fous, dans cet ordre :
+ *
+ *   1. LE REPÈRE DOIT ÊTRE LÀ, UNE SEULE FOIS. Sans lui on ne sait pas où écrire, et
+ *      deux repères voudraient dire deux endroits possibles : dans les deux cas on
+ *      refuse plutôt que de choisir.
+ *   2. RIEN N'EST ÉCRIT SI LE FICHIER A CHANGÉ depuis la vérification : la somme de
+ *      contrôle vue à l'étape 1 est comparée avant d'écrire.
+ *   3. UNE SAUVEGARDE HORODATÉE part avant toute écriture.
+ *   4. LE FICHIER EST RELU APRÈS ÉCRITURE et comparé octet à octet à ce qu'on voulait
+ *      écrire. Au moindre écart, la sauvegarde est remise en place.
+ *
+ * L'écriture se fait SUR PLACE (file_put_contents), et non par un renommage : un
+ * renommage donnerait au .htaccess le propriétaire du compte SSH au lieu de celui du
+ * site. L'inode, le propriétaire et les droits sont ainsi conservés.
+ */
+export const HTACCESS_REDIRECTS = String.raw`<?php
+error_reporting(0);
+$root   = rtrim((string) getenv('LKM_ROOT'), '/');
+$mode   = getenv('LKM_MODE') === 'apply' ? 'apply' : 'scan';
+$op     = getenv('LKM_OP') === 'remove' ? 'remove' : 'add';
+$demande = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true) ?: [];
+$stamp  = date('Ymd-His');
+
+// La ligne après laquelle tout se passe. Elle vient du moteur du parc.
+$REPERE = '# Direct access to .php files redirects 301 to the old URL.';
+// Notre bloc : ce qui est dedans a été écrit par le back-office, et lui seul.
+$DEBUT = '# >>> LKM-BO redirections 301';
+$FIN   = '# <<< LKM-BO redirections 301';
+
+/** Une URL acceptable : un chemin absolu, sans rien qui puisse casser une ligne. */
+function urlValide($u) {
+    if (!is_string($u) || $u === '' || strlen($u) > 512) return false;
+    // Un saut de ligne laisserait écrire n'importe quelle directive Apache.
+    if (preg_match('/[\x00-\x20\x7f"]/', $u)) return false;
+    if ($u[0] === '/') return true;
+    return (bool) preg_match('#^https?://[^/\s]+#i', $u);
+}
+
+$sites = [];
+foreach ($demande as $domain => $entree) {
+    $domain = (string) $domain;
+    if (!preg_match('/^[a-z0-9][a-z0-9.-]{1,252}$/i', $domain) || !is_array($entree)) continue;
+    // La somme de contrôle vue à la vérification : elle appartient au fichier, pas à
+    // une règle en particulier.
+    $attendu = isset($entree['md5']) ? (string) $entree['md5'] : '';
+    $regles = isset($entree['rules']) && is_array($entree['rules']) ? $entree['rules'] : [];
+    $doc = $root . '/' . $domain . '/public_html';
+    $f = $doc . '/.htaccess';
+    $site = ['domain' => $domain, 'items' => []];
+
+    if (!is_file($f)) { $site['error'] = 'no_htaccess'; $sites[] = $site; continue; }
+    $texte = @file_get_contents($f);
+    if ($texte === false) { $site['error'] = 'unreadable'; $sites[] = $site; continue; }
+
+    $site['md5'] = md5($texte);
+    $site['bytes'] = strlen($texte);
+    // Le fichier garde ses fins de ligne : les changer ferait un écart partout.
+    $eol = substr_count($texte, "\r\n") > 0 ? "\r\n" : "\n";
+    $lignes = preg_split('/\r\n|\r|\n/', $texte);
+
+    $iRepere = -1; $nRepere = 0;
+    foreach ($lignes as $i => $l) if (trim($l) === $REPERE) { $nRepere++; if ($iRepere < 0) $iRepere = $i; }
+    if ($nRepere === 0) { $site['error'] = 'no_marker'; $sites[] = $site; continue; }
+    if ($nRepere > 1)   { $site['error'] = 'many_markers'; $sites[] = $site; continue; }
+    $site['markerAt'] = $iRepere + 1;
+
+    // Notre bloc, s'il existe déjà.
+    $iDebut = -1; $iFin = -1;
+    foreach ($lignes as $i => $l) {
+        if ($i <= $iRepere) continue;
+        if (trim($l) === $DEBUT && $iDebut < 0) $iDebut = $i;
+        if (trim($l) === $FIN && $iDebut >= 0 && $iFin < 0) { $iFin = $i; break; }
+    }
+    if ($iDebut >= 0 && $iFin < 0) { $site['error'] = 'block_broken'; $sites[] = $site; continue; }
+
+    // Ce que le bloc contient aujourd'hui, dans l'ordre.
+    $existantes = [];
+    if ($iDebut >= 0) {
+        for ($k = $iDebut + 1; $k < $iFin; $k++) {
+            if (preg_match('/^\s*Redirect\s+301\s+(\S+)\s+(\S+)\s*$/', $lignes[$k], $m)) {
+                $existantes[] = ['from' => $m[1], 'to' => $m[2]];
+            }
+        }
+    }
+    $site['existing'] = $existantes;
+
+    // Les Redirect 301 posés AILLEURS : on les compte sans y toucher, ils ne sont
+    // pas à nous.
+    $dehors = 0;
+    foreach ($lignes as $i => $l) {
+        if ($iDebut >= 0 && $i > $iDebut && $i < $iFin) continue;
+        if (preg_match('/^\s*Redirect\s+(?:301|permanent)\s/i', $l)) $dehors++;
+    }
+    $site['foreign'] = $dehors;
+    $site['writable'] = is_writable($f);
+
+    // Ce que la demande ferait, règle par règle.
+    $index = [];
+    foreach ($existantes as $r) $index[$r['from']] = $r['to'];
+    $apres = $existantes;
+
+    foreach ($regles as $r) {
+        $de = isset($r['from']) ? (string) $r['from'] : '';
+        $vers = isset($r['to']) ? (string) $r['to'] : '';
+        $etat = ['from' => $de, 'to' => $vers, 'done' => [], 'failed' => []];
+
+        if (!urlValide($de) || ($op === 'add' && !urlValide($vers))) { $etat['state'] = 'invalid'; $site['items'][] = $etat; continue; }
+        if ($op === 'add' && $de === $vers) { $etat['state'] = 'loop'; $site['items'][] = $etat; continue; }
+
+        $presente = array_key_exists($de, $index);
+        if ($op === 'remove') {
+            $etat['state'] = $presente ? 'to_remove' : 'absent';
+            if ($presente) $etat['to'] = $index[$de];
+        } else {
+            if ($presente && $index[$de] === $vers) $etat['state'] = 'present';
+            elseif ($presente) { $etat['state'] = 'conflict'; $etat['current'] = $index[$de]; }
+            else $etat['state'] = 'to_add';
+        }
+
+        if ($mode === 'apply') {
+            if ($op === 'remove' && $presente) {
+                $apres = array_values(array_filter($apres, function ($x) use ($de) { return $x['from'] !== $de; }));
+                unset($index[$de]);
+                $etat['done'][] = 'rule';
+            } elseif ($op === 'add' && $etat['state'] === 'to_add') {
+                $apres[] = ['from' => $de, 'to' => $vers];
+                $index[$de] = $vers;
+                $etat['done'][] = 'rule';
+            } elseif ($op === 'add' && $etat['state'] === 'conflict') {
+                foreach ($apres as &$x) if ($x['from'] === $de) $x['to'] = $vers;
+                unset($x);
+                $index[$de] = $vers;
+                $etat['done'][] = 'rule';
+            }
+        }
+        $site['items'][] = $etat;
+    }
+
+    if ($mode !== 'apply') { $sites[] = $site; continue; }
+
+    $change = 0;
+    foreach ($site['items'] as $it) if ($it['done']) $change++;
+    if (!$change) { $sites[] = $site; continue; }
+
+    // Rien n'est écrit si le fichier a bougé depuis la vérification : la règle
+    // atterrirait dans un fichier qu'on n'a pas montré à l'agent.
+    if ($attendu !== '' && $attendu !== $site['md5']) { $site['error'] = 'changed'; $sites[] = $site; continue; }
+    if (!is_writable($f)) { $site['error'] = 'not_writable'; $sites[] = $site; continue; }
+
+    // Le bloc reconstruit, à la place exacte demandée : juste après le repère.
+    $bloc = [$DEBUT];
+    foreach ($apres as $x) $bloc[] = 'Redirect 301 ' . $x['from'] . ' ' . $x['to'];
+    $bloc[] = $FIN;
+    if (count($apres) === 0) $bloc = [];
+
+    if ($iDebut >= 0) {
+        $de = $iDebut;
+        $combien = $iFin - $iDebut + 1;
+        // Le bloc s'en va entièrement : la ligne vide qu'on avait posée devant lui
+        // part avec. Sans cela, chaque cycle poser/retirer en laisserait une de plus.
+        if (!$bloc && $de > 0 && trim($lignes[$de - 1]) === '' && $de - 1 > $iRepere) {
+            $de--;
+            $combien++;
+        }
+        array_splice($lignes, $de, $combien, $bloc);
+    } elseif ($bloc) {
+        // Première pose : une ligne vide avant, pour ne pas coller au repère — sauf
+        // s'il y en a déjà une.
+        $prefixe = (isset($lignes[$iRepere + 1]) && trim($lignes[$iRepere + 1]) === '') ? [] : [''];
+        array_splice($lignes, $iRepere + 1, 0, array_merge($prefixe, $bloc));
+    }
+
+    $nouveau = implode($eol, $lignes);
+
+    // Sauvegarde horodatée, hors de la racine servie tant que faire se peut.
+    $bk = $doc . '/.lkm-backups';
+    if (!is_dir($bk)) @mkdir($bk, 0750, true);
+    $sauve = $bk . '/htaccess-' . $stamp;
+    if (!@copy($f, $sauve)) { $site['error'] = 'backup_failed'; $sites[] = $site; continue; }
+
+    // Écriture SUR PLACE : l'inode, le propriétaire et les droits sont conservés.
+    if (@file_put_contents($f, $nouveau) === false) {
+        @copy($sauve, $f);
+        $site['error'] = 'write_failed';
+        $sites[] = $site;
+        continue;
+    }
+
+    // On relit, et on compare octet à octet. Au moindre écart, on remet la sauvegarde.
+    clearstatcache(true, $f);
+    $relu = @file_get_contents($f);
+    if ($relu !== $nouveau) {
+        @copy($sauve, $f);
+        $site['error'] = 'verify_failed';
+        $sites[] = $site;
+        continue;
+    }
+
+    $site['stamp'] = $stamp;
+    $site['md5'] = md5($nouveau);
+    $site['bytes'] = strlen($nouveau);
+    $site['existing'] = $apres;
+    $sites[] = $site;
+}
+
+echo json_encode(['sites' => $sites, 'mode' => $mode, 'op' => $op], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+`;
+
 export const CATEGORY_LIST = String.raw`<?php
 error_reporting(0);
 $root = rtrim((string) getenv('LKM_ROOT'), '/');
