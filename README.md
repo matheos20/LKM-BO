@@ -151,6 +151,10 @@ Il s'ouvre depuis l'icône dossier d'une ligne du tableau, ou depuis le panneau 
 
 **Domaine verrouillé.** Le verrou (attribut immuable) rend le domaine **intégralement en lecture seule**, y compris les sous-dossiers. L'interface affiche un bandeau et désactive les actions d'écriture ; l'API répond `409`. Consultation et téléchargement restent possibles.
 
+**Le verrou se manie sur place.** La barre d'outils porte, après un séparateur, un bouton **Verrouiller** / **Déverrouiller** : c'est le geste qui précède presque toujours une édition, et il obligeait jusqu'ici à sortir du gestionnaire, retrouver la ligne du domaine, puis revenir. Le reste de l'écran suit tout seul — le bandeau, les boutons d'écriture, le dossier relu puisque ses droits viennent de changer — et la liste des domaines est rafraîchie au retour, pour qu'elle ne montre pas un état périmé.
+
+Le bouton disparaît sur un domaine **incomplet** (il n'y a rien à verrouiller) et reste visible mais inactif quand le geste est hors de portée, en disant laquelle : « Indisponible : droit manquant pour votre rôle », « Indisponible : accès lockop non configuré ». Les capacités du serveur et les droits du compte sont croisés côté serveur, jamais dans le navigateur.
+
 **Après une extraction ou une création**, lancez « Réparer les droits » (`fixdroits`) sur le domaine pour réappliquer propriétaire et ACL attendus par nginx et PHP-FPM.
 
 **Limites** (réglables dans `.env`) : 2 000 entrées affichées par dossier, 2 Mio par fichier dans l'éditeur, 200 Mio par archive, 200 Mio par téléversement, 200 éléments par opération groupée.

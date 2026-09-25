@@ -14,6 +14,11 @@ const state = {
   path: '',
   data: null,
   status: null,
+  // Ce que le compte SSH permet ET ce à quoi l'utilisateur a droit, déjà croisés par
+  // le serveur : { lock: { ok, reason }, unlock: { ok, reason } }.
+  caps: {},
+  // Le verrou a-t-il changé pendant la visite ? La liste des domaines en dépend.
+  verrouBouge: false,
   selection: new Set(),
   filter: '',
   seq: 0,
@@ -44,8 +49,8 @@ const isZip = (entry) => entry.type === 'file' && /\.zip$/i.test(entry.name);
 
 // ───────────────────────── Ouverture / fermeture ─────────────────────────
 
-export async function openFiles({ serverId, serverLabel, domain, status, onClose }) {
-  Object.assign(state, { serverId, serverLabel, domain, status: status ?? null, path: '', data: null, filter: '', onClose, focus: null, history: { back: [], forward: [] } });
+export async function openFiles({ serverId, serverLabel, domain, status, caps, onClose }) {
+  Object.assign(state, { serverId, serverLabel, domain, status: status ?? null, caps: caps ?? {}, verrouBouge: false, path: '', data: null, filter: '', onClose, focus: null, history: { back: [], forward: [] } });
   state.selection.clear();
   $('#domains-view').hidden = true;
   $('#files-view').hidden = false;
@@ -65,7 +70,8 @@ export function closeFiles() {
   $('#domains-view').hidden = false;
   $('#btn-back').hidden = true;
   for (const sel of ['#btn-refresh', '#btn-add']) $(sel).hidden = false;
-  onClose?.();
+  // L'appelant a une liste de domaines à rafraîchir si le verrou a bougé ici.
+  onClose?.({ statusChanged: state.verrouBouge, status: state.status });
 }
 
 /** Re-rendu après changement de langue. */
@@ -242,6 +248,59 @@ function breadcrumb() {
   );
 }
 
+/**
+ * Verrouille ou déverrouille le domaine, sans quitter ses fichiers.
+ *
+ * C'est le geste le plus fréquent avant d'éditer : le faire depuis la liste des
+ * domaines obligeait à sortir, chercher la ligne, revenir. Le reste de l'écran suit
+ * tout seul — la bannière, et les boutons d'écriture qui redeviennent actifs.
+ */
+async function basculerVerrou(bouton) {
+  const action = isLocked() ? 'unlock' : 'lock';
+  bouton.disabled = true;
+  bouton.classList.add('animate-pulse');
+  try {
+    const out = await api(`/api/servers/${enc(state.serverId)}/domains/${enc(state.domain)}`, { method: 'PATCH', body: { action } });
+    state.status = out.status ?? (action === 'lock' ? 'locked' : 'unlocked');
+    state.verrouBouge = true;
+    toast(t(action === 'lock' ? 'toast.locked' : 'toast.unlocked', { domain: state.domain }), 'success', out.output || undefined);
+    // Les droits du dossier viennent de changer : on relit plutôt que de deviner.
+    await load(state.path, { keepSelection: true });
+  } catch (err) {
+    toastError(err);
+    if (bouton.isConnected) {
+      bouton.disabled = false;
+      bouton.classList.remove('animate-pulse');
+    }
+  }
+}
+
+/**
+ * Le bouton de verrou. Absent quand le domaine est incomplet — il n'y a alors rien
+ * à verrouiller — et inactif, avec sa raison, quand le compte SSH ou les droits de
+ * l'utilisateur ne le permettent pas.
+ */
+function boutonVerrou() {
+  if (state.status === 'incomplete') return null;
+  const action = isLocked() ? 'unlock' : 'lock';
+  const cap = state.caps?.[action];
+  const permis = cap?.ok !== false;
+  return h(
+    'button',
+    {
+      type: 'button',
+      // Déverrouiller ouvre l'écriture : c'est le bouton qui change le plus de choses
+      // sur cette page, il porte donc la couleur d'un geste, pas d'un réglage.
+      class: `btn ${isLocked() ? 'btn-primary' : 'btn-outline'} px-3 py-1.5`,
+      disabled: !permis,
+      title: permis ? null : t('action.unavailable', { reason: t(`reason.${cap?.reason ?? 'permission_denied'}`) }),
+      onclick: (e) => basculerVerrou(e.currentTarget),
+    },
+    icon(action === 'lock' ? 'lock' : 'unlock'),
+    t(`action.${action}`),
+  );
+}
+
 const lockedBanner = () =>
   h(
     'p',
@@ -252,6 +311,7 @@ const lockedBanner = () =>
 
 function toolbar() {
   const count = state.selection.size;
+  const verrou = boutonVerrou();
   const btn = (label, iconName, onclick, { primary = false, danger = false, disabled = false } = {}) =>
     h(
       'button',
@@ -296,6 +356,10 @@ function toolbar() {
     btn(t('files.new_folder'), 'folderPlus', () => promptMkdir(), { disabled: isLocked() }),
     btn(t('files.new_file'), 'file', () => promptNewFile(), { disabled: isLocked() }),
     btn(t('files.refresh'), 'refresh', () => reload()),
+    // Séparé du reste : ce n'est pas une opération sur des fichiers, c'est l'état du
+    // domaine tout entier.
+    verrou ? h('span', { class: 'mx-1 h-6 w-px shrink-0 bg-ink-200' }) : null,
+    verrou,
   );
 }
 

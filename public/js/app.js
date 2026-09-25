@@ -365,9 +365,13 @@ function openFilesFor(serverId, domain, status) {
     serverLabel: serverById(serverId)?.label ?? serverId,
     domain,
     status,
-    onClose: () => {
+    // Le serveur a déjà croisé ce que permet le compte SSH avec les droits du compte.
+    caps: serverById(serverId)?.capabilities ?? {},
+    onClose: ({ statusChanged } = {}) => {
       renderHeader();
       renderNotice();
+      // Le verrou a bougé dans le gestionnaire : la ligne du domaine mentirait.
+      if (statusChanged) loadDomains();
     },
   });
 }

@@ -144,7 +144,12 @@ async function openFilesFor(site) {
     serverLabel: serverLabel(site.server),
     domain: site.domain,
     status: site.lock?.status ?? null,
-    onClose: resumeActions,
+    caps: state.servers.find((s) => s.id === site.server)?.capabilities ?? {},
+    onClose: ({ statusChanged, status } = {}) => {
+      // Le verrou a bougé là-bas : l'écran d'action l'affiche aussi, il doit suivre.
+      if (statusChanged && site.lock) site.lock = { ...site.lock, status };
+      resumeActions();
+    },
   });
 }
 
