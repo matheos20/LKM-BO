@@ -1064,6 +1064,12 @@
     "hint_backup_failed": "The backup could not be created, so nothing was written.",
     "hint_write_failed": "The write failed and the original file was put back.",
     "hint_verify_failed": "The file read back did not match what should have been written: the backup was restored automatically.",
-    "state_to_upgrade": "to rewrite"
+    "state_to_upgrade": "to rewrite",
+    "format_label": "Which web server serves these sites?",
+    "format_rewrite": "Rewrite rule (mod_rewrite)",
+    "format_redirect": "Apache · Redirect 301 (mod_alias)",
+    "format_hint_rewrite": "This is the form the park engine already uses in its own files.",
+    "format_hint_redirect": "The Apache form. It only takes effect if Apache reads the site .htaccess: nginx ignores those files.",
+    "other_format": "{count} rule(s) written in the other form: they will be rewritten."
   }
 }

@@ -23,6 +23,9 @@ const MAX_REGLES = 20;
 
 const state = {
   operation: 'add', // add | remove
+  // La forme écrite dans le fichier. « rewrite » est celle que le moteur du parc
+  // utilise déjà ; « redirect » est celle d'Apache/mod_alias.
+  format: 'rewrite', // rewrite | redirect
   regles: [{ from: '', to: '' }],
   plan: null,
   selected: null,
@@ -47,7 +50,8 @@ const SPECIAUX = /[.\\+*?[\]^$(){}=!<>|:-]/g;
 export const motif = (chemin) => `^${String(chemin ?? '').replace(/^\//, '').replace(SPECIAUX, (c) => `\\${c}`)}$`;
 
 /** La règle telle qu'elle sera écrite, pour l'aperçu et les fenêtres de confirmation. */
-export const ligne = ({ from, to }) => `RewriteRule ${motif(from)} ${to} [R=301,L]`;
+export const ligne = ({ from, to }, format = state.format) =>
+  format === 'redirect' ? `Redirect 301 ${from} ${to}` : `RewriteRule ${motif(from)} ${to} [R=301,L]`;
 
 /**
  * Une adresse acceptable. Même règle que côté serveur, qui a le dernier mot — et qui
@@ -181,6 +185,53 @@ function apercu(r) {
   if (!urlValide(to, { destination: true })) return h('p', { class: 'text-xs text-red-600' }, t('redirects.bad_to'));
   if (from === to) return h('p', { class: 'text-xs text-red-600' }, t('redirects.loop'));
   return h('p', { class: 'font-mono text-[11px] break-all text-ink-400' }, ligne({ from, to }));
+}
+
+/**
+ * Le choix de la forme écrite.
+ *
+ * Deux serveurs web, deux façons de dire la même chose. L'agent ne choisit pas une
+ * directive Apache : il choisit ce qui sert ses sites, et l'écran montre en dessous la
+ * ligne exacte qu'il obtiendra. Changer de forme réécrit le bloc entier du fichier :
+ * les deux ne se mélangent jamais.
+ */
+function selecteurFormat() {
+  const choix = (cle, titre, exemple) => {
+    const actif = state.format === cle;
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: `flex-1 basis-56 rounded-lg border px-3 py-2 text-left transition ${
+          actif ? 'border-accent bg-accent-50' : 'border-ink-200 bg-white hover:border-ink-300'
+        }`,
+        'aria-pressed': String(actif),
+        onclick: () => {
+          if (state.format === cle) return;
+          state.format = cle;
+          // La forme décide de ce qui sera écrit : la vérification précédente ne
+          // parlait pas de la même chose.
+          redirectAction.reset();
+          redirectAction.onChange?.();
+        },
+      },
+      h('span', { class: 'block text-sm font-medium' }, titre),
+      h('span', { class: 'mt-0.5 block font-mono text-[11px] break-all text-ink-400' }, exemple),
+    );
+  };
+
+  return h(
+    'div',
+    { class: 'mt-4' },
+    h('p', { class: 'label' }, t('redirects.format_label')),
+    h(
+      'div',
+      { class: 'mt-1.5 flex flex-wrap gap-2' },
+      choix('rewrite', t('redirects.format_rewrite'), 'RewriteRule ^page\.php$ /page [R=301,L]'),
+      choix('redirect', t('redirects.format_redirect'), 'Redirect 301 /page.php /page'),
+    ),
+    h('p', { class: 'mt-1.5 text-xs text-ink-400' }, t(`redirects.format_hint_${state.format}`)),
+  );
 }
 
 function formulaire() {
@@ -380,6 +431,10 @@ function detailSite(permissions, openFilesFor) {
       : null,
     propositions.length ? h('div', { class: 'divide-y divide-ink-100' }, propositions) : null,
     enPlace,
+    // Des règles à nous, mais dans l'autre forme : elles seront réécrites.
+    site.otherFormat
+      ? h('p', { class: 'border-t border-ink-100 px-5 py-3 text-xs text-amber-700' }, t('redirects.other_format', { count: fmtNum(site.otherFormat) }))
+      : null,
     site.foreign
       ? h('p', { class: 'border-t border-ink-100 px-5 py-3 text-xs text-ink-400' }, t('redirects.foreign', { count: fmtNum(site.foreign) }))
       : null,
@@ -509,7 +564,7 @@ async function poser(sites) {
     for (const [server, liste] of parServeur) {
       const out = await api(`/api/servers/${enc(server)}/redirects/apply`, {
         method: 'POST',
-        body: { request: demande(liste.map((s) => ({ domain: s.domain, server }))), operation: 'add' },
+        body: { request: demande(liste.map((s) => ({ domain: s.domain, server }))), operation: 'add', format: state.format },
       });
       absorber(out);
       for (const s of out.sites ?? []) {
@@ -530,7 +585,7 @@ async function retirer(site, regle) {
   try {
     const out = await api(`/api/servers/${enc(site.server)}/redirects/apply`, {
       method: 'POST',
-      body: { request: { [site.domain]: { md5: site.md5 ?? '', rules: [{ from: regle.from, to: regle.to }] } }, operation: 'remove' },
+      body: { request: { [site.domain]: { md5: site.md5 ?? '', rules: [{ from: regle.from, to: regle.to }] } }, operation: 'remove', format: state.format },
     });
     absorber(out);
     const s = out.sites?.[0];
@@ -566,6 +621,7 @@ export const redirectAction = {
       'div',
       { class: 'card p-5' },
       stepTitle(step, t('redirects.step_what'), t('redirects.step_what_hint')),
+      selecteurFormat(),
       formulaire(),
     );
   },
@@ -580,7 +636,7 @@ export const redirectAction = {
   async run(server, domains) {
     const request = Object.fromEntries(domains.map((domain) => [domain, { rules: reglesSaisies() }]));
     if (!Object.keys(request).length) return;
-    const out = await api(`/api/servers/${enc(server)}/redirects/plan`, { method: 'POST', body: { request, operation: 'add' } });
+    const out = await api(`/api/servers/${enc(server)}/redirects/plan`, { method: 'POST', body: { request, operation: 'add', format: state.format } });
     state.plan ??= { sites: [] };
     for (const site of out.sites ?? []) state.plan.sites.push({ ...site, server, serverLabel: server });
     if (!state.selected && state.plan.sites.length) state.selected = keyOf(state.plan.sites[0]);

@@ -51,10 +51,15 @@ export const motif = (chemin) => `^${String(chemin ?? '').replace(/^\//, '').rep
  * La condition précède la règle comme dans le bloc voisin du moteur : elle empêche
  * qu'une redirection interne ne relance la règle.
  */
-export const lignes = ({ from, to }) => ['RewriteCond %{ENV:REDIRECT_STATUS} ^$', `RewriteRule ${motif(from)} ${to} [R=301,L]`];
+export const FORMATS = ['rewrite', 'redirect'];
+
+export const lignes = ({ from, to }, format = 'rewrite') =>
+  format === 'redirect'
+    ? [`Redirect 301 ${from} ${to}`]
+    : ['RewriteCond %{ENV:REDIRECT_STATUS} ^$', `RewriteRule ${motif(from)} ${to} [R=301,L]`];
 
 /** La règle en une ligne, pour l'aperçu et les journaux. */
-export const ligne = ({ from, to }) => lignes({ from, to })[1];
+export const ligne = ({ from, to }, format = 'rewrite') => lignes({ from, to }, format).at(-1);
 
 /**
  * Une URL acceptable.
@@ -104,8 +109,8 @@ export class RedirectService {
   }
 
   /** Lecture seule : ce qui est en place, et ce que la demande changerait. */
-  plan(serverId, request, { operation = 'add' } = {}) {
-    return this.#run(serverId, request, 'scan', operation);
+  plan(serverId, request, { operation = 'add', format = 'rewrite' } = {}) {
+    return this.#run(serverId, request, 'scan', operation, format);
   }
 
   /**
@@ -113,8 +118,8 @@ export class RedirectService {
    * à octet ; au moindre écart il remet la sauvegarde. Rien ici ne suppose que
    * l'écriture a réussi : c'est le fichier relu qui le dit.
    */
-  apply(serverId, request, { operation = 'add' } = {}) {
-    return this.#run(serverId, request, 'apply', operation);
+  apply(serverId, request, { operation = 'add', format = 'rewrite' } = {}) {
+    return this.#run(serverId, request, 'apply', operation, format);
   }
 
   /** Les redirections en place sur des sites donnés, sans rien demander de neuf. */
@@ -127,7 +132,7 @@ export class RedirectService {
     return this.#run(serverId, demande, 'scan', 'add');
   }
 
-  async #run(serverId, request, mode, operation) {
+  async #run(serverId, request, mode, operation, format = 'rewrite') {
     const server = this.ssh.server(serverId);
     const demande = normalizeRequest(request);
     const domaines = Object.keys(demande);
@@ -154,6 +159,7 @@ export class RedirectService {
         LKM_ROOT: server.wwwRoot,
         LKM_MODE: mode,
         LKM_OP: operation === 'remove' ? 'remove' : 'add',
+        LKM_FORMAT: FORMATS.includes(format) ? format : 'rewrite',
         LKM_B64: Buffer.from(JSON.stringify(demande), 'utf8').toString('base64'),
       },
       { timeout: TIMEOUT },
@@ -162,6 +168,7 @@ export class RedirectService {
     return {
       mode,
       operation,
+      format,
       sites: (raw.sites ?? []).map((s) => ({
         domain: s.domain,
         error: s.error ?? null,
@@ -170,11 +177,11 @@ export class RedirectService {
         markerAt: s.markerAt ?? null,
         // Un bloc dont la ligne d'ouverture avait saute, reconstitue.
         repaired: Boolean(s.repaired),
-        // Des regles encore au format « Redirect 301 », qui ne redirigent personne.
-        legacy: s.legacy ?? 0,
         writable: Boolean(s.writable),
         // Les règles du bloc du back-office…
         existing: s.existing ?? [],
+        // …et combien d'entre elles ne sont pas dans la forme demandée.
+        otherFormat: s.otherFormat ?? 0,
         // …et celles posées ailleurs dans le fichier, qu'on ne touche pas.
         foreign: s.foreign ?? 0,
         stamp: s.stamp ?? null,

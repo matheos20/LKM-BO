@@ -994,6 +994,9 @@ error_reporting(0);
 $root   = rtrim((string) getenv('LKM_ROOT'), '/');
 $mode   = getenv('LKM_MODE') === 'apply' ? 'apply' : 'scan';
 $op     = getenv('LKM_OP') === 'remove' ? 'remove' : 'add';
+// La forme écrite. « redirect » est celle d'Apache/mod_alias, demandée pour un parc
+// servi par Apache ; « rewrite » est celle que le moteur du parc utilise déjà.
+$format = getenv('LKM_FORMAT') === 'redirect' ? 'redirect' : 'rewrite';
 $demande = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true) ?: [];
 $stamp  = date('Ymd-His');
 
@@ -1097,22 +1100,24 @@ foreach ($demande as $domain => $entree) {
     // celle écrite aujourd'hui, et celle des premières versions, pour que le tableau
     // n'oublie aucune règle déjà posée.
     $existantes = [];
-    // Les règles écrites par les premières versions, au format « Redirect 301 », ne
-    // s'appliquent jamais sur ce parc : la règle attrape-tout du bas du fichier passe
-    // avant. Elles sont comptées ici pour être RÉÉCRITES au format qui fonctionne.
-    $anciennes = 0;
+    // Les deux formes sont lues, et chaque règle se souvient de la sienne. Une règle
+    // écrite dans une forme alors que l'agent en demande une autre n'est pas « déjà
+    // là » : elle sera RÉÉCRITE dans la forme demandée.
+    $ailleurs = 0;
     if ($iDebut >= 0) {
         for ($k = $iDebut + 1; $k < $iFin; $k++) {
             $l = $lignes[$k];
             if (preg_match('/^\s*RewriteRule\s+\^(\S+)\$\s+(\S+)\s+\[R=301,L\]/', $l, $m)) {
-                $existantes[] = ['from' => '/' . preg_replace('/\x5C(.)/', '$1', $m[1]), 'to' => $m[2]];
+                $existantes[] = ['from' => '/' . preg_replace('/\x5C(.)/', '$1', $m[1]), 'to' => $m[2], 'format' => 'rewrite'];
+                if ($format !== 'rewrite') $ailleurs++;
             } elseif (preg_match('/^\s*Redirect\s+301\s+(\S+)\s+(\S+)\s*$/', $l, $m)) {
-                $existantes[] = ['from' => $m[1], 'to' => $m[2]];
-                $anciennes++;
+                $existantes[] = ['from' => $m[1], 'to' => $m[2], 'format' => 'redirect'];
+                if ($format !== 'redirect') $ailleurs++;
             }
         }
     }
-    $site['legacy'] = $anciennes;
+    // Combien de règles ne sont pas dans la forme demandée.
+    $site['otherFormat'] = $ailleurs;
     $site['existing'] = $existantes;
 
     // Les Redirect 301 posés AILLEURS : on les compte sans y toucher, ils ne sont
@@ -1127,7 +1132,12 @@ foreach ($demande as $domain => $entree) {
 
     // Ce que la demande ferait, règle par règle.
     $index = [];
-    foreach ($existantes as $r) $index[$r['from']] = $r['to'];
+    // La forme dans laquelle chaque règle est écrite aujourd'hui.
+    $formats = [];
+    foreach ($existantes as $r) {
+        $index[$r['from']] = $r['to'];
+        $formats[$r['from']] = $r['format'];
+    }
     $apres = $existantes;
 
     foreach ($regles as $r) {
@@ -1143,9 +1153,10 @@ foreach ($demande as $domain => $entree) {
             $etat['state'] = $presente ? 'to_remove' : 'absent';
             if ($presente) $etat['to'] = $index[$de];
         } else {
-            // Une règle déjà là, à la bonne destination, mais écrite à l'ancien format :
-            // elle ne s'applique pas, et la dire « déjà là » tromperait l'agent.
-            if ($presente && $index[$de] === $vers) $etat['state'] = $anciennes ? 'to_upgrade' : 'present';
+            // Une règle déjà là, à la bonne destination, mais écrite dans l'AUTRE
+            // forme : la dire « déjà là » tromperait l'agent, qui a demandé celle-ci.
+            $memeForme = $presente && ($formats[$de] ?? $format) === $format;
+            if ($presente && $index[$de] === $vers) $etat['state'] = $memeForme ? 'present' : 'to_upgrade';
             elseif ($presente) { $etat['state'] = 'conflict'; $etat['current'] = $index[$de]; }
             else $etat['state'] = 'to_add';
         }
@@ -1174,22 +1185,32 @@ foreach ($demande as $domain => $entree) {
 
     $change = 0;
     foreach ($site['items'] as $it) if ($it['done']) $change++;
-    // Un bloc qui porte encore d'anciennes règles est réécrit même si la demande
-    // n'ajoute rien : ces lignes-là ne redirigent personne tant qu'elles restent.
-    if (!$change && !$anciennes) { $sites[] = $site; continue; }
+    // Un bloc qui porte des règles dans l'autre forme est réécrit même si la demande
+    // n'ajoute rien : le bloc entier passe dans la forme demandée, d'un seul tenant.
+    if (!$change && !$ailleurs) { $sites[] = $site; continue; }
 
     // Rien n'est écrit si le fichier a bougé depuis la vérification : la règle
     // atterrirait dans un fichier qu'on n'a pas montré à l'agent.
     if ($attendu !== '' && $attendu !== $site['md5']) { $site['error'] = 'changed'; $sites[] = $site; continue; }
     if (!is_writable($f)) { $site['error'] = 'not_writable'; $sites[] = $site; continue; }
 
-    // Le bloc reconstruit, à la place exacte demandée : juste après le repère. La
-    // condition précède la règle, exactement comme le bloc voisin du moteur : elle
-    // empêche qu'une redirection interne ne relance la règle.
+    // Le bloc reconstruit, à la place exacte demandée : juste après le repère, et
+    // TOUT ENTIER dans la forme demandée — on ne mélange pas les deux dans un même
+    // bloc, ce serait illisible pour qui ouvre le fichier.
+    //
+    //   « redirect » : Redirect 301 /ancienne /nouvelle          (mod_alias)
+    //   « rewrite »  : RewriteCond + RewriteRule … [R=301,L]     (mod_rewrite)
+    //
+    // La condition précède la règle de réécriture, exactement comme le bloc voisin du
+    // moteur : elle empêche qu'une redirection interne ne relance la règle.
     $bloc = [$DEBUT];
     foreach ($apres as $x) {
-        $bloc[] = 'RewriteCond %{ENV:REDIRECT_STATUS} ^$';
-        $bloc[] = 'RewriteRule ' . motif($x['from']) . ' ' . $x['to'] . ' [R=301,L]';
+        if ($format === 'redirect') {
+            $bloc[] = 'Redirect 301 ' . $x['from'] . ' ' . $x['to'];
+        } else {
+            $bloc[] = 'RewriteCond %{ENV:REDIRECT_STATUS} ^$';
+            $bloc[] = 'RewriteRule ' . motif($x['from']) . ' ' . $x['to'] . ' [R=301,L]';
+        }
     }
     $bloc[] = $FIN;
     if (count($apres) === 0) $bloc = [];
@@ -1240,7 +1261,11 @@ foreach ($demande as $domain => $entree) {
     $site['stamp'] = $stamp;
     $site['md5'] = md5($nouveau);
     $site['bytes'] = strlen($nouveau);
+    // Le bloc vient d'être réécrit d'un seul tenant : tout y est dans la forme demandée.
+    foreach ($apres as &$x) $x['format'] = $format;
+    unset($x);
     $site['existing'] = $apres;
+    $site['otherFormat'] = 0;
     $sites[] = $site;
 }
 

@@ -80,7 +80,7 @@ const HTACCESS = [
 ].join('\n');
 
 /** Lance le script sur un site jetable et rend le résultat ET le fichier obtenu. */
-function lancer(contenu, request, mode = 'scan', op = 'add') {
+function lancer(contenu, request, mode = 'scan', op = 'add', format = 'rewrite') {
   const root = mkdtempSync(join(tmpdir(), 'lkm-red-'));
   const doc = join(root, 'exemple.com', 'public_html');
   try {
@@ -94,6 +94,7 @@ function lancer(contenu, request, mode = 'scan', op = 'add') {
         LKM_ROOT: root,
         LKM_MODE: mode,
         LKM_OP: op,
+        LKM_FORMAT: format,
         LKM_B64: Buffer.from(JSON.stringify(normalizeRequest(request))).toString('base64'),
       },
     });
@@ -138,7 +139,7 @@ test('redirections : la règle atterrit juste après la ligne de repère', { ski
   // Et le reste du fichier est conservé, ligne pour ligne.
   const sansBloc = lignes.filter((l, i) => i <= iRepere || i > iRepere + 4);
   assert.deepEqual(sansBloc, HTACCESS.split('\n'));
-  assert.deepEqual(site.existing, [{ from: '/vieille.php', to: '/nouvelle' }]);
+  assert.deepEqual(site.existing.map((r) => [r.from, r.to]), [['/vieille.php', '/nouvelle']]);
   assert.ok(site.stamp);
 });
 
@@ -155,7 +156,7 @@ test('redirections : changer la destination remplace la ligne, sans la dupliquer
   const change = lancer(pose.fichier, { 'exemple.com': { rules: [{ from: '/vieille.php', to: '/autre-cible' }] } }, 'apply');
   assert.equal(change.items[0].state, 'conflict');
   assert.equal(change.items[0].current, '/nouvelle');
-  assert.deepEqual(change.existing, [{ from: '/vieille.php', to: '/autre-cible' }]);
+  assert.deepEqual(change.existing.map((r) => [r.from, r.to]), [['/vieille.php', '/autre-cible']]);
   // Le fichier porte d'autres RewriteRule : on ne compte que celles de NOTRE bloc.
   const bloc = change.fichier.split('# >>> LKM-BO redirections 301')[1].split('# <<< LKM-BO')[0];
   assert.equal((bloc.match(/^RewriteRule /gm) ?? []).length, 1);
@@ -200,7 +201,7 @@ test('redirections : les règles posées ailleurs dans le fichier sont comptées
   const site = lancer(avec, UNE, 'apply');
   assert.equal(site.foreign, 1);
   // Elle n'entre pas dans le tableau du back-office…
-  assert.deepEqual(site.existing, [{ from: '/vieille.php', to: '/nouvelle' }]);
+  assert.deepEqual(site.existing.map((r) => [r.from, r.to]), [['/vieille.php', '/nouvelle']]);
   // …et elle est toujours dans le fichier.
   assert.ok(site.fichier.includes('Redirect 301 /ancienne-a-la-main.php /ailleurs'));
 });
@@ -241,7 +242,7 @@ test('redirections : l’écran, le service et PHP écrivent la même règle', {
   // La condition précède la règle, comme dans le bloc voisin du moteur.
   assert.ok(site.fichier.includes(`RewriteCond %{ENV:REDIRECT_STATUS} ^$\n${attendue}`));
   // Et la règle se relit : elle doit reparaître dans le tableau récapitulatif.
-  assert.deepEqual(site.existing, [{ from: '/cystite-comprendre-le-causes.php', to: '/cystite.php' }]);
+  assert.deepEqual(site.existing.map((r) => [r.from, r.to]), [['/cystite-comprendre-le-causes.php', '/cystite.php']]);
 });
 
 test('redirections : une fin de bloc orpheline est réparée, pas dupliquée', { skip: phpAbsent && 'php absent' }, () => {
@@ -286,17 +287,78 @@ test('redirections : réparer un bloc orphelin ne touche JAMAIS à la ligne de r
   assert.ok(!vide.fichier.includes('LKM-BO'));
 });
 
-test('redirections : une règle à l’ancien format est réécrite, pas déclarée « déjà là »', { skip: phpAbsent && 'php absent' }, () => {
-  // Une règle « Redirect 301 » ne redirige personne sur ce parc : la voir « présente »
-  // laisserait l'agent croire que c'est fait.
+test('redirections : une règle écrite dans l’autre forme est réécrite, pas déclarée « déjà là »', { skip: phpAbsent && 'php absent' }, () => {
+  // L'agent a demandé une forme ; la voir « présente » dans l'autre lui laisserait
+  // croire que c'est fait.
   const ancien = HTACCESS.replace(
     REPERE,
     `${REPERE}\n# >>> LKM-BO redirections 301\nRedirect 301 /vieille.php /nouvelle\n# <<< LKM-BO redirections 301`,
   );
+  // En verification, la regle est vue dans l'autre forme…
+  assert.equal(lancer(ancien, UNE).otherFormat, 1);
+
+  // …et l'ecriture la fait basculer.
   const site = lancer(ancien, UNE, 'apply');
-  assert.equal(site.legacy, 1);
+  assert.equal(site.otherFormat, 0);
   assert.equal(site.items[0].state, 'to_upgrade');
   assert.deepEqual(site.items[0].done, ['rule']);
   assert.ok(site.fichier.includes(ligne({ from: '/vieille.php', to: '/nouvelle' })));
   assert.ok(!site.fichier.includes('Redirect 301 /vieille.php'));
+});
+
+// ── Les deux formes ────────────────────────────────────────────────────────
+
+test('redirections : la forme « Redirect 301 » d’Apache, écrite telle quelle', { skip: phpAbsent && 'php absent' }, () => {
+  const site = lancer(HTACCESS, UNE, 'apply', 'add', 'redirect');
+  const lignes = site.fichier.split('\n');
+  const iRepere = lignes.indexOf(REPERE);
+
+  // Une seule ligne par règle, sans condition : c'est mod_alias, pas mod_rewrite.
+  assert.equal(lignes[iRepere + 1], '# >>> LKM-BO redirections 301');
+  assert.equal(lignes[iRepere + 2], 'Redirect 301 /vieille.php /nouvelle');
+  assert.equal(lignes[iRepere + 3], '# <<< LKM-BO redirections 301');
+  assert.ok(!site.fichier.includes('RewriteCond %{ENV:REDIRECT_STATUS} ^$\nRedirect'));
+  assert.deepEqual(site.existing.map((r) => [r.from, r.format]), [['/vieille.php', 'redirect']]);
+});
+
+test('redirections : changer de forme réécrit le bloc entier, sans mélanger', { skip: phpAbsent && 'php absent' }, () => {
+  // Deux règles posées en « rewrite »…
+  const deux = { 'exemple.com': { rules: [{ from: '/a.php', to: '/a' }, { from: '/b.php', to: '/b' }] } };
+  const pose = lancer(HTACCESS, deux, 'apply', 'add', 'rewrite');
+  assert.equal(pose.existing.length, 2);
+  assert.ok(pose.existing.every((r) => r.format === 'rewrite'));
+
+  // …puis la même demande en « redirect » : tout bascule, rien ne reste en arrière.
+  const bascule = lancer(pose.fichier, deux, 'apply', 'add', 'redirect');
+  assert.deepEqual(bascule.items.map((i) => i.state), ['to_upgrade', 'to_upgrade']);
+  assert.ok(bascule.existing.every((r) => r.format === 'redirect'));
+  const bloc = bascule.fichier.split('# >>> LKM-BO redirections 301')[1].split('# <<< LKM-BO')[0];
+  assert.equal((bloc.match(/^Redirect 301 /gm) ?? []).length, 2);
+  assert.equal((bloc.match(/^RewriteRule /gm) ?? []).length, 0);
+  assert.equal((bloc.match(/^RewriteCond /gm) ?? []).length, 0);
+  assert.equal(bascule.otherFormat, 0);
+
+  // Et retour : la bascule inverse est tout aussi propre.
+  const retour = lancer(bascule.fichier, deux, 'apply', 'add', 'rewrite');
+  const bloc2 = retour.fichier.split('# >>> LKM-BO redirections 301')[1].split('# <<< LKM-BO')[0];
+  assert.equal((bloc2.match(/^RewriteRule /gm) ?? []).length, 2);
+  assert.equal((bloc2.match(/^Redirect 301 /gm) ?? []).length, 0);
+});
+
+test('redirections : dans la même forme, rien n’est réécrit', { skip: phpAbsent && 'php absent' }, () => {
+  for (const format of ['rewrite', 'redirect']) {
+    const pose = lancer(HTACCESS, UNE, 'apply', 'add', format);
+    const rejoue = lancer(pose.fichier, UNE, 'apply', 'add', format);
+    assert.equal(rejoue.items[0].state, 'present', format);
+    assert.deepEqual(rejoue.items[0].done, [], format);
+    assert.equal(rejoue.fichier, pose.fichier, format);
+  }
+});
+
+test('redirections : retirer fonctionne dans les deux formes', { skip: phpAbsent && 'php absent' }, () => {
+  for (const format of ['rewrite', 'redirect']) {
+    const pose = lancer(HTACCESS, UNE, 'apply', 'add', format);
+    const vide = lancer(pose.fichier, { 'exemple.com': { rules: [{ from: '/vieille.php', to: '' }] } }, 'apply', 'remove', format);
+    assert.equal(vide.fichier, HTACCESS, format);
+  }
 });

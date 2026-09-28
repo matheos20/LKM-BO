@@ -1064,6 +1064,12 @@
     "hint_backup_failed": "No se pudo crear la copia de seguridad, así que no se escribió nada.",
     "hint_write_failed": "La escritura falló y el archivo original fue repuesto.",
     "hint_verify_failed": "El archivo releído no coincidía con lo que debía escribirse: la copia se restauró automáticamente.",
-    "state_to_upgrade": "por reescribir"
+    "state_to_upgrade": "por reescribir",
+    "format_label": "¿Qué servidor web sirve estos sitios?",
+    "format_rewrite": "Regla de reescritura (mod_rewrite)",
+    "format_redirect": "Apache · Redirect 301 (mod_alias)",
+    "format_hint_rewrite": "Es la forma que el motor del parque ya emplea en sus propios archivos.",
+    "format_hint_redirect": "La forma de Apache. Solo surte efecto si Apache lee el .htaccess del sitio: nginx ignora esos archivos.",
+    "other_format": "{count} regla(s) escritas en la otra forma: serán reescritas."
   }
 }

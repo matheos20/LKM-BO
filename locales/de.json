@@ -1064,6 +1064,12 @@
     "hint_backup_failed": "Die Sicherung konnte nicht angelegt werden, deshalb wurde nichts geschrieben.",
     "hint_write_failed": "Das Schreiben schlug fehl und die Originaldatei wurde zurückgelegt.",
     "hint_verify_failed": "Die erneut gelesene Datei entsprach nicht dem, was geschrieben werden sollte: die Sicherung wurde automatisch zurückgespielt.",
-    "state_to_upgrade": "neu zu schreiben"
+    "state_to_upgrade": "neu zu schreiben",
+    "format_label": "Welcher Webserver bedient diese Websites?",
+    "format_rewrite": "Rewrite-Regel (mod_rewrite)",
+    "format_redirect": "Apache · Redirect 301 (mod_alias)",
+    "format_hint_rewrite": "Das ist die Form, die die Engine des Parks bereits in ihren eigenen Dateien verwendet.",
+    "format_hint_redirect": "Die Apache-Form. Sie wirkt nur, wenn Apache die .htaccess der Website liest: nginx ignoriert diese Dateien.",
+    "other_format": "{count} Regel(n) in der anderen Form geschrieben: sie werden neu geschrieben."
   }
 }

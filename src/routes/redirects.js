@@ -9,6 +9,9 @@ import { requireConnection, requirePermission, requireServerAccess } from '../mi
  *  POST /apply    { request, operation }   écrit dans le .htaccess
  *
  * `operation` vaut « add » (défaut) ou « remove ».
+ * `format` vaut « rewrite » (défaut, RewriteRule … [R=301,L]) ou « redirect »
+ * (Redirect 301 …, la forme mod_alias d'Apache). Le bloc entier est écrit dans la
+ * forme demandée : les deux ne se mélangent jamais dans un même fichier.
  * `request` associe un domaine à ses règles, avec la somme de contrôle du fichier
  * vue à la vérification : { "exemple.com": { md5, rules: [{ from, to }] } }.
  *
@@ -25,7 +28,7 @@ export function redirectsRouter({ ssh, redirects, audit }) {
   });
 
   r.post('/plan', requirePermission('design.read'), async (req, res) => {
-    res.json(await redirects.plan(req.params.id, req.body?.request, { operation: req.body?.operation }));
+    res.json(await redirects.plan(req.params.id, req.body?.request, { operation: req.body?.operation, format: req.body?.format }));
   });
 
   r.post('/apply', requirePermission('design.publish'), async (req, res) => {
@@ -33,13 +36,13 @@ export function redirectsRouter({ ssh, redirects, audit }) {
     const operation = req.body?.operation === 'remove' ? 'remove' : 'add';
     const domaines = Object.keys(demande);
     try {
-      const out = await redirects.apply(req.params.id, demande, { operation });
+      const out = await redirects.apply(req.params.id, demande, { operation, format: req.body?.format });
       const posees = out.sites.reduce((n, s) => n + s.items.filter((i) => i.done.length).length, 0);
       audit(req, {
         action: `redirects.${operation}`,
         server: req.params.id,
         domain: domaines.join(', ').slice(0, 253),
-        target: `${posees} redirection(s)`,
+        target: `${posees} redirection(s) · ${req.body?.format === 'redirect' ? 'Redirect 301' : 'RewriteRule'}`,
         ok: true,
       });
       res.json(out);

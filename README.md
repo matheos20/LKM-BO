@@ -747,13 +747,40 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^.*\.php$ /404.php [L]
 ```
 
-mod_rewrite s'exécute **avant** mod_alias : pour une URL dont le fichier `.php` n'existe
-pas — exactement le cas 404 que la fonctionnalité vise — la réécriture vers `/404.php`
-l'emporte, et le `Redirect` n'est jamais atteint. La forme `RewriteRule … [R=301,L]`,
-posée au même endroit, fonctionne : **12 sur 12 vérifiées en direct** renvoient bien 301.
+**La vraie cause, trouvée ensuite :** le parc n'est pas servi par Apache mais par
+**nginx**, qui ne lit pas les `.htaccess`. Ces fichiers sont un reliquat de l'import
+WordPress ; rien de ce qu'on y écrit n'a d'effet. Lu dans
+`/etc/nginx/sites-enabled/00-parc-dynamic.conf` :
 
-Le format écrit reste `Redirect 301`, comme demandé. En changer ne touche qu'une
-fonction, `ligne()` dans `redirectService.js`.
+```nginx
+location ~ .php$ { try_files $uri =404; ... }
+```
+
+Un `.php` absent du disque rend **404 sans même lancer PHP**. Quand le fichier existe,
+PHP tourne, `article.php` lit `permalinks.php` et pose l'en-tête 301 — c'est de là que
+venaient les 12 redirections que j'avais d'abord attribuées au `.htaccess` : leurs
+fichiers `.php` étaient tous présents sur le disque.
+
+Pour qu'une redirection agisse sur le parc tel qu'il est, il faut donc viser autre chose
+que le `.htaccess` : créer le fichier `.php` manquant, écrire dans `permalinks.php`, ou
+modifier la configuration nginx (qui demande `sudo`, dont le compte ne dispose pas).
+
+#### Deux formes, au choix de l'agent
+
+L'écran demande **quel serveur web sert ces sites**, et écrit en conséquence. Le bloc
+entier passe dans la forme choisie : les deux ne se mélangent jamais dans un fichier, et
+basculer de l'une à l'autre réécrit toutes les règles d'un coup.
+
+| Choix | Ce qui est écrit |
+|---|---|
+| Règle de réécriture (mod_rewrite) | `RewriteCond %{ENV:REDIRECT_STATUS} ^$` puis `RewriteRule ^page.php$ /page [R=301,L]` |
+| Apache · Redirect 301 (mod_alias) | `Redirect 301 /page.php /page` |
+
+Une règle déjà posée dans l'autre forme n'est pas annoncée « déjà là » — elle serait
+restée inerte : elle est marquée **à réécrire**, et l'écriture la fait basculer.
+
+**Aucune des deux ne prend effet tant que nginx sert le parc** : nginx ne lit pas les
+`.htaccess`. L'écran le dit sous le choix Apache. Voir plus bas pourquoi.
 
 #### Ce qui protège le fichier
 
