@@ -68,7 +68,12 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
   r.post('/images', canEdit, express.raw({ type: () => true, limit: uploadLimit }), async (req, res) => {
     const { id, domain } = ctx(req);
     const name = String(req.query.name ?? '');
-    const out = await audited(req, 'design.image', name, () => sites.uploadImage(id, domain, { name, data: req.body }));
+    // « article » est facultatif : quand il est là, l'image prend le nom de l'article
+    // plutôt que celui du fichier importé depuis le poste.
+    const article = String(req.query.article ?? '');
+    const out = await audited(req, 'design.image', article ? `${name} → ${article}` : name, () =>
+      sites.uploadImage(id, domain, { name, data: req.body, article }),
+    );
     res.status(201).json(out);
   });
 

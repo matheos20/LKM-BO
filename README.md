@@ -319,6 +319,37 @@ Le format est reconnu aux **premiers octets**, jamais à l'extension : un script
 
 ### L'onglet « Articles »
 
+#### Le nom des images importées
+
+Une image importée depuis le poste s'appelle « IMG_4821.jpg » ou « sans-titre (3).png » :
+un nom qui ne dit rien de l'article et qui se ressemble d'un site à l'autre. Quand
+l'import part **depuis un article ouvert**, l'image prend donc le nom de l'article, et le
+moteur en tire ses quatre largeurs :
+
+```
+bien-etre/transformez-votre-bien-etre-grace-a-la-magie-de-la-pleine-conscience.php
+   ↓
+images/transformez-votre-bien-etre-grace-a-la-magie-de-la-pleine-conscience-400.webp
+images/…-600.webp   images/…-900.webp   images/…-1920.webp      (et les .jpg)
+```
+
+Le nom est annoncé **avant** l'import, dans la fenêtre de choix : l'agent ne découvre pas
+après coup que son fichier a été renommé.
+
+**Rien n'est jamais écrasé.** Un article qui a déjà son image en reçoit une seconde sous
+`<article>-2`, puis `-3` — les largeurs valent 400, 600, 900 et 1920, un `-2` ne peut donc
+pas se confondre avec elles. L'annonce compte ce suffixe, pour que l'agent ne croie pas
+avoir remplacé l'image d'origine.
+
+**C'est le serveur qui décide du nom**, et il vérifie que l'article demandé est bien un
+article de ce site : sans cela, n'importe quelle chaîne dicterait le nom des fichiers
+écrits. Un article inconnu fait simplement retomber sur le nom du fichier importé.
+
+Sans article ouvert — une image de page d'accueil, par exemple — le nom vient du fichier,
+comme avant. Relevé sur `biozenz.fr` : **28 des 36 images du site portaient déjà le nom
+d'un article**, à la main. Le geste était donc déjà la règle ; il est désormais fait tout
+seul.
+
 #### La barre d'outils de l'article
 
 Le corps de l'article s'écrit dans une zone visuelle, avec les gestes qu'on attend d'un

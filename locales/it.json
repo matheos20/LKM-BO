@@ -681,7 +681,8 @@
     "rt_unlink": "Togliere il collegamento",
     "rt_link_placeholder": "Incolla l’indirizzo del collegamento",
     "rt_link_select": "Seleziona prima il testo da trasformare in collegamento.",
-    "rt_link_invalid": "Questo indirizzo non è accettato. Usa https:// o un percorso che inizia con /."
+    "rt_link_invalid": "Questo indirizzo non è accettato. Usa https:// o un percorso che inizia con /.",
+    "image_import_named": "L’immagine prenderà il nome dell’articolo: {name}-400, -600, -900, -1920."
   },
   "actions": {
     "title": "Azioni",

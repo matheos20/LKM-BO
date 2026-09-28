@@ -36,6 +36,25 @@ export function imageKind(buf) {
   return null;
 }
 
+/**
+ * Le nom d'un article, tel qu'il servira à nommer ses images.
+ *
+ * L'agent importe des fichiers venus de son poste — « IMG_4821.jpg », « sans-titre
+ * (3).png » — qui ne disent rien de l'article et se ressemblent tous d'un site à
+ * l'autre. Le nom de l'article, lui, est déjà l'adresse publique de la page : c'est le
+ * seul nom qui relie l'image à ce qu'elle illustre.
+ *
+ * Le fichier « bien-etre/transformez-votre-bien-etre.php » donne donc
+ * « transformez-votre-bien-etre », et le moteur en tirera -400, -600, -900 et -1920.
+ */
+export function articleSlug(file) {
+  const base = String(file ?? '')
+    .split('/')
+    .pop()
+    ?.replace(/\.php$/i, '');
+  return String(base ?? '').trim();
+}
+
 /** Identifiant tiré du nom d'origine, dans la forme utilisée par le parc, et libre. */
 export function uniqueImageId(name, existing) {
   const base = String(name ?? '')
@@ -288,7 +307,7 @@ export class SiteService {
    * déclinaisons `<id>-<largeur>.<ext>`, en 400, 600, 900 et 1920, WebP et JPEG. Elles
    * sont fabriquées par le PHP du site lui-même, et `manifest.json` en garde l'index.
    */
-  async uploadImage(serverId, domain, { name, data }) {
+  async uploadImage(serverId, domain, { name, data, article = '' }) {
     const { server, docroot } = this.context(serverId, domain);
     if (!Buffer.isBuffer(data) || data.length === 0) throw new AppError('errors.file_upload_empty', { status: 400 });
     if (data.length > MAX_IMAGE_BYTES) throw new AppError('errors.file_too_big', { status: 413 });
@@ -296,7 +315,18 @@ export class SiteService {
     if (!imageKind(data)) throw new AppError('errors.design_image_invalid', { status: 400 });
 
     const site = await this.readSite(serverId, domain);
-    const id = uniqueImageId(name, site.images ?? []);
+
+    // Quand l'import vient d'un article, l'image porte le nom de l'article plutôt que
+    // celui du fichier du poste. L'article demandé doit être un article DE CE SITE :
+    // sans cette vérification, n'importe quelle chaîne dicterait le nom des fichiers
+    // écrits sur le serveur.
+    const demande = String(article ?? '').trim();
+    const connu = demande && (site.articles ?? []).some((a) => a.file === demande);
+    const racine = connu ? articleSlug(demande) : name;
+
+    // La deuxième image d'un même article devient « <article>-2 » : les largeurs
+    // valent 400, 600, 900 et 1920, un « -2 » ne peut donc pas se confondre avec elles.
+    const id = uniqueImageId(racine, site.images ?? []);
     const token = crypto.randomBytes(8).toString('hex');
     try {
       this.#check(await this.#run(serverId, stageImageCommand(token), { stdin: data, timeout: LONG }), server);

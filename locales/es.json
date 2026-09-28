@@ -681,7 +681,8 @@
     "rt_unlink": "Quitar el enlace",
     "rt_link_placeholder": "Pegue la dirección del enlace",
     "rt_link_select": "Seleccione primero el texto que se convertirá en enlace.",
-    "rt_link_invalid": "Esa dirección no se acepta. Use https:// o una ruta que empiece por /."
+    "rt_link_invalid": "Esa dirección no se acepta. Use https:// o una ruta que empiece por /.",
+    "image_import_named": "La imagen tomará el nombre del artículo: {name}-400, -600, -900, -1920."
   },
   "actions": {
     "title": "Acciones",

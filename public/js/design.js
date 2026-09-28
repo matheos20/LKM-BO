@@ -312,6 +312,35 @@ function colorInput(value, onChange) {
   return h('div', { class: 'flex items-center gap-2' }, swatch, hex);
 }
 
+/**
+ * Le nom qu'une image prendra dans cet article. Même règle que côté serveur, qui a le
+ * dernier mot — ici elle ne sert qu'à l'annoncer AVANT l'import.
+ *
+ * L'annonce compte le suffixe : un article qui a déjà son image en reçoit une seconde
+ * sous « <article>-2 », et rien n'est écrasé. Le dire d'avance évite que l'agent
+ * découvre le « -2 » après coup, ou croie avoir remplacé l'image d'origine.
+ */
+const articleSlug = (file) =>
+  String(file ?? '')
+    .split('/')
+    .pop()
+    ?.replace(/\.php$/i, '') ?? '';
+
+const nomImagePrevu = (file, images = []) => {
+  const racine = articleSlug(file)
+    .normalize('NFD')
+    .replace(/\p{M}+/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 70);
+  if (!racine) return '';
+  const pris = new Set(images);
+  if (!pris.has(racine)) return racine;
+  for (let n = 2; n < 500; n += 1) if (!pris.has(`${racine}-${n}`)) return `${racine}-${n}`;
+  return racine;
+};
+
 /** Choix d'une image parmi celles déjà présentes sur le site. */
 function imageInput(value, onChange) {
   const preview = h('div', { class: 'flex items-center gap-3' });
@@ -412,7 +441,15 @@ function pickImage(onPick) {
       {},
       modalHeader(t('design.image_choose'), 'bg-accent-50 text-accent-700', 'image'),
       h('div', { class: 'flex flex-wrap items-center gap-2' }, h('div', { class: 'min-w-48 flex-1' }, search), bouton, champ),
-      h('p', { class: 'mt-1 text-xs text-ink-400' }, t('design.image_import_hint')),
+      h(
+        'p',
+        { class: 'mt-1 text-xs text-ink-400' },
+        // Dire le nom AVANT l'import : l'agent ne découvre pas après coup que son
+        // fichier a été renommé.
+        state.article?.file
+          ? t('design.image_import_named', { name: nomImagePrevu(state.article.file, images) })
+          : t('design.image_import_hint'),
+      ),
       état,
       h('div', { class: 'mt-3' }, grid),
     ),
@@ -420,11 +457,18 @@ function pickImage(onPick) {
   );
 }
 
-/** Envoi de l'image en corps binaire brut, comme le gestionnaire de fichiers. */
+/**
+ * Envoi de l'image en corps binaire brut, comme le gestionnaire de fichiers.
+ *
+ * Quand un article est ouvert, son fichier part avec : le serveur nomme alors l'image
+ * d'après l'article plutôt que d'après « IMG_4821.jpg ». C'est le serveur qui décide,
+ * et qui vérifie que l'article existe bien sur ce site.
+ */
 async function sendImage(file) {
   let res;
+  const article = state.article?.file ? `&article=${enc(state.article.file)}` : '';
   try {
-    res = await fetch(`${base()}/images?name=${enc(file.name)}`, {
+    res = await fetch(`${base()}/images?name=${enc(file.name)}${article}`, {
       method: 'POST',
       headers: { 'X-Requested-With': 'lkm-bo', 'X-Lang': getLang(), 'Content-Type': 'application/octet-stream' },
       credentials: 'same-origin',

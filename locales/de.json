@@ -681,7 +681,8 @@
     "rt_unlink": "Link entfernen",
     "rt_link_placeholder": "Link-Adresse einfügen",
     "rt_link_select": "Wählen Sie zuerst den Text aus, der ein Link werden soll.",
-    "rt_link_invalid": "Diese Adresse wird nicht akzeptiert. Verwenden Sie https:// oder einen Pfad, der mit / beginnt."
+    "rt_link_invalid": "Diese Adresse wird nicht akzeptiert. Verwenden Sie https:// oder einen Pfad, der mit / beginnt.",
+    "image_import_named": "Das Bild erhält den Namen des Artikels: {name}-400, -600, -900, -1920."
   },
   "actions": {
     "title": "Aktionen",

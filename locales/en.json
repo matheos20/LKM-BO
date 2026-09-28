@@ -681,7 +681,8 @@
     "rt_unlink": "Remove link",
     "rt_link_placeholder": "Paste the link address",
     "rt_link_select": "First select the text to turn into a link.",
-    "rt_link_invalid": "That address is not accepted. Use https:// or a path starting with /."
+    "rt_link_invalid": "That address is not accepted. Use https:// or a path starting with /.",
+    "image_import_named": "The image will take the article name: {name}-400, -600, -900, -1920."
   },
   "actions": {
     "title": "Actions",

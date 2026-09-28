@@ -477,3 +477,33 @@ test('article : un alignement passe le contrôle du serveur, un gestionnaire non
   assert.equal(key(() => validateArticleContent('<script>alert(1)</script>')), 'errors.design_content_unsafe');
   assert.equal(key(() => validateArticleContent('<?php echo 1; ?>')), 'errors.design_content_unsafe');
 });
+
+test('images : le nom vient de l’article, les largeurs restent', async () => {
+  const { articleSlug } = await import('../src/services/siteService.js');
+
+  // Le cas de tous les jours : un article dans sa rubrique.
+  assert.equal(
+    articleSlug('bien-etre/transformez-votre-bien-etre-grace-a-la-magie-de-la-pleine-conscience.php'),
+    'transformez-votre-bien-etre-grace-a-la-magie-de-la-pleine-conscience',
+  );
+  assert.equal(articleSlug('mon-article.php'), 'mon-article');
+  assert.equal(articleSlug('a/b/c/profond.PHP'), 'profond');
+
+  // Seule l'extension part : un nom qui finit par « php » sans point la garde.
+  assert.equal(articleSlug('monphp.php'), 'monphp');
+  assert.equal(articleSlug('sansextension'), 'sansextension');
+  assert.equal(articleSlug(''), '');
+  assert.equal(articleSlug(null), '');
+
+  // Et l'identifiant final, tel que le parc l'écrit : c'est lui que le moteur
+  // décline en -400, -600, -900 et -1920.
+  assert.equal(uniqueImageId(articleSlug('bien-etre/mon-article.php'), []), 'mon-article');
+
+  // La deuxième image du même article se distingue sans se confondre avec une
+  // largeur : les largeurs valent 400, 600, 900 et 1920.
+  assert.equal(uniqueImageId('mon-article', ['mon-article']), 'mon-article-2');
+  assert.equal(uniqueImageId('mon-article', ['mon-article', 'mon-article-2']), 'mon-article-3');
+
+  // Un nom d'article accentué ou ponctué redevient une adresse de fichier tenable.
+  assert.equal(uniqueImageId(articleSlug('actu/Été à la Réunion !.php'), []), 'ete-a-la-reunion');
+});
