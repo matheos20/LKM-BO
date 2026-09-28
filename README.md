@@ -141,11 +141,15 @@ prise dans la barre du navigateur.
 https://biozenz.fr/transformez-votre-bien-etre-grace-a-la-magie-de-la-pleine-conscience
         └── biozenz.fr · VPS 001 · déverrouillé
             bien-etre/transformez-votre-bien-etre-grace-a-la-magie-de-la-pleine-conscience.php
-            [Ouvrir l'article] [Gérer les fichiers] [Détails] [Voir en ligne]
+            [Ouvrir l'article] [Gérer les fichiers] [Détails] [Verrouiller] [Voir en ligne]
 ```
 
 « Ouvrir l'article » mène **droit au texte**, dans l'éditeur, sans passer par la liste
-des 52 articles du site.
+des 52 articles du site. **Verrouiller / Déverrouiller** agit sur place : le bouton
+s'inverse et l'état affiché suit, sans relancer la recherche. Il disparaît sur un
+domaine incomplet — il n'y a rien à verrouiller — et reste visible mais inactif quand
+le geste est hors de portée, en disant laquelle : « droit manquant pour votre rôle »,
+« accès lockop non configuré ».
 
 | Ce qui est collé | Ce qui est rendu |
 |---|---|

@@ -36,6 +36,16 @@ export function initSearch({ onRender, actions: a }) {
 }
 
 export const searchResult = () => state.res;
+
+/**
+ * Met l'état du verrou à jour après une bascule, pour que le panneau ne montre pas
+ * un cadenas périmé à côté du bouton qu'on vient d'actionner.
+ */
+export function setSearchStatus(status) {
+  if (!state.res?.site) return;
+  state.res.site.status = status;
+  dessiner();
+}
 export const clearSearch = () => {
   state.q = '';
   state.res = null;
@@ -98,6 +108,32 @@ const ETAT = {
   incomplete: 'badge bg-amber-100 text-amber-800',
 };
 
+/**
+ * Verrouiller ou déverrouiller, sans quitter la recherche.
+ *
+ * Absent sur un domaine incomplet — il n'y a rien à verrouiller — et inactif, avec sa
+ * raison, quand le compte SSH ou les droits de l'utilisateur ne le permettent pas. Le
+ * serveur a déjà croisé les deux : l'écran ne fait que lire sa réponse.
+ */
+function boutonVerrou(site) {
+  if (site.status === 'incomplete') return null;
+  const action = site.status === 'locked' ? 'unlock' : 'lock';
+  const cap = actions.caps?.(site)?.[action];
+  const permis = cap?.ok !== false;
+  return h(
+    'button',
+    {
+      type: 'button',
+      class: 'btn btn-outline px-3 py-1.5 text-xs',
+      disabled: !permis,
+      title: permis ? null : t('action.unavailable', { reason: t(`reason.${cap?.reason ?? 'permission_denied'}`) }),
+      onclick: (e) => actions.toggleLock?.(site, action, e.currentTarget),
+    },
+    icon(action === 'lock' ? 'lock' : 'unlock', 'size-3.5'),
+    t(`action.${action}`),
+  );
+}
+
 /** Les gestes offerts sur un site trouvé, selon les droits du compte. */
 function boutonsSite(site, { article = null } = {}) {
   const bouton = (ico, libelle, permis, onclick, principal = false) =>
@@ -114,6 +150,7 @@ function boutonsSite(site, { article = null } = {}) {
       : bouton('palette', t('design.open'), actions.can?.('design.read'), () => actions.openDesign?.(site), true),
     bouton('folder', t('files.open_manager'), actions.can?.('files.read'), () => actions.openFiles?.(site)),
     bouton('eye', t('action.details'), true, () => actions.openDetails?.(site)),
+    boutonVerrou(site),
     bouton('globe', t('search.visit'), true, () => actions.visit?.(site, article)),
   );
 }

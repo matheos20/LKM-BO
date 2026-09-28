@@ -1,7 +1,7 @@
 import { api, qs, setUnauthorizedHandler } from './api.js';
 import { applyI18n, getLang, getLanguages, initI18n, onLangChange, setLang, t } from './i18n.js';
 import { closeFiles, isFilesOpen, openFiles, rerenderFiles } from './files.js';
-import { askSearch, clearSearch, initSearch, searchPanel } from './search.js';
+import { askSearch, clearSearch, initSearch, searchPanel, setSearchStatus } from './search.js';
 import { accountDialog, closeAdmin, isAdminOpen, openAdmin, rerenderAdmin } from './admin.js';
 import { closeDesign, isDesignOpen, openDesign, rerenderDesign } from './design.js';
 import { closeActions, isActionsOpen, isActionsSuspended, openActions, rerenderActions } from './actions.js';
@@ -384,6 +384,10 @@ function actionsRecherche() {
     openArticle: (site, article) => openArticleFor(site, article),
     openFiles: (site) => openFilesFor(site.server, site.domain, site.status),
     openDetails: (site) => openDetails(site.server, site.domain),
+    // Ce que le compte SSH permet ET ce à quoi l'utilisateur a droit, déjà croisés
+    // par le serveur.
+    caps: (site) => serverById(site.server)?.capabilities ?? {},
+    toggleLock: (site, action, bouton) => toggleLockFor(site, action, bouton),
     visit: (site, article) => {
       const chemin = article ? article.url || `/${article.file}` : '/';
       window.open(`https://${site.domain}${chemin.startsWith('/') ? chemin : `/${chemin}`}`, '_blank', 'noopener');
@@ -397,6 +401,31 @@ function actionsRecherche() {
       loadDomains();
     },
   };
+}
+
+/**
+ * Verrouille ou déverrouille depuis le panneau de recherche.
+ *
+ * Le geste est le même que sur la ligne du tableau, mais il doit aussi rafraîchir le
+ * panneau : sans cela, l'état affiché à côté du bouton resterait celui d'avant.
+ */
+async function toggleLockFor(site, action, bouton) {
+  if (bouton) {
+    bouton.disabled = true;
+    bouton.classList.add('animate-pulse');
+  }
+  try {
+    const r = await api(`/api/servers/${enc(site.server)}/domains/${enc(site.domain)}`, { method: 'PATCH', body: { action } });
+    toast(t(action === 'lock' ? 'toast.locked' : 'toast.unlocked', { domain: site.domain }), 'success', r.output || undefined);
+    setSearchStatus(r.status ?? (action === 'lock' ? 'locked' : 'unlocked'));
+    await loadDomains();
+  } catch (err) {
+    toastError(err);
+    if (bouton?.isConnected) {
+      bouton.disabled = false;
+      bouton.classList.remove('animate-pulse');
+    }
+  }
 }
 
 /** Ouvre l'éditeur de design directement sur l'article trouvé. */
