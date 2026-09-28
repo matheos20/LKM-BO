@@ -269,6 +269,37 @@ Le format est reconnu aux **premiers octets**, jamais à l'extension : un script
 
 ### L'onglet « Articles »
 
+#### La barre d'outils de l'article
+
+Le corps de l'article s'écrit dans une zone visuelle, avec les gestes qu'on attend d'un
+éditeur :
+
+| Groupe | Outils |
+|---|---|
+| Blocs | Paragraphe, Titre de partie (`h2`), Sous-titre (`h3`) |
+| Caractère | Gras, Italique, Couleur du texte (palette du site) |
+| Listes | Liste à puces, Liste numérotée, Citation |
+| Alignement | Gauche, Centre, Droite |
+| Liens | Insérer / modifier, Retirer |
+
+Les boutons **s'allument selon l'endroit du curseur** : l'agent voit s'il est dans une
+liste ou dans du gras sans avoir à deviner.
+
+Le lien s'ouvre dans un panneau posé au ras du texte choisi, à la place de la fenêtre
+`prompt()` d'avant : l'adresse en place y est reprise, Entrée valide, Échap referme, et
+un bouton retire le lien sans toucher au texte. Une adresse refusée par `safeUrl` — tout
+ce qui n'est ni `https://` ni un chemin commençant par `/` — est signalée, pas écrite.
+
+**L'alignement est la seule mise en forme de bloc qui survit au nettoyage**, et seulement
+avec `center`, `right` ou `justify` : `left` est déjà la valeur du site, l'écrire
+n'apporterait rien. Tout le reste de l'attribut `style` part — un article collé depuis un
+traitement de texte arrive avec des styles qui déformeraient la page, et le site a sa
+propre typographie. C'est la seule porte laissée ouverte sur `style`, et elle ne laisse
+passer que ces trois mots.
+
+Le serveur reste le dernier filet : `validateArticleContent` refuse le PHP, les scripts,
+les `<iframe>` et tout attribut `on…=`, quoi que le navigateur ait laissé écrire.
+
 - **Les articles sont cherchés là où ils sont.** Le fichier `permalinks.php` donne l'adresse publique de chaque article, mais **il est vide sur une partie du parc** (15 sites sur 200 relevés sur le VPS 003) : l'éditeur parcourt donc aussi les dossiers de rubriques, et ne retient que les fichiers portant le bloc `$article_meta` du moteur. Sur un site où l'onglet annonçait « aucun article », il en liste 80.
 - **Compteurs en tête de liste.** Le total du domaine et la répartition par rubrique (« Services 21 », « Formation 17 »…). Chaque compteur est aussi un filtre : un clic n'affiche que cette rubrique.
 - **Une seule recherche pour deux usages.** Le champ cherche à la fois dans le **titre** et dans l'**adresse** du fichier, ce qui couvre la recherche par titre et par slug sans multiplier les champs.

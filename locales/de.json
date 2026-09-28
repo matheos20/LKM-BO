@@ -99,7 +99,8 @@
     "cancel": "Abbrechen",
     "close": "Schließen",
     "working": "Wird ausgeführt…",
-    "unavailable": "Nicht verfügbar: {reason}"
+    "unavailable": "Nicht verfügbar: {reason}",
+    "apply": "Anwenden"
   },
   "reason": {
     "not_configured": "Befehl für diesen Server nicht konfiguriert",
@@ -510,7 +511,7 @@
     "rt_bold": "Fett",
     "rt_italic": "Kursiv",
     "rt_link": "Link",
-    "rt_hint": "Text markieren und Format wählen.",
+    "rt_hint": "Text auswählen, dann ein Format wählen. Die Schaltfläche leuchtet, wenn der Cursor darin steht.",
     "backups_title": "Automatische Sicherungen",
     "backups_empty": "Noch keine Sicherung.",
     "restore": "Wiederherstellen",
@@ -669,7 +670,18 @@
     "image_importing": "„{name}“ wird importiert…",
     "image_imported": "{count} Dateien aus einem Bild von {width} × {height} Pixeln erzeugt.",
     "image_imported_toast": "Bild „{id}“ zur Website hinzugefügt",
-    "image_none_found": "Kein Bild entspricht der Suche."
+    "image_none_found": "Kein Bild entspricht der Suche.",
+    "rt_h3": "Zwischenüberschrift",
+    "rt_ul": "Aufzählung",
+    "rt_ol": "Nummerierte Liste",
+    "rt_quote": "Zitat",
+    "rt_align_left": "Linksbündig",
+    "rt_align_center": "Zentriert",
+    "rt_align_right": "Rechtsbündig",
+    "rt_unlink": "Link entfernen",
+    "rt_link_placeholder": "Link-Adresse einfügen",
+    "rt_link_select": "Wählen Sie zuerst den Text aus, der ein Link werden soll.",
+    "rt_link_invalid": "Diese Adresse wird nicht akzeptiert. Verwenden Sie https:// oder einen Pfad, der mit / beginnt."
   },
   "actions": {
     "title": "Aktionen",

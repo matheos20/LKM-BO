@@ -41,7 +41,7 @@ export function resetAudit() {
 
 /** Les familles d'action, et la couleur qui va avec. */
 const FAMILLES = {
-  create: 'bg-accent-100 text-accent-800',
+  create: 'bg-accent-100 text-accent-700',
   update: 'bg-amber-100 text-amber-800',
   delete: 'bg-red-100 text-red-700',
   auth: 'bg-sky-100 text-sky-800',
@@ -303,7 +303,7 @@ function ligne(event) {
       'td',
       { class: 'px-5 py-2.5 text-right' },
       event.ok
-        ? h('span', { class: 'badge bg-accent-100 text-accent-800' }, icon('check', 'size-3'), t('audit.ok'))
+        ? h('span', { class: 'badge bg-accent-100 text-accent-700' }, icon('check', 'size-3'), t('audit.ok'))
         : h(
             'span',
             { class: 'badge bg-red-100 text-red-700', title: event.error ?? '' },

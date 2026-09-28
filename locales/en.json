@@ -99,7 +99,8 @@
     "cancel": "Cancel",
     "close": "Close",
     "working": "Working…",
-    "unavailable": "Unavailable: {reason}"
+    "unavailable": "Unavailable: {reason}",
+    "apply": "Apply"
   },
   "reason": {
     "not_configured": "command not configured for this server",
@@ -510,7 +511,7 @@
     "rt_bold": "Bold",
     "rt_italic": "Italic",
     "rt_link": "Link",
-    "rt_hint": "Select text, then choose a format.",
+    "rt_hint": "Select text, then choose a format. The button lights up when the cursor is inside.",
     "backups_title": "Automatic backups",
     "backups_empty": "No backup yet.",
     "restore": "Restore",
@@ -669,7 +670,18 @@
     "image_importing": "Importing “{name}”…",
     "image_imported": "{count} files created from a {width} × {height} pixel image.",
     "image_imported_toast": "Image “{id}” added to the site",
-    "image_none_found": "No image matches."
+    "image_none_found": "No image matches.",
+    "rt_h3": "Subheading",
+    "rt_ul": "Bulleted list",
+    "rt_ol": "Numbered list",
+    "rt_quote": "Quote",
+    "rt_align_left": "Align left",
+    "rt_align_center": "Align centre",
+    "rt_align_right": "Align right",
+    "rt_unlink": "Remove link",
+    "rt_link_placeholder": "Paste the link address",
+    "rt_link_select": "First select the text to turn into a link.",
+    "rt_link_invalid": "That address is not accepted. Use https:// or a path starting with /."
   },
   "actions": {
     "title": "Actions",

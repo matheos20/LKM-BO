@@ -99,7 +99,8 @@
     "cancel": "Annuler",
     "close": "Fermer",
     "working": "En cours…",
-    "unavailable": "Indisponible : {reason}"
+    "unavailable": "Indisponible : {reason}",
+    "apply": "Appliquer"
   },
   "reason": {
     "not_configured": "commande non configurée pour ce serveur",
@@ -510,7 +511,7 @@
     "rt_bold": "Gras",
     "rt_italic": "Italique",
     "rt_link": "Lien",
-    "rt_hint": "Sélectionnez du texte puis choisissez une mise en forme.",
+    "rt_hint": "Sélectionnez du texte, puis choisissez une mise en forme. Le bouton s’allume quand le curseur est dedans.",
     "backups_title": "Sauvegardes automatiques",
     "backups_empty": "Aucune sauvegarde pour le moment.",
     "restore": "Restaurer",
@@ -669,7 +670,18 @@
     "image_importing": "Import de « {name} » en cours…",
     "image_imported": "{count} fichiers créés à partir d’une image de {width} × {height} pixels.",
     "image_imported_toast": "Image « {id} » ajoutée au site",
-    "image_none_found": "Aucune image ne correspond."
+    "image_none_found": "Aucune image ne correspond.",
+    "rt_h3": "Sous-titre",
+    "rt_ul": "Liste à puces",
+    "rt_ol": "Liste numérotée",
+    "rt_quote": "Citation",
+    "rt_align_left": "Aligner à gauche",
+    "rt_align_center": "Centrer",
+    "rt_align_right": "Aligner à droite",
+    "rt_unlink": "Retirer le lien",
+    "rt_link_placeholder": "Collez l’adresse du lien",
+    "rt_link_select": "Sélectionnez d’abord le texte à transformer en lien.",
+    "rt_link_invalid": "Cette adresse n’est pas acceptée. Utilisez https:// ou un chemin commençant par /."
   },
   "actions": {
     "title": "Actions",

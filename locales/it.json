@@ -99,7 +99,8 @@
     "cancel": "Annulla",
     "close": "Chiudi",
     "working": "In corso…",
-    "unavailable": "Non disponibile: {reason}"
+    "unavailable": "Non disponibile: {reason}",
+    "apply": "Applicare"
   },
   "reason": {
     "not_configured": "comando non configurato per questo server",
@@ -510,7 +511,7 @@
     "rt_bold": "Grassetto",
     "rt_italic": "Corsivo",
     "rt_link": "Link",
-    "rt_hint": "Seleziona il testo, poi scegli un formato.",
+    "rt_hint": "Seleziona del testo, poi scegli un formato. Il pulsante si accende quando il cursore è dentro.",
     "backups_title": "Backup automatici",
     "backups_empty": "Ancora nessun backup.",
     "restore": "Ripristina",
@@ -669,7 +670,18 @@
     "image_importing": "Importazione di «{name}» in corso…",
     "image_imported": "{count} file creati da un’immagine di {width} × {height} pixel.",
     "image_imported_toast": "Immagine «{id}» aggiunta al sito",
-    "image_none_found": "Nessuna immagine corrisponde."
+    "image_none_found": "Nessuna immagine corrisponde.",
+    "rt_h3": "Sottotitolo",
+    "rt_ul": "Elenco puntato",
+    "rt_ol": "Elenco numerato",
+    "rt_quote": "Citazione",
+    "rt_align_left": "Allinea a sinistra",
+    "rt_align_center": "Centra",
+    "rt_align_right": "Allinea a destra",
+    "rt_unlink": "Togliere il collegamento",
+    "rt_link_placeholder": "Incolla l’indirizzo del collegamento",
+    "rt_link_select": "Seleziona prima il testo da trasformare in collegamento.",
+    "rt_link_invalid": "Questo indirizzo non è accettato. Usa https:// o un percorso che inizia con /."
   },
   "actions": {
     "title": "Azioni",

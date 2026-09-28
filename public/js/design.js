@@ -892,6 +892,7 @@ function richLine(html, onChange, { multiline = false } = {}) {
       area.innerHTML = cleanInline(source.value);
       if (source.value !== entered) emit();
     }
+    if (asText) lien.fermer();
     area.hidden = asText;
     source.hidden = !asText;
     note.hidden = !asText;
@@ -927,6 +928,19 @@ const safeUrl = (href) => {
  * à partir de leur seul attribut utile : rien de ce qui est collé n'est recopié tel quel.
  * Le serveur refait ce travail de son côté — celui-ci n'est là que pour l'affichage.
  */
+/** Les blocs qui acceptent un alignement. Une puce s'aligne, pas un mot en gras. */
+export const ALIGNABLE = new Set(['H2', 'H3', 'P', 'BLOCKQUOTE', 'LI']);
+
+/** Les quatre alignements connus. Le reste n'est pas de l'alignement. */
+export const normalizeAlign = (v) => {
+  const a = String(v ?? '').trim().toLowerCase();
+  // « start » et « end » viennent de certains navigateurs : ils valent gauche et droite.
+  const alias = { start: 'left', end: 'right' };
+  const valeur = alias[a] ?? a;
+  // Gauche est la valeur par défaut du site : l'écrire n'apporterait rien au fichier.
+  return ['center', 'right', 'justify'].includes(valeur) ? valeur : null;
+};
+
 function cleanHtml(html, { blocks = false } = {}) {
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
   const keep = new Set(blocks ? ['H2', 'H3', 'P', 'STRONG', 'B', 'EM', 'I', 'UL', 'OL', 'LI', 'BR', 'BLOCKQUOTE'] : ['STRONG', 'B', 'EM', 'I', 'BR']);
@@ -969,7 +983,13 @@ function cleanHtml(html, { blocks = false } = {}) {
         child.replaceWith(...child.childNodes);
         continue;
       }
+      // L'alignement est la SEULE mise en forme de bloc qui survit au nettoyage, et
+      // seulement avec l'une des quatre valeurs connues. Tout le reste part : un
+      // article collé depuis un traitement de texte arrive avec des styles qui
+      // déformeraient la page, et le site a sa propre typographie.
+      const align = ALIGNABLE.has(tag) ? normalizeAlign(child.style?.textAlign || child.getAttribute('align')) : null;
       for (const attr of [...child.attributes]) child.removeAttribute(attr.name);
+      if (align) child.setAttribute('style', `text-align:${align}`);
     }
   };
 
@@ -1551,6 +1571,148 @@ function articleColorTool(area, onChange) {
   });
 }
 
+/**
+ * Le lien, comme dans WordPress : un panneau qui s'ouvre près du texte choisi.
+ *
+ * `prompt()` faisait le travail mais ne montrait pas sur quoi on agissait, ne
+ * proposait pas de corriger un lien existant, et bloquait la page. Ici, l'adresse en
+ * place est reprise à l'ouverture, Entrée valide, Échap referme, et un bouton retire
+ * le lien sans toucher au texte.
+ */
+function linkPanel(area, onChange) {
+  let panneau = null;
+  let plage = null;
+
+  const fermer = () => {
+    panneau?.remove();
+    panneau = null;
+    document.removeEventListener('mousedown', dehors, true);
+    document.removeEventListener('keydown', touche, true);
+  };
+  const dehors = (e) => {
+    if (panneau && !panneau.contains(e.target)) fermer();
+  };
+  const touche = (e) => {
+    if (e.key === 'Escape') {
+      fermer();
+      area.focus();
+    }
+  };
+
+  /** Le lien qui contient la sélection, s'il y en a un. */
+  const lienCourant = () => {
+    const sel = document.getSelection();
+    if (!sel?.rangeCount) return null;
+    let n = sel.getRangeAt(0).commonAncestorContainer;
+    while (n && n !== area) {
+      if (n.nodeType === 1 && n.tagName === 'A') return n;
+      n = n.parentNode;
+    }
+    return null;
+  };
+
+  const appliquer = (url) => {
+    const adresse = String(url ?? '').trim();
+    const lien = lienCourant();
+    if (!adresse) return;
+    // Modifier un lien existant : on change son adresse, sans toucher au texte.
+    if (lien && plage && lien.contains(plage.commonAncestorContainer)) {
+      if (!safeUrl(adresse)) return toast(t('design.rt_link_invalid'), 'error');
+      lien.setAttribute('href', adresse);
+      onChange(clean(area.innerHTML));
+      return;
+    }
+    if (!safeUrl(adresse)) return toast(t('design.rt_link_invalid'), 'error');
+    restaurer();
+    document.execCommand('createLink', false, adresse);
+    onChange(clean(area.innerHTML));
+  };
+
+  const retirer = () => {
+    restaurer();
+    document.execCommand('unlink');
+    onChange(clean(area.innerHTML));
+  };
+
+  const restaurer = () => {
+    if (!plage) return;
+    const sel = document.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(plage);
+  };
+
+  const ouvrir = () => {
+    const sel = document.getSelection();
+    if (!sel?.rangeCount || !area.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      return toast(t('design.rt_link_select'), 'info');
+    }
+    plage = sel.getRangeAt(0).cloneRange();
+    const lien = lienCourant();
+    // Rien de sélectionné et pas sur un lien : il n'y a rien à transformer en lien.
+    if (plage.collapsed && !lien) return toast(t('design.rt_link_select'), 'info');
+
+    fermer();
+    const champ = h('input', {
+      class: 'input w-72 py-1.5 text-sm',
+      type: 'url',
+      value: lien?.getAttribute('href') ?? '',
+      placeholder: t('design.rt_link_placeholder'),
+      spellcheck: 'false',
+    });
+    champ.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      appliquer(champ.value);
+      fermer();
+      area.focus();
+    });
+
+    const bouton = (ico, titre, action, danger = false) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: `icon-btn shrink-0 ${danger ? 'hover:bg-red-50 hover:text-red-600' : ''}`,
+          title: titre,
+          'aria-label': titre,
+          onmousedown: (e) => e.preventDefault(),
+          onclick: () => {
+            action();
+            fermer();
+            area.focus();
+          },
+        },
+        icon(ico, 'size-4'),
+      );
+
+    panneau = h(
+      'div',
+      { class: 'fixed z-50 flex items-center gap-1 rounded-lg border border-ink-200 bg-white p-1.5 shadow-lg' },
+      champ,
+      bouton('check', t('action.apply'), () => appliquer(champ.value)),
+      lien ? bouton('unlink', t('design.rt_unlink'), retirer, true) : null,
+    );
+
+    // Au ras du texte choisi, comme dans WordPress — et replié dans la fenêtre si le
+    // texte est tout en bas ou tout à droite.
+    const r = plage.getBoundingClientRect();
+    document.body.append(panneau);
+    const largeur = panneau.offsetWidth || 360;
+    const hauteur = panneau.offsetHeight || 44;
+    const x = Math.max(8, Math.min(r.left || 8, window.innerWidth - largeur - 8));
+    const basPossible = (r.bottom || 0) + 8 + hauteur < window.innerHeight;
+    panneau.style.left = `${x}px`;
+    panneau.style.top = `${basPossible ? (r.bottom || 0) + 8 : Math.max(8, (r.top || 0) - hauteur - 8)}px`;
+
+    champ.focus();
+    champ.select();
+    document.addEventListener('mousedown', dehors, true);
+    document.addEventListener('keydown', touche, true);
+  };
+
+  return { ouvrir, fermer };
+}
+
 function richEditor(html, onChange) {
   const area = h('div', {
     class: 'min-h-64 max-h-[50vh] space-y-3 overflow-y-auto rounded-xl border border-ink-200 bg-white p-4 text-sm leading-6 focus:border-accent focus:outline-none',
@@ -1560,6 +1722,16 @@ function richEditor(html, onChange) {
   area.innerHTML = html ?? '';
   area.addEventListener('input', () => onChange(clean(area.innerHTML)));
 
+  // Un geste de mise en forme : on empêche le bouton de voler le curseur, on agit,
+  // on rend la main à la zone de texte, et on enregistre.
+  const geste = (action) => (e) => {
+    e?.preventDefault?.();
+    action();
+    area.focus();
+    onChange(clean(area.innerHTML));
+  };
+
+  /** Un bouton nommé, pour les formats de bloc (Paragraphe, Titre de partie). */
   const cmd = (label, action) =>
     h(
       'button',
@@ -1567,14 +1739,30 @@ function richEditor(html, onChange) {
         type: 'button',
         class: 'rounded-md px-2 py-1 text-xs font-medium text-ink-600 transition hover:bg-ink-100',
         onmousedown: (e) => e.preventDefault(),
-        onclick: () => {
-          action();
-          area.focus();
-          onChange(clean(area.innerHTML));
-        },
+        onclick: geste(action),
       },
       label,
     );
+
+  /** Un bouton à icône, dont l'état enfoncé suit ce que le navigateur dit du curseur. */
+  const outil = (ico, titre, action, etat) => {
+    const b = h(
+      'button',
+      {
+        type: 'button',
+        class: 'icon-btn size-7 text-ink-600',
+        title: titre,
+        'aria-label': titre,
+        onmousedown: (e) => e.preventDefault(),
+        onclick: geste(action),
+      },
+      icon(ico, 'size-4'),
+    );
+    if (etat) b.dataset.etat = etat;
+    return b;
+  };
+
+  const separateur = () => h('span', { class: 'mx-0.5 h-5 w-px shrink-0 bg-ink-200' });
 
   // Mode texte : le code de l'article, une balise de bloc par ligne.
   const source = h('textarea', {
@@ -1605,30 +1793,56 @@ function richEditor(html, onChange) {
 
   const note = h('p', { class: 'mt-1 text-[11px] text-ink-400', hidden: true }, t('design.mode_text_hint'));
 
+  const lien = linkPanel(area, onChange);
+
   const tools = h(
     'div',
     { class: 'flex flex-wrap items-center gap-1' },
-    cmd(t('design.rt_h2'), () => document.execCommand('formatBlock', false, 'h2')),
     cmd(t('design.rt_p'), () => document.execCommand('formatBlock', false, 'p')),
-    cmd(t('design.rt_bold'), () => document.execCommand('bold')),
-    cmd(t('design.rt_italic'), () => document.execCommand('italic')),
+    cmd(t('design.rt_h2'), () => document.execCommand('formatBlock', false, 'h2')),
+    cmd(t('design.rt_h3'), () => document.execCommand('formatBlock', false, 'h3')),
+    separateur(),
+    outil('bold', t('design.rt_bold'), () => document.execCommand('bold'), 'bold'),
+    outil('italic', t('design.rt_italic'), () => document.execCommand('italic'), 'italic'),
     articleColorTool(area, onChange),
-    cmd(t('design.rt_link'), () => {
-      const url = prompt(t('design.btn_url'));
-      if (url) document.execCommand('createLink', false, url);
-    }),
-    h('span', { class: 'ml-1 text-[11px] text-ink-400' }, t('design.rt_hint')),
+    separateur(),
+    outil('list', t('design.rt_ul'), () => document.execCommand('insertUnorderedList'), 'insertUnorderedList'),
+    outil('listOl', t('design.rt_ol'), () => document.execCommand('insertOrderedList'), 'insertOrderedList'),
+    outil('quote', t('design.rt_quote'), () => document.execCommand('formatBlock', false, 'blockquote')),
+    separateur(),
+    outil('alignLeft', t('design.rt_align_left'), () => document.execCommand('justifyLeft'), 'justifyLeft'),
+    outil('alignCenter', t('design.rt_align_center'), () => document.execCommand('justifyCenter'), 'justifyCenter'),
+    outil('alignRight', t('design.rt_align_right'), () => document.execCommand('justifyRight'), 'justifyRight'),
+    separateur(),
+    outil('link', t('design.rt_link'), () => lien.ouvrir()),
+    outil('unlink', t('design.rt_unlink'), () => document.execCommand('unlink')),
   );
+
+  // Les boutons s'enfoncent selon l'endroit du curseur : l'agent voit où il est.
+  const refletEtat = () => {
+    for (const b of tools.querySelectorAll('[data-etat]')) {
+      let actif = false;
+      try {
+        actif = document.queryCommandState(b.dataset.etat);
+      } catch {}
+      b.classList.toggle('bg-accent-100', actif);
+      b.classList.toggle('text-accent-700', actif);
+      b.setAttribute('aria-pressed', String(actif));
+    }
+  };
+  for (const evenement of ['keyup', 'mouseup', 'input', 'focus']) area.addEventListener(evenement, refletEtat);
 
   const toolbar = h(
     'div',
-    { class: 'mb-2 flex flex-wrap items-center gap-1 rounded-lg bg-ink-50 px-2 py-1' },
+    { class: 'mb-2 flex flex-wrap items-center gap-1 rounded-lg bg-ink-50 px-2 py-1.5' },
     tools,
     h('span', { class: 'flex-1' }),
     modeSwitch(toMode),
   );
 
-  return h('div', {}, toolbar, area, source, note);
+  const aide = h('p', { class: 'mb-2 text-[11px] text-ink-400' }, t('design.rt_hint'));
+
+  return h('div', {}, toolbar, aide, area, source, note);
 }
 
 

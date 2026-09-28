@@ -435,3 +435,45 @@ test('article : republier sans rien changer rend le fichier à l\'octet près', 
   const changees = avant.filter((ligne, i) => ligne !== apres[i]);
   assert.deepEqual(changees, ["    'image' => 'ancienne-image',"], 'seule la ligne de l\'image doit changer');
 });
+
+test('article : seuls les alignements connus survivent au nettoyage', async () => {
+  const { ALIGNABLE, normalizeAlign } = await import('../public/js/design.js');
+
+  // Les trois que l'agent peut poser depuis la barre d'outils.
+  assert.equal(normalizeAlign('center'), 'center');
+  assert.equal(normalizeAlign('right'), 'right');
+  assert.equal(normalizeAlign('justify'), 'justify');
+  assert.equal(normalizeAlign(' CENTER '), 'center');
+
+  // « end » vient de certains navigateurs et vaut « droite ».
+  assert.equal(normalizeAlign('end'), 'right');
+
+  // Gauche est déjà la valeur du site : l'écrire n'apporterait rien au fichier. Son
+  // synonyme « start » tombe donc lui aussi.
+  assert.equal(normalizeAlign('left'), null);
+  assert.equal(normalizeAlign('start'), null);
+
+  // Tout le reste part. Un article collé depuis un traitement de texte arrive avec
+  // des styles qui déformeraient la page, et c'est la seule porte laissée ouverte
+  // sur l'attribut style : elle ne doit laisser passer que ces quatre mots.
+  for (const v of ['', null, undefined, 'inherit', 'red', 'center;color:red', 'center"onload="x', 'url(x)', 'expression(1)']) {
+    assert.equal(normalizeAlign(v), null, `« ${v} » ne doit pas passer`);
+  }
+
+  // Un alignement se pose sur un bloc, pas sur un mot en gras.
+  for (const tag of ['H2', 'H3', 'P', 'BLOCKQUOTE', 'LI']) assert.ok(ALIGNABLE.has(tag), tag);
+  for (const tag of ['STRONG', 'EM', 'A', 'SPAN', 'BR', 'UL', 'OL']) assert.ok(!ALIGNABLE.has(tag), tag);
+});
+
+test('article : un alignement passe le contrôle du serveur, un gestionnaire non', () => {
+  // Le serveur est le dernier filet : il refuse le PHP, les scripts et les
+  // gestionnaires d'événements, quoi que le navigateur ait laissé écrire.
+  assert.equal(validateArticleContent('<p style="text-align:center">Bonjour</p>'), '<p style="text-align:center">Bonjour</p>');
+  assert.equal(validateArticleContent('<ul><li>un</li><li>deux</li></ul>'), '<ul><li>un</li><li>deux</li></ul>');
+  assert.equal(validateArticleContent('<blockquote><p>Cité</p></blockquote>'), '<blockquote><p>Cité</p></blockquote>');
+  assert.equal(validateArticleContent('<a href="https://exemple.com/page?action=voir">lien</a>').length > 0, true);
+
+  assert.equal(key(() => validateArticleContent('<p onclick="alert(1)">x</p>')), 'errors.design_content_unsafe');
+  assert.equal(key(() => validateArticleContent('<script>alert(1)</script>')), 'errors.design_content_unsafe');
+  assert.equal(key(() => validateArticleContent('<?php echo 1; ?>')), 'errors.design_content_unsafe');
+});

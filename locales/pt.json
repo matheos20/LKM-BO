@@ -99,7 +99,8 @@
     "cancel": "Cancelar",
     "close": "Fechar",
     "working": "A processar…",
-    "unavailable": "Indisponível: {reason}"
+    "unavailable": "Indisponível: {reason}",
+    "apply": "Aplicar"
   },
   "reason": {
     "not_configured": "comando não configurado para este servidor",
@@ -510,7 +511,7 @@
     "rt_bold": "Negrito",
     "rt_italic": "Itálico",
     "rt_link": "Ligação",
-    "rt_hint": "Selecione o texto e escolha um formato.",
+    "rt_hint": "Selecione texto e escolha um formato. O botão acende quando o cursor está lá dentro.",
     "backups_title": "Cópias automáticas",
     "backups_empty": "Ainda sem cópias.",
     "restore": "Restaurar",
@@ -669,7 +670,18 @@
     "image_importing": "A importar «{name}»…",
     "image_imported": "{count} ficheiros criados a partir de uma imagem de {width} × {height} píxeis.",
     "image_imported_toast": "Imagem «{id}» adicionada ao site",
-    "image_none_found": "Nenhuma imagem corresponde."
+    "image_none_found": "Nenhuma imagem corresponde.",
+    "rt_h3": "Subtítulo",
+    "rt_ul": "Lista com marcadores",
+    "rt_ol": "Lista numerada",
+    "rt_quote": "Citação",
+    "rt_align_left": "Alinhar à esquerda",
+    "rt_align_center": "Centrar",
+    "rt_align_right": "Alinhar à direita",
+    "rt_unlink": "Retirar a ligação",
+    "rt_link_placeholder": "Cole o endereço da ligação",
+    "rt_link_select": "Selecione primeiro o texto a transformar em ligação.",
+    "rt_link_invalid": "Esse endereço não é aceite. Use https:// ou um caminho que comece por /."
   },
   "actions": {
     "title": "Ações",

@@ -303,7 +303,7 @@ function listeSites() {
 }
 
 const ETATS = {
-  to_add: 'bg-accent-100 text-accent-800',
+  to_add: 'bg-accent-100 text-accent-700',
   present: 'bg-ink-100 text-ink-500',
   conflict: 'bg-amber-100 text-amber-800',
   to_upgrade: 'bg-amber-100 text-amber-800',
