@@ -49,7 +49,7 @@
   },
   "domains": {
     "title": "Domains",
-    "search": "Search a domain…",
+    "search": "Search a domain, or paste an article address…",
     "add": "Add domain",
     "refresh": "Refresh",
     "empty": "No domain matches these criteria.",
@@ -1083,5 +1083,16 @@
     "format_hint_rewrite": "This is the form the park engine already uses in its own files.",
     "format_hint_redirect": "The Apache form. It only takes effect if Apache reads the site .htaccess: nginx ignores those files.",
     "other_format": "{count} rule(s) written in the other form: they will be rewritten."
+  },
+  "search": {
+    "searching": "Searching…",
+    "unknown": "\"{domain}\" is on none of the connected servers.",
+    "near": "No domain is named exactly \"{domain}\". Here is what comes close:",
+    "offline": "Servers not connected — what they host cannot be found: {servers}",
+    "open_article": "Open the article",
+    "visit": "View online",
+    "article_missing": "No article matches \"{path}\" on this site.",
+    "article_count": "{count} article(s) on this site.",
+    "article_error": "The site articles could not be read; the domain itself is there."
   }
 }

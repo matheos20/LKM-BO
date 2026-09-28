@@ -49,7 +49,7 @@
   },
   "domains": {
     "title": "Domini",
-    "search": "Cerca un dominio…",
+    "search": "Cerca un dominio, oppure incolla l’indirizzo di un articolo…",
     "add": "Aggiungi dominio",
     "refresh": "Aggiorna",
     "empty": "Nessun dominio corrisponde a questi criteri.",
@@ -1083,5 +1083,16 @@
     "format_hint_rewrite": "È la forma che il motore del parco usa già nei propri file.",
     "format_hint_redirect": "La forma di Apache. Ha effetto solo se Apache legge il .htaccess del sito: nginx ignora quei file.",
     "other_format": "{count} regola/e scritte nell’altra forma: saranno riscritte."
+  },
+  "search": {
+    "searching": "Ricerca…",
+    "unknown": "«{domain}» non è su nessun server connesso.",
+    "near": "Nessun dominio si chiama esattamente «{domain}». Ecco ciò che gli somiglia:",
+    "offline": "Server non connessi — ciò che ospitano resta introvabile: {servers}",
+    "open_article": "Aprire l’articolo",
+    "visit": "Vedere in linea",
+    "article_missing": "Nessun articolo corrisponde a «{path}» su questo sito.",
+    "article_count": "{count} articolo/i su questo sito.",
+    "article_error": "Non è stato possibile leggere gli articoli del sito; il dominio, invece, c’è."
   }
 }

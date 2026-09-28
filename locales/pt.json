@@ -49,7 +49,7 @@
   },
   "domains": {
     "title": "Domínios",
-    "search": "Pesquisar um domínio…",
+    "search": "Procurar um domínio, ou colar o endereço de um artigo…",
     "add": "Adicionar domínio",
     "refresh": "Atualizar",
     "empty": "Nenhum domínio corresponde a estes critérios.",
@@ -1083,5 +1083,16 @@
     "format_hint_rewrite": "É a forma que o motor do parque já emprega nos seus próprios ficheiros.",
     "format_hint_redirect": "A forma do Apache. Só produz efeito se o Apache ler o .htaccess do site: o nginx ignora esses ficheiros.",
     "other_format": "{count} regra(s) escritas na outra forma: serão reescritas."
+  },
+  "search": {
+    "searching": "A procurar…",
+    "unknown": "«{domain}» não está em nenhum servidor ligado.",
+    "near": "Nenhum domínio se chama exatamente «{domain}». Eis o que se aproxima:",
+    "offline": "Servidores não ligados — o que alojam não pode ser encontrado: {servers}",
+    "open_article": "Abrir o artigo",
+    "visit": "Ver em linha",
+    "article_missing": "Nenhum artigo corresponde a «{path}» neste site.",
+    "article_count": "{count} artigo(s) neste site.",
+    "article_error": "Não foi possível ler os artigos do site; o domínio está lá."
   }
 }

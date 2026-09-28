@@ -16,6 +16,7 @@ import { SiteService } from './services/siteService.js';
 import { TranslationService } from './services/translationService.js';
 import { CategoryService } from './services/categoryService.js';
 import { RedirectService } from './services/redirectService.js';
+import { SearchService } from './services/searchService.js';
 import { createAudit } from './services/audit.js';
 import { purgeOlderThan } from './db/audit.js';
 import { attachUser, csrfGuard, errorHandler, langMiddleware, requireAuth } from './middleware/index.js';
@@ -29,6 +30,7 @@ import { designCatalogRouter, designRouter } from './routes/design.js';
 import { translationRouter } from './routes/translation.js';
 import { categoriesRouter } from './routes/categories.js';
 import { redirectsRouter } from './routes/redirects.js';
+import { searchRouter } from './routes/search.js';
 
 let servers;
 try {
@@ -50,6 +52,7 @@ const sites = new SiteService(ssh);
 const translation = new TranslationService(ssh, sites, config.translate);
 const categories = new CategoryService(ssh, sites);
 const redirects = new RedirectService(ssh, sites);
+const search = new SearchService(ssh, domains, sites);
 const audit = createAudit(config.auditLog);
 
 // Un journal qui grossit sans fin finit par ne plus être consulté : on efface au
@@ -107,6 +110,7 @@ app.use('/api/servers/:id/domains/:domain/design', designRouter({ ssh, sites, au
 app.use('/api/servers/:id/translation', translationRouter({ ssh, translation, audit }));
 app.use('/api/servers/:id/categories', categoriesRouter({ ssh, categories, audit }));
 app.use('/api/servers/:id/redirects', redirectsRouter({ ssh, redirects, audit }));
+app.use('/api/search', searchRouter({ ssh, search }));
 app.use('/api/servers/:id/domains/:domain/files', filesRouter({ ssh, files, audit, uploadLimit: config.files.maxUploadBytes }));
 app.use('/api/servers', serversRouter({ ssh, domains, audit }));
 app.use('/api/domains', domainsRouter({ ssh, domains }));

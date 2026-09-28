@@ -52,7 +52,12 @@ const familyOf = (section) => state.catalog?.families.find((f) => f.variants.inc
 
 // ───────────────────────── Ouverture / fermeture ─────────────────────────
 
-export async function openDesign({ serverId, serverLabel, domain, status, permissions, onClose }) {
+/**
+ * @param {object} o
+ * @param {string} [o.tab]         l'onglet à ouvrir ; « articles » pour aller droit au texte
+ * @param {string} [o.articleFile] le fichier d'article à ouvrir tout de suite
+ */
+export async function openDesign({ serverId, serverLabel, domain, status, permissions, tab, articleFile, onClose }) {
   // Tout ce qui décrit le domaine précédent est remis à zéro : sans cela, la liste
   // d'articles, les sauvegardes et les titres du site précédent restaient affichés.
   Object.assign(state, {
@@ -63,7 +68,7 @@ export async function openDesign({ serverId, serverLabel, domain, status, permis
     status,
     permissions: permissions ?? [],
     onClose,
-    tab: 'home',
+    tab: tab === 'articles' || tab === 'backups' ? tab : 'home',
     selected: 0,
     savedAt: null,
     article: null,
@@ -83,6 +88,9 @@ export async function openDesign({ serverId, serverLabel, domain, status, permis
   $('#btn-back').hidden = false;
   for (const sel of ['#btn-conn', '#btn-refresh', '#btn-add']) $(sel).hidden = true;
   await load();
+  // La recherche globale envoie parfois droit sur un article : on l'ouvre tout de
+  // suite plutôt que de laisser l'agent le retrouver dans une liste de quatre-vingts.
+  if (articleFile && state.open) await openArticle(articleFile);
 }
 
 export function closeDesign() {

@@ -1,6 +1,7 @@
 import { api, qs, setUnauthorizedHandler } from './api.js';
 import { applyI18n, getLang, getLanguages, initI18n, onLangChange, setLang, t } from './i18n.js';
 import { closeFiles, isFilesOpen, openFiles, rerenderFiles } from './files.js';
+import { askSearch, clearSearch, initSearch, searchPanel } from './search.js';
 import { accountDialog, closeAdmin, isAdminOpen, openAdmin, rerenderAdmin } from './admin.js';
 import { closeDesign, isDesignOpen, openDesign, rerenderDesign } from './design.js';
 import { closeActions, isActionsOpen, isActionsSuspended, openActions, rerenderActions } from './actions.js';
@@ -218,6 +219,18 @@ function row(d) {
   );
 }
 
+/**
+ * Le panneau de recherche, au-dessus du tableau.
+ *
+ * Il n'apparaît que lorsqu'il a une réponse : un domaine reconnu, un article
+ * retrouvé, ou un échec qui s'explique. Un simple filtre par un bout de nom ne le fait
+ * pas surgir — le tableau en dessous suffit.
+ */
+function renderSearch() {
+  const panneau = searchPanel();
+  $('#search-panel').replaceChildren(...(panneau ? [panneau] : []));
+}
+
 function renderRows() {
   const r = state.result;
   const message = (text) => h('tr', {}, h('td', { colspan: 6, class: 'px-5 py-14 text-center text-ink-400' }, text));
@@ -350,6 +363,53 @@ function openDesignFor(serverId, domain, status) {
     domain,
     status,
     permissions: state.user?.permissions ?? [],
+    onClose: () => {
+      renderHeader();
+      renderNotice();
+    },
+  });
+}
+
+/**
+ * Ce que le panneau de recherche sait faire d'un résultat.
+ *
+ * Rien de neuf : ce sont les gestes déjà offerts par la ligne du tableau, atteints
+ * depuis la recherche pour éviter le détour par la liste.
+ */
+function actionsRecherche() {
+  return {
+    can,
+    openDesign: (site) => openDesignFor(site.server, site.domain, site.status),
+    // Droit à l'article : la recherche a déjà trouvé son fichier.
+    openArticle: (site, article) => openArticleFor(site, article),
+    openFiles: (site) => openFilesFor(site.server, site.domain, site.status),
+    openDetails: (site) => openDetails(site.server, site.domain),
+    visit: (site, article) => {
+      const chemin = article ? article.url || `/${article.file}` : '/';
+      window.open(`https://${site.domain}${chemin.startsWith('/') ? chemin : `/${chemin}`}`, '_blank', 'noopener');
+    },
+    // Un nom proposé après une faute de frappe : on le met dans le champ et on relance.
+    pick: (c) => {
+      $('#search').value = c.domain;
+      state.query.q = c.domain;
+      state.query.page = 1;
+      askSearch(c.domain);
+      loadDomains();
+    },
+  };
+}
+
+/** Ouvre l'éditeur de design directement sur l'article trouvé. */
+function openArticleFor(site, article) {
+  closeDrawer();
+  openDesign({
+    serverId: site.server,
+    serverLabel: serverById(site.server)?.label ?? site.server,
+    domain: site.domain,
+    status: site.status,
+    permissions: state.user?.permissions ?? [],
+    tab: 'articles',
+    articleFile: article.file,
     onClose: () => {
       renderHeader();
       renderNotice();
@@ -694,12 +754,25 @@ function wireEvents() {
 
   let timer;
   $('#search').addEventListener('input', (e) => {
+    // Le même champ sert deux choses : il filtre le tableau, et — si ce qui est tapé
+    // ressemble à un domaine ou à une adresse — il interroge la recherche globale.
+    askSearch(e.target.value);
     clearTimeout(timer);
     timer = setTimeout(() => {
       state.query.q = e.target.value;
       state.query.page = 1;
       loadDomains();
     }, 250);
+  });
+  // Échap vide le champ et referme le panneau : un geste pour tout effacer.
+  $('#search').addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !e.target.value) return;
+    e.target.value = '';
+    clearSearch();
+    renderSearch();
+    state.query.q = '';
+    state.query.page = 1;
+    loadDomains();
   });
   $('#filter').addEventListener('click', (e) => {
     const b = e.target.closest('[data-status]');
@@ -751,6 +824,9 @@ setUnauthorizedHandler(() => showLogin(state.user ? t('errors.auth_required') : 
   applyI18n(document);
   fillLangSelects();
   wireEvents();
+  // Le panneau de recherche redessine sa zone tout seul, et emprunte les gestes
+  // déjà offerts par la ligne du tableau.
+  initSearch({ onRender: renderSearch, actions: actionsRecherche() });
   try {
     state.user = await api('/api/auth/me');
     await showApp();

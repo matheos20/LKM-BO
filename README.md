@@ -130,6 +130,52 @@ La redirection canonique www, le certificat SSL (géré en frontal) et la racine
 
 ---
 
+## 3 bis. Recherche globale
+
+Deux questions reviennent sans cesse : **« sur quel VPS est ce domaine ? »** et
+**« à quel article correspond cette adresse ? »**. Le champ de recherche du tableau de
+bord répond aux deux — on y colle ce qu'on a sous la main, y compris l'adresse entière
+prise dans la barre du navigateur.
+
+```
+https://biozenz.fr/transformez-votre-bien-etre-grace-a-la-magie-de-la-pleine-conscience
+        └── biozenz.fr · VPS 001 · déverrouillé
+            bien-etre/transformez-votre-bien-etre-grace-a-la-magie-de-la-pleine-conscience.php
+            [Ouvrir l'article] [Gérer les fichiers] [Détails] [Voir en ligne]
+```
+
+« Ouvrir l'article » mène **droit au texte**, dans l'éditeur, sans passer par la liste
+des 52 articles du site.
+
+| Ce qui est collé | Ce qui est rendu |
+|---|---|
+| `biozenz.fr` | le domaine, son serveur, son état, et les actions |
+| `https://www.biozenz.fr/page/?utm=1#haut` | idem, plus l'article désigné par `/page` |
+| `biozenz` | les domaines qui s'en approchent, à cliquer |
+| un domaine absent | dit tel quel — et les serveurs non connectés sont nommés, car c'est la première raison d'un échec |
+
+#### Trois choix qui font tenir l'ensemble
+
+**Rien ne part au serveur pour un simple filtre.** Tant que ce qui est tapé ne ressemble
+ni à un domaine complet ni à une adresse, le tableau en dessous filtre seul et le panneau
+reste absent. Un même champ, deux usages, sans aller-retour inutile.
+
+**La recherche se fait côté serveur**, sur les listes déjà en cache : le parc compte près
+de 29 000 domaines, les télécharger pour chercher dedans n'aurait pas de sens. Aucune
+commande SSH n'est lancée pour trouver un domaine ; le site n'est ouvert que si l'adresse
+portait un chemin, pour y retrouver l'article.
+
+**Le domaine exact l'emporte sur ce qui lui ressemble.** Taper `biozenz.fr` ne doit pas
+proposer `biozenz.fr.old` à sa place. L'article, lui, est cherché par son adresse
+publique (`permalinks.php`) **puis** par son fichier, car une partie du parc n'a pas de
+permalinks — avec ou sans `.php`, avec ou sans barre finale.
+
+Éprouvé contre le parc réel : l'adresse complète d'un article de `biozenz.fr` rend le
+fichier, sa rubrique et son VPS ; `www.`, le port, les paramètres et l'ancre sont
+écartés ; un chemin inventé dit que l'article manque **sans perdre le domaine**.
+
+---
+
 ## 4. Gestionnaire de fichiers (par domaine)
 
 Il s'ouvre depuis l'icône dossier d'une ligne du tableau, ou depuis le panneau de détails.

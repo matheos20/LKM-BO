@@ -49,7 +49,7 @@
   },
   "domains": {
     "title": "Domains",
-    "search": "Domain suchen…",
+    "search": "Domain suchen oder die Adresse eines Artikels einfügen…",
     "add": "Domain hinzufügen",
     "refresh": "Aktualisieren",
     "empty": "Keine Domain entspricht diesen Kriterien.",
@@ -1083,5 +1083,16 @@
     "format_hint_rewrite": "Das ist die Form, die die Engine des Parks bereits in ihren eigenen Dateien verwendet.",
     "format_hint_redirect": "Die Apache-Form. Sie wirkt nur, wenn Apache die .htaccess der Website liest: nginx ignoriert diese Dateien.",
     "other_format": "{count} Regel(n) in der anderen Form geschrieben: sie werden neu geschrieben."
+  },
+  "search": {
+    "searching": "Suche…",
+    "unknown": "„{domain}“ liegt auf keinem verbundenen Server.",
+    "near": "Keine Domain heißt genau „{domain}“. Das kommt dem nahe:",
+    "offline": "Nicht verbundene Server — was sie beherbergen, ist nicht auffindbar: {servers}",
+    "open_article": "Artikel öffnen",
+    "visit": "Online ansehen",
+    "article_missing": "Kein Artikel entspricht „{path}“ auf dieser Website.",
+    "article_count": "{count} Artikel auf dieser Website.",
+    "article_error": "Die Artikel der Website konnten nicht gelesen werden; die Domain selbst ist da."
   }
 }
