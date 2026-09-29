@@ -874,27 +874,28 @@ function blockField(f, data, { bare = false, horizontal = false } = {}) {
  */
 function codeToggle(onSwitch) {
   let mode = 'visual';
+  const libelle = h('span', {}, t('design.mode_code'));
   const b = h(
     'button',
     {
       type: 'button',
-      class: 'icon-btn size-6 shrink-0 text-ink-300 hover:text-ink-600',
+      class: 'inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-ink-400 transition hover:bg-ink-100 hover:text-ink-600',
       title: t('design.mode_code_show'),
-      'aria-label': t('design.mode_code_show'),
       'aria-pressed': 'false',
       onmousedown: (e) => e.preventDefault(),
       onclick: () => {
         mode = mode === 'visual' ? 'text' : 'visual';
         const enCode = mode === 'text';
         b.setAttribute('aria-pressed', String(enCode));
-        b.title = t(enCode ? 'design.mode_code_hide' : 'design.mode_code_show');
-        b.setAttribute('aria-label', b.title);
+        b.setAttribute('title', t(enCode ? 'design.mode_code_hide' : 'design.mode_code_show'));
+        libelle.textContent = t(enCode ? 'design.mode_visual' : 'design.mode_code');
         b.classList.toggle('bg-ink-100', enCode);
         b.classList.toggle('text-ink-600', enCode);
         onSwitch(mode);
       },
     },
     icon('code', 'size-3.5'),
+    libelle,
   );
   return b;
 }
@@ -1160,12 +1161,17 @@ export function richLine(html, onChange, { multiline = false, shared = false } =
 
   // Mode texte : le code source du champ, modifiable directement.
   const source = h('textarea', {
-    class: 'input font-mono text-xs leading-5',
+    // Un fond teinté : on voit qu'on regarde du code, même quand le texte n'a aucune
+    // balise et ressemble donc trait pour trait à l'affichage normal.
+    class: 'input bg-ink-50 font-mono text-xs leading-5',
     rows: multiline ? '6' : '3',
     spellcheck: 'false',
     hidden: true,
   });
-  source.addEventListener('input', () => onChange(cleanInline(source.value)));
+  source.addEventListener('input', () => {
+    onChange(cleanInline(source.value));
+    majNote();
+  });
 
   // En mode partagé, la barre du bloc porte les commandes : le champ ne garde que son
   // commutateur Visuel / Texte.
@@ -1183,7 +1189,18 @@ export function richLine(html, onChange, { multiline = false, shared = false } =
     // L'aide ne s'affiche que sur le champ en cours : répétée sous chacun, elle encombre.
     h('span', { class: 'ml-1 hidden text-[11px] text-ink-400 group-focus-within:inline' }, t('design.rich_hint')),
   );
-  const note = h('p', { class: 'mt-1 text-[11px] text-ink-400', hidden: true }, t('design.mode_text_hint'));
+  const note = h('p', { class: 'mt-1 text-[11px] text-ink-400', hidden: true });
+
+  /**
+   * Ce que l'explication doit dire dépend du contenu.
+   *
+   * « Il n'y a pas de code HTML » : c'est ce qu'on se dit en ouvrant le code d'un
+   * titre qui n'a aucune balise. Le dire soi-même évite de laisser croire que le
+   * bouton n'a pas marché.
+   */
+  const majNote = () => {
+    note.textContent = /<[a-z!/]/i.test(source.value) ? t('design.mode_text_hint') : t('design.mode_text_plain');
+  };
 
   // Le code affiché à l'entrée du mode texte sert de témoin : un aller-retour sans
   // modification ne doit pas marquer le brouillon comme modifié.
@@ -1193,6 +1210,7 @@ export function richLine(html, onChange, { multiline = false, shared = false } =
     if (asText) {
       source.value = cleanInline(area.innerHTML);
       entered = source.value;
+      majNote();
     } else {
       area.innerHTML = cleanInline(source.value);
       if (source.value !== entered) emit();

@@ -703,7 +703,9 @@
     "rt_on_field": "agisce su: {field}",
     "rt_field": "questo campo",
     "mode_code_show": "Vedere il codice HTML di questo campo",
-    "mode_code_hide": "Tornare alla vista normale"
+    "mode_code_hide": "Tornare alla vista normale",
+    "mode_code": "Codice",
+    "mode_text_plain": "Questo testo non contiene alcun tag: il codice è identico a ciò che leggi."
   },
   "actions": {
     "title": "Azioni",

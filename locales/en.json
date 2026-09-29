@@ -703,7 +703,9 @@
     "rt_on_field": "acts on: {field}",
     "rt_field": "this field",
     "mode_code_show": "Show this field’s HTML code",
-    "mode_code_hide": "Back to the normal view"
+    "mode_code_hide": "Back to the normal view",
+    "mode_code": "Code",
+    "mode_text_plain": "This text has no tags: the code is identical to what you read."
   },
   "actions": {
     "title": "Actions",
