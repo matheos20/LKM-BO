@@ -514,7 +514,7 @@ function buttonInput(value, onChange) {
   return h(
     'div',
     { class: 'grid gap-2 sm:grid-cols-2' },
-    field(t('design.btn_text'), richLine(v.text, (text) => onChange({ ...v, text }))),
+    field(t('design.btn_text'), richLine(v.text, (text) => onChange({ ...v, text }), { shared: true })),
     field(t('design.btn_url'), textInput(v.url, (url) => onChange({ ...v, url }), { placeholder: '/' })),
   );
 }
@@ -550,7 +550,7 @@ function listInput(items, itemFields, onChange) {
                 f.type === 'image'
                   ? imageInput(item[f.key], (v) => { item[f.key] = v; onChange(list); })
                   : f.inline
-                    ? richLine(item[f.key], (v) => { item[f.key] = v; onChange(list); }, { multiline: f.type === 'textarea' })
+                    ? richLine(item[f.key], (v) => { item[f.key] = v; onChange(list); }, { multiline: f.type === 'textarea', shared: true })
                     : f.type === 'textarea'
                       ? textArea(item[f.key], (v) => { item[f.key] = v; onChange(list); }, { rows: 3 })
                       : textInput(item[f.key], (v) => { item[f.key] = v; onChange(list); }),
@@ -780,6 +780,8 @@ function blockEditor(sections, index) {
   const body = h(
     'div',
     { class: 'space-y-6 px-5 py-5' },
+    // Une seule barre pour tout le bloc, qui suit le champ où est le curseur.
+    sharedRichToolbar(),
     h('button', { type: 'button', class: 'btn btn-ghost -mt-1 px-2 py-1 text-xs lg:hidden', onclick: () => $('#design-view aside')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, icon('arrowLeft', 'size-3.5'), t('design.back_to_blocks')),
     // Chaque nature de contenu dans sa propre bande, séparée par un filet : le texte,
     // le visuel, les boutons. L'agent voyait auparavant une seule colonne où le nom
@@ -831,10 +833,10 @@ function blockField(f, data, { bare = false, horizontal = false } = {}) {
   const control = (() => {
     switch (f.type) {
       case 'rich':
-        return richLine(data[f.key], set);
+        return richLine(data[f.key], set, { shared: true });
       case 'textarea':
         // Le catalogue dit quels champs le site affiche en HTML : eux seuls peuvent être colorés.
-        return f.inline ? richLine(data[f.key], set, { multiline: true }) : textArea(data[f.key], set, { rows: 4 });
+        return f.inline ? richLine(data[f.key], set, { multiline: true, shared: true }) : textArea(data[f.key], set, { rows: 4 });
       case 'image':
         return imageInput(data[f.key], set);
       case 'button':
@@ -846,7 +848,7 @@ function blockField(f, data, { bare = false, horizontal = false } = {}) {
       case 'list':
         return listInput(data[f.key], f.item, set);
       default:
-        return f.inline ? richLine(data[f.key], set) : textInput(data[f.key], set);
+        return f.inline ? richLine(data[f.key], set, { shared: true }) : textInput(data[f.key], set);
     }
   })();
 
@@ -902,6 +904,94 @@ const formatHtml = (html) =>
     .trim();
 
 /**
+ * LE CHAMP DE TEXTE OÙ SE TROUVE LE CURSEUR.
+ *
+ * Répéter « B I A 🔗 » au-dessus de chacun des sept champs d'un bloc encombrait
+ * l'écran et faisait chercher : laquelle de ces barres agit sur quoi ? Il n'y en a
+ * plus qu'une, en tête du bloc, et elle agit sur le champ que l'agent vient de
+ * toucher — comme dans un traitement de texte.
+ *
+ * Le champ actif reste celui qu'on a touché en dernier, même après un clic ailleurs :
+ * chaque commande repart de la sélection que le champ a lui-même mémorisée.
+ */
+const champActif = { courant: null, ecouteurs: new Set() };
+
+function activerChamp(entree) {
+  if (champActif.courant === entree) return;
+  champActif.courant = entree;
+  for (const f of champActif.ecouteurs) f(entree);
+}
+
+/** Un champ retiré du document ne doit plus recevoir de commandes. */
+const champVivant = () => {
+  const c = champActif.courant;
+  return c && c.area?.isConnected ? c : null;
+};
+
+/**
+ * La barre partagée du bloc : gras, italique, couleur, lien.
+ *
+ * Elle dit sur quel champ elle agit, et reste inactive tant qu'aucun n'a été touché —
+ * un bouton qui ne sait pas où écrire ne doit pas se laisser cliquer.
+ */
+function sharedRichToolbar() {
+  const nom = h('span', { class: 'truncate text-[11px] text-ink-400' }, t('design.rt_pick_field'));
+  const boutons = [];
+
+  const outil = (contenu, titre, action, cls = '') => {
+    const b = h(
+      'button',
+      {
+        type: 'button',
+        class: `rounded-md px-2 py-1 text-xs text-ink-600 transition hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-40 ${cls}`,
+        title: titre,
+        'aria-label': titre,
+        onmousedown: (e) => e.preventDefault(),
+        onclick: () => {
+          const c = champVivant();
+          if (c) action(c);
+        },
+      },
+      contenu,
+    );
+    b.disabled = true;
+    boutons.push(b);
+    return b;
+  };
+
+  const couleur = colorTool({
+    palette: sitePalette(),
+    onOpen: () => champVivant()?.remember(),
+    onApply: (c) => champVivant()?.run('foreColor', c),
+    onClear: () => champVivant()?.clearColors(),
+  });
+
+  const barre = h(
+    'div',
+    { class: 'sticky top-0 z-10 -mx-5 -mt-5 mb-1 flex flex-wrap items-center gap-1 border-b border-ink-100 bg-white px-5 py-2' },
+    outil('B', t('design.rt_bold'), (c) => c.run('bold'), 'font-bold'),
+    outil('I', t('design.rt_italic'), (c) => c.run('italic'), 'italic'),
+    couleur,
+    h('span', { class: 'mx-0.5 h-4 w-px shrink-0 bg-ink-200' }),
+    outil(icon('link', 'size-3.5'), t('design.rt_link'), (c) => c.lien.ouvrir()),
+    outil(icon('unlink', 'size-3.5'), t('design.rt_unlink'), (c) => c.unlink()),
+    h('span', { class: 'mx-1 h-4 w-px shrink-0 bg-ink-200' }),
+    nom,
+  );
+
+  const suivre = (entree) => {
+    // Une barre retirée du document n'a plus à suivre quoi que ce soit : l'agent a
+    // changé de bloc, et une nouvelle barre a pris le relais.
+    if (!barre.isConnected) return champActif.ecouteurs.delete(suivre);
+    for (const b of boutons) b.disabled = !entree;
+    nom.textContent = entree ? t('design.rt_on_field', { field: entree.nom }) : t('design.rt_pick_field');
+  };
+  champActif.ecouteurs.add(suivre);
+
+  return barre;
+}
+
+/**
  * Champ de texte mis en forme, sans jamais montrer de balise : l'agent voit
  * « cooking » en italique ou en rouge, pas « <em> » ni « <span style=… > ».
  *
@@ -910,7 +1000,7 @@ const formatHtml = (html) =>
  * textes du parc sont conservés tels quels. Qui veut la main sur le code passe en
  * mode « Texte » : même contenu, même filtre, autre présentation.
  */
-function richLine(html, onChange, { multiline = false } = {}) {
+function richLine(html, onChange, { multiline = false, shared = false } = {}) {
   const area = h('div', {
     class: `input leading-6 ${multiline ? 'min-h-24' : 'min-h-[2.4rem]'}`,
     contenteditable: 'true',
@@ -971,6 +1061,27 @@ function richLine(html, onChange, { multiline = false } = {}) {
   // le même panneau que l'éditeur d'article, mais avec le nettoyeur des champs.
   const lien = linkPanel(area, onChange, cleanInline);
 
+  // En mode partagé, le champ s'annonce à la barre du bloc dès qu'on y entre. Son
+  // intitulé vient de l'attribut que field() a posé : rien à transmettre en plus.
+  if (shared) {
+    const entree = {
+      area,
+      lien,
+      remember,
+      run,
+      clearColors,
+      unlink: () => {
+        restore();
+        document.execCommand('unlink');
+        emit();
+      },
+      get nom() {
+        return area.getAttribute('aria-label') || t('design.rt_field');
+      },
+    };
+    for (const event of ['focus', 'mouseup', 'keyup']) area.addEventListener(event, () => activerChamp(entree));
+  }
+
   const cmd = (label, command, cls) =>
     h(
       'button',
@@ -1007,7 +1118,11 @@ function richLine(html, onChange, { multiline = false } = {}) {
   });
   source.addEventListener('input', () => onChange(cleanInline(source.value)));
 
-  const tools = h(
+  // En mode partagé, la barre du bloc porte les commandes : le champ ne garde que son
+  // commutateur Visuel / Texte.
+  const tools = shared
+    ? h('span', {})
+    : h(
     'div',
     { class: 'flex items-center gap-1' },
     cmd('B', 'bold', 'font-bold'),

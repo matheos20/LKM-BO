@@ -683,7 +683,10 @@
     "rt_link_select": "Seleziona prima il testo da trasformare in collegamento.",
     "rt_link_invalid": "Questo indirizzo non è accettato. Usa https:// o un percorso che inizia con /.",
     "image_import_named": "L’immagine prenderà il nome dell’articolo: {name}-400, -600, -900, -1920.",
-    "section_class_hint": "Classe CSS che il modello del sito mette su questo blocco — quella che mostra l’ispettore del browser."
+    "section_class_hint": "Classe CSS che il modello del sito mette su questo blocco — quella che mostra l’ispettore del browser.",
+    "rt_pick_field": "Clicca in un testo per formattarlo",
+    "rt_on_field": "agisce su: {field}",
+    "rt_field": "questo campo"
   },
   "actions": {
     "title": "Azioni",

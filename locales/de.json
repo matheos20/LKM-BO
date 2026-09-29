@@ -683,7 +683,10 @@
     "rt_link_select": "Wählen Sie zuerst den Text aus, der ein Link werden soll.",
     "rt_link_invalid": "Diese Adresse wird nicht akzeptiert. Verwenden Sie https:// oder einen Pfad, der mit / beginnt.",
     "image_import_named": "Das Bild erhält den Namen des Artikels: {name}-400, -600, -900, -1920.",
-    "section_class_hint": "CSS-Klasse, die die Vorlage der Website auf diesen Block setzt — die, die der Browser-Inspektor zeigt."
+    "section_class_hint": "CSS-Klasse, die die Vorlage der Website auf diesen Block setzt — die, die der Browser-Inspektor zeigt.",
+    "rt_pick_field": "Klicken Sie in einen Text, um ihn zu formatieren",
+    "rt_on_field": "wirkt auf: {field}",
+    "rt_field": "dieses Feld"
   },
   "actions": {
     "title": "Aktionen",

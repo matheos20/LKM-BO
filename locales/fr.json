@@ -683,7 +683,10 @@
     "rt_link_select": "Sélectionnez d’abord le texte à transformer en lien.",
     "rt_link_invalid": "Cette adresse n’est pas acceptée. Utilisez https:// ou un chemin commençant par /.",
     "image_import_named": "L’image prendra le nom de l’article : {name}-400, -600, -900, -1920.",
-    "section_class_hint": "Classe CSS posée sur ce bloc par le gabarit du site — celle que montre l’inspecteur du navigateur."
+    "section_class_hint": "Classe CSS posée sur ce bloc par le gabarit du site — celle que montre l’inspecteur du navigateur.",
+    "rt_pick_field": "Cliquez dans un texte pour le mettre en forme",
+    "rt_on_field": "agit sur : {field}",
+    "rt_field": "ce champ"
   },
   "actions": {
     "title": "Actions",

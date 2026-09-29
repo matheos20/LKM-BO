@@ -683,7 +683,10 @@
     "rt_link_select": "Seleccione primero el texto que se convertirá en enlace.",
     "rt_link_invalid": "Esa dirección no se acepta. Use https:// o una ruta que empiece por /.",
     "image_import_named": "La imagen tomará el nombre del artículo: {name}-400, -600, -900, -1920.",
-    "section_class_hint": "Clase CSS que la plantilla del sitio pone en este bloque: la que muestra el inspector del navegador."
+    "section_class_hint": "Clase CSS que la plantilla del sitio pone en este bloque: la que muestra el inspector del navegador.",
+    "rt_pick_field": "Haga clic en un texto para darle formato",
+    "rt_on_field": "actúa sobre: {field}",
+    "rt_field": "este campo"
   },
   "actions": {
     "title": "Acciones",

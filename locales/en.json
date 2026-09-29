@@ -683,7 +683,10 @@
     "rt_link_select": "First select the text to turn into a link.",
     "rt_link_invalid": "That address is not accepted. Use https:// or a path starting with /.",
     "image_import_named": "The image will take the article name: {name}-400, -600, -900, -1920.",
-    "section_class_hint": "CSS class the site template puts on this block — the one the browser inspector shows."
+    "section_class_hint": "CSS class the site template puts on this block — the one the browser inspector shows.",
+    "rt_pick_field": "Click inside a text to format it",
+    "rt_on_field": "acts on: {field}",
+    "rt_field": "this field"
   },
   "actions": {
     "title": "Actions",
