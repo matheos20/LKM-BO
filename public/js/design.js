@@ -2208,39 +2208,253 @@ function richEditor(html, onChange) {
 
 // ───────────────────────── Onglet « Sauvegardes » ─────────────────────────
 
+/** Chaque nature de sauvegarde a sa couleur et son mot. */
+const BACKUP_KIND = {
+  config: 'bg-accent-100 text-accent-700',
+  style: 'bg-sky-100 text-sky-800',
+  article: 'bg-amber-100 text-amber-800',
+  htaccess: 'bg-ink-100 text-ink-600',
+};
+
+/**
+ * Le moment RÉEL de la sauvegarde.
+ *
+ * Il vient du nom du fichier, pas de sa date : les copies sont faites avec « cp -a »,
+ * qui conserve la date de l'original. Une sauvegarde prise le 29 septembre à 11 h 24
+ * portait ainsi le 30 août — et c'est ce que cet écran affichait.
+ */
+const backupWhen = (b) => b.at ?? b.mtime ?? null;
+
 function backupsTab() {
-  if (!state.backups.length) loadBackups();
+  if (!state.backupsLoaded) loadBackups();
+
+  const entete = h(
+    'div',
+    { class: 'flex flex-wrap items-center gap-3 border-b border-ink-100 px-5 py-3' },
+    h(
+      'div',
+      { class: 'min-w-0 flex-1' },
+      h('h2', { class: 'text-sm font-semibold text-ink-600' }, t('design.backups_title')),
+      h('p', { class: 'mt-0.5 text-xs text-ink-400' }, t('design.backups_hint')),
+    ),
+    h(
+      'button',
+      { type: 'button', class: 'btn btn-outline px-3 py-1.5 text-xs', onclick: () => loadBackups({ force: true }) },
+      icon('refresh', 'size-3.5'),
+      t('files.refresh'),
+    ),
+  );
+
+  if (!state.backups.length) {
+    return h(
+      'section',
+      { class: 'card overflow-hidden' },
+      entete,
+      h(
+        'div',
+        { class: 'px-6 py-14 text-center' },
+        h('span', { class: 'mx-auto flex size-12 items-center justify-center rounded-2xl bg-ink-50 text-ink-300' }, icon('archive', 'size-6')),
+        h('p', { class: 'mt-4 font-semibold' }, t('design.backups_empty')),
+        h('p', { class: 'mx-auto mt-1 max-w-md text-sm text-ink-400' }, t('design.backups_empty_hint')),
+      ),
+    );
+  }
+
+  const th = (cle, extra = '') => h('th', { class: `px-4 py-2.5 font-semibold ${extra}` }, t(cle));
+
+  const ligne = (b) => {
+    const peut = can('design.publish');
+    const agir = (ico, titre, onclick, danger = false) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: `icon-btn ${danger ? 'hover:bg-red-50 hover:text-red-600' : ''}`,
+          title: peut ? titre : t('reason.permission_denied'),
+          'aria-label': titre,
+          disabled: !peut,
+          onclick,
+        },
+        icon(ico, 'size-4'),
+      );
+
+    return h(
+      'tr',
+      { class: 'border-t border-ink-100 align-middle hover:bg-ink-50/50' },
+      h(
+        'td',
+        { class: 'px-5 py-2.5 whitespace-nowrap' },
+        h('span', { class: 'block text-sm' }, fmtDate(backupWhen(b))),
+        b.restored
+          ? h(
+              'span',
+              { class: 'mt-0.5 inline-flex items-center gap-1 text-[11px] text-accent-700' },
+              icon('check', 'size-3'),
+              t('design.backup_restored', { when: fmtDate(b.restored.at) }),
+            )
+          : null,
+      ),
+      h('td', { class: 'px-4 py-2.5' }, h('span', { class: `badge ${BACKUP_KIND[b.kind] ?? BACKUP_KIND.htaccess}` }, t(`design.backup_kind_${b.kind}`))),
+      h('td', { class: 'px-4 py-2.5' }, h('span', { class: 'block max-w-md truncate font-mono text-xs text-ink-500', title: b.label }, b.label)),
+      h('td', { class: 'px-4 py-2.5 whitespace-nowrap text-xs text-ink-400' }, fmtSize(b.size)),
+      h(
+        'td',
+        { class: 'px-5 py-2' },
+        h(
+          'div',
+          { class: 'flex justify-end gap-0.5' },
+          // Comparer ne demande que le droit de lire : on regarde, on n'écrit pas.
+          h(
+            'button',
+            { type: 'button', class: 'icon-btn', title: t('design.backup_compare'), 'aria-label': t('design.backup_compare'), onclick: () => openCompare(b) },
+            icon('eye', 'size-4'),
+          ),
+          agir('refresh', t('design.restore'), () => confirmRestore(b)),
+          agir('trash', t('design.backup_delete'), () => confirmDeleteBackup(b), true),
+        ),
+      ),
+    );
+  };
+
   return h(
     'section',
     { class: 'card overflow-hidden' },
-    h('h2', { class: 'border-b border-ink-100 px-4 py-3 text-sm font-semibold text-ink-600' }, t('design.backups_title')),
-    state.backups.length
-      ? h(
-          'div',
-          { class: 'divide-y divide-ink-100' },
-          ...state.backups.map((b) =>
-            h(
-              'div',
-              { class: 'flex flex-wrap items-center gap-3 px-4 py-2.5' },
-              h('span', { class: 'flex-1 font-mono text-xs' }, b.name),
-              h('span', { class: 'text-xs text-ink-400' }, fmtDate(b.mtime)),
-              h('button', { type: 'button', class: 'btn btn-outline px-3 py-1', disabled: !can('design.publish'), onclick: () => confirmRestore(b) }, t('design.restore')),
-            ),
+    entete,
+    h(
+      'div',
+      { class: 'overflow-x-auto' },
+      h(
+        'table',
+        { class: 'w-full text-left' },
+        h(
+          'thead',
+          { class: 'bg-ink-50/60 text-xs tracking-wide text-ink-500 uppercase' },
+          h(
+            'tr',
+            {},
+            th('design.backup_when', 'px-5'),
+            th('design.backup_kind'),
+            th('design.backup_target'),
+            th('design.backup_size'),
+            th('col.actions', 'px-5 text-right'),
           ),
-        )
-      : h('p', { class: 'px-4 py-10 text-center text-sm text-ink-400' }, t('design.backups_empty')),
+        ),
+        h('tbody', {}, state.backups.map(ligne)),
+      ),
+    ),
   );
 }
 
-async function loadBackups() {
+async function loadBackups({ force = false } = {}) {
+  if (state.backupsLoading && !force) return;
+  state.backupsLoading = true;
   try {
     const { backups } = await api(`${base()}/backups`);
     state.backups = backups;
+    // Un site SANS sauvegarde est un cas normal : sans ce témoin, l'écran relançait
+    // la lecture à chaque rendu.
+    state.backupsLoaded = true;
     render();
   } catch (err) {
     toastError(err);
+    state.backupsLoaded = true;
+  } finally {
+    state.backupsLoading = false;
   }
 }
+
+/**
+ * La fenêtre « avant / après ».
+ *
+ * Restaurer écrase le fichier en place : l'agent doit voir ce qu'il va récupérer ET ce
+ * qu'il va perdre, côte à côte, avant de décider. Les deux versions sont lues sur le
+ * serveur ; rien n'est écrit tant que le bouton n'est pas cliqué.
+ */
+async function openCompare(backup) {
+  let vue;
+  try {
+    vue = await api(`${base()}/backups/compare`, { method: 'POST', body: { name: backup.name } });
+  } catch (err) {
+    return toastError(err);
+  }
+
+  const identiques = vue.backup === vue.current;
+  const colonne = (titre, contenu, accent) =>
+    h(
+      'div',
+      { class: 'min-w-0 flex-1' },
+      h(
+        'p',
+        { class: `mb-1 flex items-center gap-1.5 text-xs font-semibold ${accent}` },
+        icon(accent.includes('accent') ? 'archive' : 'globe', 'size-3.5'),
+        titre,
+      ),
+      h(
+        'pre',
+        { class: 'max-h-[45vh] overflow-auto rounded-lg border border-ink-200 bg-ink-50 p-3 font-mono text-[11px] leading-5 whitespace-pre-wrap' },
+        contenu || t('design.backup_empty_side'),
+      ),
+      h('p', { class: 'mt-1 text-[11px] text-ink-400' }, fmtSize(contenu.length)),
+    );
+
+  const bouton = h(
+    'button',
+    { type: 'button', class: 'btn btn-primary', disabled: !can('design.publish') || identiques },
+    icon('refresh'),
+    t('design.restore'),
+  );
+  bouton.addEventListener('click', () => {
+    closeModal();
+    confirmRestore(backup);
+  });
+
+  openModal(
+    h(
+      'div',
+      { class: 'card w-full p-0' },
+      modalHeader(t('design.backup_compare'), 'bg-ink-50 text-ink-600', 'eye'),
+      h(
+        'div',
+        { class: 'space-y-3 px-6 py-5' },
+        h(
+          'p',
+          { class: 'text-sm text-ink-500' },
+          t('design.backup_compare_body', { file: vue.label, when: fmtDate(backup.at ?? backup.mtime) }),
+        ),
+        identiques ? h('p', { class: 'rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600' }, t('design.backup_same')) : null,
+        h(
+          'div',
+          { class: 'flex flex-col gap-4 lg:flex-row' },
+          colonne(t('design.backup_side_saved'), vue.backup, 'text-accent-700'),
+          colonne(t('design.backup_side_live'), vue.current, 'text-ink-600'),
+        ),
+      ),
+      h(
+        'div',
+        { class: 'flex justify-end gap-2 border-t border-ink-100 px-6 py-4' },
+        h('button', { type: 'button', class: 'btn btn-outline', onclick: closeModal }, t('action.close')),
+        bouton,
+      ),
+    ),
+    'max-w-5xl',
+  );
+}
+
+/** Effacer une sauvegarde est sans retour : on le dit, et on nomme ce qui part. */
+const confirmDeleteBackup = (backup) =>
+  confirmDialog({
+    title: t('design.backup_delete_title'),
+    warning: t('design.backup_delete_warning', { file: backup.label, when: fmtDate(backup.at ?? backup.mtime) }),
+    submitLabel: t('design.backup_delete'),
+    iconName: 'trash',
+    tone: 'btn-danger',
+    run: async () => {
+      await api(`${base()}/backups`, { method: 'DELETE', body: { name: backup.name } });
+      toast(t('design.backup_deleted', { file: backup.label }), 'success');
+      state.backups = state.backups.filter((b) => b.name !== backup.name);
+      render();
+    },
+  });
 
 // ───────────────────────── Actions ─────────────────────────
 
@@ -2411,15 +2625,28 @@ const confirmDiscard = () =>
     },
   });
 
+/**
+ * La confirmation avant de remettre une sauvegarde en place.
+ *
+ * Elle nomme le fichier écrasé, la date de ce qu'on récupère, et prévient que le
+ * contenu actuel disparaît. « Êtes-vous sûr ? » ne suffit pas : l'agent doit pouvoir
+ * relire ce qu'il s'apprête à perdre.
+ */
 const confirmRestore = (backup) =>
   confirmDialog({
     title: t('design.restore_title'),
-    warning: t('design.restore_warning', { name: backup.name }),
+    warning: t('design.restore_warning', {
+      file: backup.label ?? backup.name,
+      when: fmtDate(backup.at ?? backup.mtime),
+    }),
     submitLabel: t('design.restore'),
     iconName: 'refresh',
     run: async () => {
-      await api(`${base()}/backups/restore`, { method: 'POST', body: { name: backup.name } });
-      toast(t('design.restored', { name: backup.name }));
+      const out = await api(`${base()}/backups/restore`, { method: 'POST', body: { name: backup.name } });
+      toast(t('design.restored', { file: out.target ?? backup.label ?? backup.name }), 'success');
+      // Le fichier en place a changé : tout ce que l'écran montre doit être relu, et
+      // la liste des sauvegardes repasse par le serveur pour marquer celle-ci.
+      state.backupsLoaded = false;
       state.backups = [];
       await load();
     },

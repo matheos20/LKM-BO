@@ -153,25 +153,68 @@ export function writeArticleCommand(docroot, rel, { expectMd5 = '' } = {}) {
     .join('\n');
 }
 
-/** Sauvegardes disponibles : nom, taille, date. */
+/**
+ * Sauvegardes disponibles : chemin relatif, taille, date du fichier.
+ *
+ * Le parcours descend dans les SOUS-DOSSIERS : les sauvegardes d'article vivent dans
+ * « articles/ », et une recherche à un seul niveau les manquait toutes. Sur
+ * 1bighostel.com, l'onglet annonçait « aucune sauvegarde » alors qu'il y en avait une.
+ *
+ * La date du fichier n'est donnée qu'à titre de secours : « cp -a » conserve celle de
+ * l'original, si bien qu'une sauvegarde faite le 29 septembre portait le 30 août. Le
+ * moment réel est dans le NOM, et c'est lui qui fait foi.
+ */
 export const listBackupsCommand = (docroot) =>
   [
     `BK=${shq(`${docroot}/${BACKUP_DIR}`)}`,
     `[ -d "$BK" ] || { echo; exit 0; }`,
-    `find "$BK" -maxdepth 1 -type f -printf '%f\\t%s\\t%T@\\n' | sort -r`,
+    `find "$BK" -type f -printf '%P\\t%s\\t%T@\\n' | sort -r`,
   ].join('\n');
 
-/** Restauration d'une sauvegarde vers son fichier d'origine. */
-export function restoreCommand(docroot, backupName) {
-  const target = backupName.startsWith('config-') ? 'config.php' : 'style.css';
+/**
+ * Restauration d'une sauvegarde vers son fichier d'origine.
+ *
+ * La destination est calculée par l'appelant à partir du nom de la sauvegarde, jamais
+ * reçue du navigateur. Un fichier PHP repasse par le contrôle de syntaxe avant d'être
+ * remis : une sauvegarde abîmée mettrait la page en erreur, même si elle vient de nous.
+ */
+export function restoreCommand(docroot, backupName, target) {
   return [
     `DOC=${shq(docroot)}`,
     `SRC="$DOC/${BACKUP_DIR}/"${shq(backupName)}`,
     `[ -f "$SRC" ] || exit 87`,
-    `cat "$SRC" > "$DOC/${target}" || exit 84`,
+    `DST="$DOC/"${shq(target)}`,
+    target.endsWith('.php') ? `php -l "$SRC" > /dev/null || exit 83` : '',
+    `mkdir -p "$(dirname "$DST")" || exit 81`,
+    `cat "$SRC" > "$DST" || exit 84`,
     `echo restored`,
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
+
+/** Suppression d'une sauvegarde. Rien d'autre que le fichier nommé n'est touché. */
+export const deleteBackupCommand = (docroot, backupName) =>
+  [
+    `DOC=${shq(docroot)}`,
+    `SRC="$DOC/${BACKUP_DIR}/"${shq(backupName)}`,
+    `[ -f "$SRC" ] || exit 87`,
+    `rm -f "$SRC" || exit 84`,
+    `echo deleted`,
+  ].join('\n');
+
+/** Contenu d'une sauvegarde et du fichier en place, pour les comparer avant d'agir. */
+export const readBackupCommand = (docroot, backupName, target) =>
+  [
+    `DOC=${shq(docroot)}`,
+    `SRC="$DOC/${BACKUP_DIR}/"${shq(backupName)}`,
+    `[ -f "$SRC" ] || exit 87`,
+    `echo '--- LKM-AVANT ---'`,
+    `head -c 200000 "$SRC"`,
+    `echo`,
+    `echo '--- LKM-APRES ---'`,
+    `[ -f "$DOC/"${shq(target)} ] && head -c 200000 "$DOC/"${shq(target)} || true`,
+  ].join('\n');
 
 export const EXIT_MESSAGES = {
   70: 'errors.design_preview_failed',

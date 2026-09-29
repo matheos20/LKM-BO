@@ -8,7 +8,9 @@ import {
   dropImageCommand,
   dropRenderCommand,
   imageTmpPath,
+  deleteBackupCommand,
   listBackupsCommand,
+  readBackupCommand,
   phpCommand,
   prepareRenderCommand,
   publishCommand,
@@ -53,6 +55,52 @@ export function articleSlug(file) {
     .pop()
     ?.replace(/\.php$/i, '');
   return String(base ?? '').trim();
+}
+
+/** L'horodatage d'une sauvegarde : « 20260929-112419 » devient un instant. */
+const stampToDate = (stamp) => {
+  const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/.exec(String(stamp ?? ''));
+  // Les serveurs du parc sont en UTC — relevé sur chacun d'eux.
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null;
+};
+
+/**
+ * Ce qu'une sauvegarde est, d'après son seul nom.
+ *
+ * Trois formes cohabitent dans `.lkm-backups` :
+ *
+ *   config-20260929-112419.php                   la configuration du site
+ *   style-20260929-112419.css                    la charte
+ *   articles/rubrique/mon-article.php.20260929-112419   un article
+ *
+ * LE NOM FAIT FOI POUR LA DATE. Les fichiers sont copiés avec `cp -a`, qui conserve
+ * la date de l'original : une sauvegarde faite le 29 septembre portait le 30 août, et
+ * c'est ce que l'écran affichait. La destination est également déduite ici, et jamais
+ * reçue du navigateur : c'est ce qui garantit qu'une restauration n'écrit que là où
+ * elle doit.
+ *
+ * Un nom qui ne correspond à aucune des trois formes rend null — il ne sera ni
+ * affiché, ni restauré, ni effacé.
+ */
+export function describeBackup(name, extra = {}) {
+  const n = String(name ?? '');
+
+  const config = /^config-(\d{8}-\d{6})\.php$/.exec(n);
+  if (config) return { name: n, kind: 'config', stamp: config[1], at: stampToDate(config[1]), target: 'config.php', label: 'config.php', ...extra };
+
+  const style = /^style-(\d{8}-\d{6})\.css$/.exec(n);
+  if (style) return { name: n, kind: 'style', stamp: style[1], at: stampToDate(style[1]), target: 'style.css', label: 'style.css', ...extra };
+
+  const htaccess = /^htaccess-(\d{8}-\d{6})$/.exec(n);
+  if (htaccess) return { name: n, kind: 'htaccess', stamp: htaccess[1], at: stampToDate(htaccess[1]), target: '.htaccess', label: '.htaccess', ...extra };
+
+  const article = /^articles\/(.+\.php)\.(\d{8}-\d{6})$/.exec(n);
+  // Aucune remontée de dossier : le chemin reste sous la racine du site.
+  if (article && !article[1].includes('..')) {
+    return { name: n, kind: 'article', stamp: article[2], at: stampToDate(article[2]), target: article[1], label: article[1], ...extra };
+  }
+
+  return null;
 }
 
 /** Identifiant tiré du nom d'origine, dans la forme utilisée par le parc, et libre. */
@@ -669,15 +717,39 @@ export class SiteService {
       .filter(Boolean)
       .map((line) => {
         const [name, size, mtime] = line.split('\t');
-        return { name, size: Number(size) || 0, mtime: Math.round(Number(mtime) * 1000) || null, kind: name.startsWith('style-') ? 'style' : 'config' };
+        return describeBackup(name, { size: Number(size) || 0, mtime: Math.round(Number(mtime) * 1000) || null });
       })
-      .filter((b) => b.name);
+      .filter((b) => b?.name)
+      // Du plus récent au plus ancien, sur le moment RÉEL de la sauvegarde.
+      .sort((a, b) => (b.at ?? b.mtime ?? 0) - (a.at ?? a.mtime ?? 0));
+  }
+
+  /** Le contenu de la sauvegarde ET celui du fichier en place, pour les comparer. */
+  async compareBackup(serverId, domain, name) {
+    const { server, docroot } = this.context(serverId, domain);
+    const info = describeBackup(name);
+    if (!info) throw new AppError('errors.file_name_invalid', { status: 400, vars: { name: String(name).slice(0, 60) } });
+    const res = await this.#run(serverId, readBackupCommand(docroot, info.name, info.target));
+    this.#check(res, server);
+    const parts = res.stdout.split(/^--- LKM-(?:AVANT|APRES) ---$/m);
+    return { ...info, backup: (parts[1] ?? '').replace(/^\n/, ''), current: (parts[2] ?? '').replace(/^\n/, '') };
+  }
+
+  async deleteBackup(serverId, domain, name) {
+    const { server, docroot } = this.context(serverId, domain);
+    const info = describeBackup(name);
+    if (!info) throw new AppError('errors.file_name_invalid', { status: 400, vars: { name: String(name).slice(0, 60) } });
+    this.#check(await this.#run(serverId, deleteBackupCommand(docroot, info.name)), server);
+    return { deleted: info.name };
   }
 
   async restoreBackup(serverId, domain, name) {
     const { server, docroot } = this.context(serverId, domain);
-    if (!/^(config-\d{8}-\d{6}\.php|style-\d{8}-\d{6}\.css)$/.test(String(name))) throw new AppError('errors.file_name_invalid', { status: 400, vars: { name: String(name).slice(0, 60) } });
-    this.#check(await this.#run(serverId, restoreCommand(docroot, name)), server);
-    return { restored: name };
+    // Le nom est reconnu ET la destination recalculée ici : le navigateur ne choisit
+    // jamais le fichier écrasé.
+    const info = describeBackup(name);
+    if (!info) throw new AppError('errors.file_name_invalid', { status: 400, vars: { name: String(name).slice(0, 60) } });
+    this.#check(await this.#run(serverId, restoreCommand(docroot, info.name, info.target)), server);
+    return { restored: info.name, target: info.target, kind: info.kind };
   }
 }

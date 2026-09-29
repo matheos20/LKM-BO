@@ -145,12 +145,33 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
   // ── Sauvegardes
   r.get('/backups', canRead, async (req, res) => {
     const { id, domain } = ctx(req);
-    res.json({ backups: await sites.listBackups(id, domain) });
+    const backups = await sites.listBackups(id, domain);
+    // Ce qui a déjà été remis en place vient du journal d'audit : c'est la seule trace
+    // qui survit à un redémarrage, et elle dit AUSSI qui l'a fait et quand.
+    const faites = new Map();
+    try {
+      for (const e of queryEvents({ domain, action: 'design.restore', ok: true, perPage: 200 }).events) {
+        if (e.target && !faites.has(e.target)) faites.set(e.target, { at: e.at, by: e.user?.displayName || e.user?.username || null });
+      }
+    } catch {}
+    res.json({ backups: backups.map((b) => ({ ...b, restored: faites.get(b.name) ?? null })) });
+  });
+
+  // Comparer avant de remettre en place : lecture seule, donc le droit de lire suffit.
+  r.post('/backups/compare', canRead, async (req, res) => {
+    const { id, domain } = ctx(req);
+    res.json(await sites.compareBackup(id, domain, req.body?.name));
   });
 
   r.post('/backups/restore', canPublish, async (req, res) => {
     const { id, domain } = ctx(req);
     res.json(await audited(req, 'design.restore', req.body?.name, () => sites.restoreBackup(id, domain, req.body?.name)));
+  });
+
+  // Effacer une sauvegarde est une perte définitive : même droit que publier.
+  r.delete('/backups', canPublish, async (req, res) => {
+    const { id, domain } = ctx(req);
+    res.json(await audited(req, 'design.backup_delete', req.body?.name, () => sites.deleteBackup(id, domain, req.body?.name)));
   });
 
   return r;
