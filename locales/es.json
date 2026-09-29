@@ -705,7 +705,9 @@
     "mode_code_show": "Ver el código HTML de este campo",
     "mode_code_hide": "Volver a la vista normal",
     "mode_code": "Código",
-    "mode_text_plain": "Este texto no contiene ninguna etiqueta: el código es idéntico a lo que lee."
+    "mode_text_plain": "Este texto no contiene ninguna etiqueta: el código es idéntico a lo que lee.",
+    "mode_text_wrapped": "El sitio añade {tag} alrededor de este texto: no lo vuelva a escribir, tendría la etiqueta dos veces.",
+    "mode_text_wrapped_plain": "Este texto no tiene etiquetas propias. El sitio lo envuelve en {tag}, que usted no tiene que escribir."
   },
   "actions": {
     "title": "Acciones",

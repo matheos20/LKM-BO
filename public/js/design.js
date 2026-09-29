@@ -693,6 +693,12 @@ function blockRow(section, index, total, editable) {
  */
 const sectionClass = (variant) => state.site?.available?.sectionClasses?.[variant] ?? '';
 
+/**
+ * La balise que le gabarit pose autour d'un texte : « <p class="hero-text"> » pour le
+ * texte d'une bannière. Relevée dans les fichiers du site, pas devinée.
+ */
+const fieldWrapper = (variant, key) => state.site?.available?.sectionWrappers?.[variant]?.[key] ?? null;
+
 const stripTags = (value) =>
   String(value ?? '')
     .replace(/<[^>]*>/g, ' ')
@@ -801,7 +807,7 @@ function blockEditor(sections, index) {
             ),
         // Une seule colonne : c'est ce qui permet aux intitulés de s'aligner. Deux
         // colonnes gagnaient de la place mais cassaient la lecture verticale.
-        h('div', { class: 'space-y-4' }, ...fields.map((f) => blockField(f, data, { bare: key === 'buttons' && fields.length === 1, horizontal: true }))),
+        h('div', { class: 'space-y-4' }, ...fields.map((f) => blockField(f, data, { bare: key === 'buttons' && fields.length === 1, horizontal: true, variant: section }))),
       ),
     ),
   );
@@ -821,7 +827,7 @@ const hintOf = (key) => {
   return value === `design.hint.${key}` ? null : value;
 };
 
-function blockField(f, data, { bare = false, horizontal = false } = {}) {
+function blockField(f, data, { bare = false, horizontal = false, variant = '' } = {}) {
   const label = t(`design.field.${f.key}`);
   const hint = hintOf(f.key);
   const wide = ['textarea', 'rich', 'list', 'strings', 'button', 'image'].includes(f.type);
@@ -833,10 +839,10 @@ function blockField(f, data, { bare = false, horizontal = false } = {}) {
   const control = (() => {
     switch (f.type) {
       case 'rich':
-        return richLine(data[f.key], set, { shared: true });
+        return richLine(data[f.key], set, { shared: true, wrapper: fieldWrapper(variant, f.key) });
       case 'textarea':
         // Le catalogue dit quels champs le site affiche en HTML : eux seuls peuvent être colorés.
-        return f.inline ? richLine(data[f.key], set, { multiline: true, shared: true }) : textArea(data[f.key], set, { rows: 4 });
+        return f.inline ? richLine(data[f.key], set, { multiline: true, shared: true, wrapper: fieldWrapper(variant, f.key) }) : textArea(data[f.key], set, { rows: 4 });
       case 'image':
         return imageInput(data[f.key], set);
       case 'button':
@@ -848,7 +854,7 @@ function blockField(f, data, { bare = false, horizontal = false } = {}) {
       case 'list':
         return listInput(data[f.key], f.item, set);
       default:
-        return f.inline ? richLine(data[f.key], set, { shared: true }) : textInput(data[f.key], set);
+        return f.inline ? richLine(data[f.key], set, { shared: true, wrapper: fieldWrapper(variant, f.key) }) : textInput(data[f.key], set);
     }
   })();
 
@@ -1048,7 +1054,7 @@ export function sharedRichToolbar() {
  * textes du parc sont conservés tels quels. Qui veut la main sur le code passe en
  * mode « Texte » : même contenu, même filtre, autre présentation.
  */
-export function richLine(html, onChange, { multiline = false, shared = false } = {}) {
+export function richLine(html, onChange, { multiline = false, shared = false, wrapper = null } = {}) {
   const area = h('div', {
     class: `input leading-6 ${multiline ? 'min-h-24' : 'min-h-[2.4rem]'}`,
     contenteditable: 'true',
@@ -1189,6 +1195,19 @@ export function richLine(html, onChange, { multiline = false, shared = false } =
     // L'aide ne s'affiche que sur le champ en cours : répétée sous chacun, elle encombre.
     h('span', { class: 'ml-1 hidden text-[11px] text-ink-400 group-focus-within:inline' }, t('design.rich_hint')),
   );
+  /**
+   * Ce que le GABARIT du site pose autour de ce texte.
+   *
+   * L'inspecteur du navigateur montre « <p class="hero-text">Mon texte</p> » ; le
+   * champ, lui, ne contient que « Mon texte ». La balise appartient au site : la
+   * retaper donnerait un paragraphe dans un paragraphe. On la montre donc en gris,
+   * non modifiable, pour que l'agent retrouve ce qu'il a vu dans l'inspecteur et
+   * comprenne du même coup où s'arrête ce qu'il écrit.
+   */
+  const baliseOuvrante = wrapper?.tag ? `<${wrapper.tag}${wrapper.class ? ` class="${wrapper.class}"` : ''}>` : '';
+  const entourHaut = h('p', { class: 'font-mono text-[11px] text-ink-300 select-all', hidden: true }, baliseOuvrante);
+  const entourBas = h('p', { class: 'font-mono text-[11px] text-ink-300 select-all', hidden: true }, wrapper?.tag ? `</${wrapper.tag}>` : '');
+
   const note = h('p', { class: 'mt-1 text-[11px] text-ink-400', hidden: true });
 
   /**
@@ -1199,7 +1218,10 @@ export function richLine(html, onChange, { multiline = false, shared = false } =
    * bouton n'a pas marché.
    */
   const majNote = () => {
-    note.textContent = /<[a-z!/]/i.test(source.value) ? t('design.mode_text_hint') : t('design.mode_text_plain');
+    const avecBalise = /<[a-z!/]/i.test(source.value);
+    note.textContent = baliseOuvrante
+      ? t(avecBalise ? 'design.mode_text_wrapped' : 'design.mode_text_wrapped_plain', { tag: baliseOuvrante })
+      : t(avecBalise ? 'design.mode_text_hint' : 'design.mode_text_plain');
   };
 
   // Le code affiché à l'entrée du mode texte sert de témoin : un aller-retour sans
@@ -1227,6 +1249,8 @@ export function richLine(html, onChange, { multiline = false, shared = false } =
     area.hidden = asText;
     source.hidden = !asText;
     note.hidden = !asText;
+    entourHaut.hidden = !asText || !baliseOuvrante;
+    entourBas.hidden = entourHaut.hidden;
     tools.hidden = asText;
     (asText ? source : area).focus();
   };
@@ -1238,7 +1262,9 @@ export function richLine(html, onChange, { multiline = false, shared = false } =
     // le bouton du code, discret, aligné à droite du champ.
     h('div', { class: 'mb-1 flex items-center gap-1' }, tools, h('span', { class: 'flex-1' }), shared ? codeToggle(toMode) : modeSwitch(toMode)),
     area,
+    entourHaut,
     source,
+    entourBas,
     note,
   );
 }

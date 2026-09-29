@@ -76,22 +76,42 @@ $out['styleMeta'] = is_file($cssFile) ? ['md5' => md5_file($cssFile), 'mtime' =>
 // l'afficher dans le back-office permet de raccorder ce qu'on voit à ce qu'on modifie.
 $sections = [];
 $classes = [];
+$entours = [];
 foreach (glob($doc . '/parts/sections/*.php') ?: [] as $f) {
     $b = basename($f, '.php');
     if (strpos($b, '.bak') !== false || strpos($b, '.pre-') !== false) continue;
     $sections[] = $b;
     // Seul le PREMIER bloc compte : c'est le parent, celui qui nomme la section.
-    $tete = (string) @file_get_contents($f, false, null, 0, 4096);
+    $tete = (string) @file_get_contents($f, false, null, 0, 16384);
+
+    // Ce qui ENTOURE chaque texte du bloc. Le gabarit écrit par exemple
+    //     <p class="hero-text">   echo $h['text']   </p>
+    // L'agent ne saisit que l'intérieur : la balise appartient au site, et la
+    // retaper donnerait un paragraphe dans un paragraphe. On la relève pour la lui
+    // MONTRER autour de son texte, sans qu'il puisse la modifier.
+    $autour = [];
+    // « .*? » et non « [^?]* » : le gabarit écrit souvent « $h['text'] ?? '' », et le
+    // point d'interrogation de l'opérateur bloquait la reconnaissance.
+    if (preg_match_all('/<([a-z][a-z0-9]*)([^>]*)>\\\\s*<\\\\?php\\\\s+echo\\\\s+\\\\$[a-zA-Z_]+\\\\[[\\x27"]([a-zA-Z_]+)[\\x27"]\\\\].*?\\\\?>\\\\s*<\\\\/\\\\1>/i', $tete, $mm, PREG_SET_ORDER)) {
+        foreach ($mm as $x) {
+            $cle = $x[3];
+            if (isset($autour[$cle])) continue;
+            $classe = preg_match('/\\\\bclass\\\\s*=\\\\s*"([^"]*)"/i', $x[2], $mc) ? trim($mc[1]) : '';
+            $autour[$cle] = ['tag' => strtolower($x[1]), 'class' => $classe];
+        }
+    }
     if (preg_match('/<section[^>]*\\\\bclass\\\\s*=\\\\s*"([^"]*)"/i', $tete, $m)) {
         // La classe peut contenir du PHP intercalé : on ne garde que la partie fixe,
         // car c'est elle que le visiteur verra dans tous les cas.
         $c = trim(preg_replace('/\\\\s+/', ' ', preg_replace('/' . chr(60) . '\\\\?.*?\\\\?' . chr(62) . '/s', '', $m[1])));
         if ($c !== '') $classes[$b] = $c;
     }
+    if ($autour) $entours[$b] = $autour;
 }
 sort($sections);
 $out['sections'] = $sections;
 $out['sectionClasses'] = $classes;
+$out['sectionWrappers'] = $entours;
 
 // Images disponibles (identifiants dérivés des fichiers -600.jpg)
 $images = [];

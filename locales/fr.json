@@ -705,7 +705,9 @@
     "mode_code_show": "Voir le code HTML de ce champ",
     "mode_code_hide": "Revenir à l’affichage normal",
     "mode_code": "Code",
-    "mode_text_plain": "Ce texte ne contient aucune balise : le code est identique à ce que vous lisez."
+    "mode_text_plain": "Ce texte ne contient aucune balise : le code est identique à ce que vous lisez.",
+    "mode_text_wrapped": "Le site ajoute {tag} autour de ce texte : ne le retapez pas, vous auriez la balise deux fois.",
+    "mode_text_wrapped_plain": "Ce texte n’a aucune balise à lui. Le site l’entoure de {tag}, que vous n’avez pas à écrire."
   },
   "actions": {
     "title": "Actions",

@@ -705,7 +705,9 @@
     "mode_code_show": "Den HTML-Code dieses Feldes anzeigen",
     "mode_code_hide": "Zurück zur normalen Ansicht",
     "mode_code": "Code",
-    "mode_text_plain": "Dieser Text enthält keine Tags: der Code ist identisch mit dem, was Sie lesen."
+    "mode_text_plain": "Dieser Text enthält keine Tags: der Code ist identisch mit dem, was Sie lesen.",
+    "mode_text_wrapped": "Die Website setzt {tag} um diesen Text: nicht erneut eingeben, sonst steht das Tag doppelt.",
+    "mode_text_wrapped_plain": "Dieser Text hat keine eigenen Tags. Die Website umschließt ihn mit {tag}, das Sie nicht schreiben müssen."
   },
   "actions": {
     "title": "Aktionen",

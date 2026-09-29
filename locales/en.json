@@ -705,7 +705,9 @@
     "mode_code_show": "Show this field’s HTML code",
     "mode_code_hide": "Back to the normal view",
     "mode_code": "Code",
-    "mode_text_plain": "This text has no tags: the code is identical to what you read."
+    "mode_text_plain": "This text has no tags: the code is identical to what you read.",
+    "mode_text_wrapped": "The site adds {tag} around this text: do not retype it, you would get the tag twice.",
+    "mode_text_wrapped_plain": "This text has no tags of its own. The site wraps it in {tag}, which you do not have to write."
   },
   "actions": {
     "title": "Actions",
