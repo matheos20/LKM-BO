@@ -2,7 +2,7 @@ import { ApiError, api } from './api.js';
 import { colorTool, normalizeColor } from './colors.js';
 import { layoutLabel, wireframe } from './blocks.js';
 import { getLang, t } from './i18n.js';
-import { $, closeModal, enc, fmtDate, formError, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
+import { $, closeModal, enc, fmtDate, fmtSize, formError, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
 
 /**
  * Éditeur de design et de contenu d'un site.
@@ -2478,25 +2478,33 @@ function backupsTab() {
   );
 }
 
+/**
+ * Lecture des sauvegardes.
+ *
+ * L'ORDRE COMPTE, et une première version l'avait manqué : le témoin de lecture doit
+ * retomber AVANT le redessin. Baissé dans un « finally » qui suit le rendu, il laissait
+ * l'écran figé sur « Lecture des sauvegardes sur le serveur… » — la réponse était bien
+ * arrivée, mais plus rien ne redessinait pour le montrer, et « Actualiser » restait
+ * grisé. Un écran qui ment sur son état vaut moins que pas d'état du tout.
+ */
 async function loadBackups({ force = false } = {}) {
   if (state.backupsLoading && !force) return;
   state.backupsLoading = true;
   // Redessiner tout de suite : c'est ce qui montre que l'écran travaille.
   if (state.tab === 'backups') render();
+
   try {
     const { backups } = await api(`${base()}/backups`);
     state.backups = backups;
-    // Un site SANS sauvegarde est un cas normal : sans ce témoin, l'écran relançait
-    // la lecture à chaque rendu.
-    state.backupsLoaded = true;
-    render();
   } catch (err) {
     toastError(err);
-    state.backupsLoaded = true;
-    render();
-  } finally {
-    state.backupsLoading = false;
   }
+
+  // Un site SANS sauvegarde est un cas normal : sans ce témoin, l'écran relançait la
+  // lecture à chaque rendu.
+  state.backupsLoaded = true;
+  state.backupsLoading = false;
+  render();
 }
 
 /**
