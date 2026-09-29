@@ -736,7 +736,8 @@
     "article_delete": "Eliminare questo articolo",
     "article_delete_title": "Eliminare questo articolo?",
     "article_delete_warning": "«{title}» sarà tolto dal sito. Un salvataggio è fatto prima: potrai rimetterlo dalla scheda Salvataggi. Il suo indirizzo pubblico risponderà «pagina non trovata».",
-    "article_deleted": "«{title}» eliminato. Un salvataggio è stato conservato."
+    "article_deleted": "«{title}» eliminato. Un salvataggio è stato conservato.",
+    "backups_empty_locked": "Questo dominio è bloccato: non si può pubblicare nulla, quindi nessun salvataggio può essere creato. Sbloccalo prima."
   },
   "actions": {
     "title": "Azioni",

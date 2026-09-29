@@ -121,8 +121,12 @@ export function publishCommand(docroot, { styleB64 = '', expectMd5 = '' } = {}) 
       ? `printf '%s' ${shq(styleB64)} | base64 -d > "$BK/.new-style.css" && cat "$BK/.new-style.css" > "$DOC/style.css" && rm -f "$BK/.new-style.css" || exit 85`
       : '',
     // On ne conserve que les dix dernières sauvegardes de chaque type.
-    `ls -1t "$BK"/config-*.php 2>/dev/null | tail -n +11 | xargs -r rm -f`,
-    `ls -1t "$BK"/style-*.css 2>/dev/null | tail -n +11 | xargs -r rm -f`,
+    //
+    // Le tri se fait sur le NOM, pas sur la date du fichier : « cp -a » conserve celle
+    // de l'original, si bien qu'un « ls -t » classerait les sauvegardes par l'âge de
+    // leur CONTENU. L'horodatage du nom, lui, se trie tout seul dans l'ordre.
+    `ls -1 "$BK"/config-*.php 2>/dev/null | sort -r | tail -n +11 | xargs -r rm -f`,
+    `ls -1 "$BK"/style-*.css 2>/dev/null | sort -r | tail -n +11 | xargs -r rm -f`,
     `echo "$STAMP"`,
   ]
     .filter(Boolean)

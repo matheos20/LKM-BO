@@ -736,7 +736,8 @@
     "article_delete": "Eliminar este artículo",
     "article_delete_title": "¿Eliminar este artículo?",
     "article_delete_warning": "«{title}» se retirará del sitio. Se hace una copia antes: podrá volver a ponerlo desde la pestaña Copias. Su dirección pública responderá «página no encontrada».",
-    "article_deleted": "«{title}» eliminado. Se ha guardado una copia."
+    "article_deleted": "«{title}» eliminado. Se ha guardado una copia.",
+    "backups_empty_locked": "Este dominio está bloqueado: no se puede publicar nada, por lo que no se puede crear ninguna copia. Desbloquéelo primero."
   },
   "actions": {
     "title": "Acciones",

@@ -2381,7 +2381,14 @@ function backupsTab() {
         { class: 'px-6 py-14 text-center' },
         h('span', { class: 'mx-auto flex size-12 items-center justify-center rounded-2xl bg-ink-50 text-ink-300' }, icon('archive', 'size-6')),
         h('p', { class: 'mt-4 font-semibold' }, t('design.backups_empty')),
-        h('p', { class: 'mx-auto mt-1 max-w-md text-sm text-ink-400' }, t('design.backups_empty_hint')),
+        // Pourquoi il n'y en a pas : ce n'est pas la même chose selon l'état du
+        // domaine. Verrouillé, aucune publication ne peut avoir lieu, donc aucune
+        // sauvegarde ne sera jamais créée — le taire laisse croire à une panne.
+        h(
+          'p',
+          { class: 'mx-auto mt-1 max-w-md text-sm text-ink-400' },
+          t(state.status === 'locked' ? 'design.backups_empty_locked' : 'design.backups_empty_hint'),
+        ),
       ),
     );
   }

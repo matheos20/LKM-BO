@@ -736,7 +736,8 @@
     "article_delete": "Delete this article",
     "article_delete_title": "Delete this article?",
     "article_delete_warning": "\"{title}\" will be taken off the site. A backup is made first: you can put it back from the Backups tab. Its public address will answer \"page not found\".",
-    "article_deleted": "\"{title}\" deleted. A backup was kept."
+    "article_deleted": "\"{title}\" deleted. A backup was kept.",
+    "backups_empty_locked": "This domain is locked: nothing can be published, so no backup can be created. Unlock it first."
   },
   "actions": {
     "title": "Actions",

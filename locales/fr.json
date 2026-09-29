@@ -736,7 +736,8 @@
     "article_delete": "Supprimer cet article",
     "article_delete_title": "Supprimer cet article ?",
     "article_delete_warning": "« {title} » sera retiré du site. Une sauvegarde est prise avant : vous pourrez le remettre en place depuis l’onglet Sauvegardes. Son adresse publique, elle, répondra « page introuvable ».",
-    "article_deleted": "« {title} » supprimé. Une sauvegarde a été gardée."
+    "article_deleted": "« {title} » supprimé. Une sauvegarde a été gardée.",
+    "backups_empty_locked": "Ce domaine est verrouillé : aucune publication n’est possible, donc aucune sauvegarde ne peut être créée. Déverrouillez-le d’abord."
   },
   "actions": {
     "title": "Actions",
