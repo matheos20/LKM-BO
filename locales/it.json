@@ -587,7 +587,7 @@
     "empty_hint": "Aggiungete un primo blocco per comporre la pagina.",
     "seo": "Motori di ricerca",
     "seo_hint": "Ciò che mostrano i motori di ricerca",
-    "rich_hint": "grassetto, corsivo, colore",
+    "rich_hint": "grassetto, corsivo, colore, collegamento",
     "saving": "Salvataggio…",
     "draft_saved_at": "Bozza salvata alle {time}",
     "draft_kept": "Bozza in attesa di pubblicazione",

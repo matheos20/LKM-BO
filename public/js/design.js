@@ -728,11 +728,22 @@ function blockEditor(sections, index) {
     'div',
     { class: 'space-y-6 px-5 py-5' },
     h('button', { type: 'button', class: 'btn btn-ghost -mt-1 px-2 py-1 text-xs lg:hidden', onclick: () => $('#design-view aside')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, icon('arrowLeft', 'size-3.5'), t('design.back_to_blocks')),
-    ...[...groups].map(([key, fields]) =>
+    // Chaque nature de contenu dans sa propre bande, séparée par un filet : le texte,
+    // le visuel, les boutons. L'agent voyait auparavant une seule colonne où le nom
+    // d'une image, sa description et le texte d'un bouton se suivaient sans rupture.
+    ...[...groups].map(([key, fields], rang) =>
       h(
         'section',
-        { class: 'space-y-3' },
-        single ? null : h('h3', { class: 'text-xs font-semibold tracking-wide text-ink-400 uppercase' }, t(`design.group_${key}`)),
+        { class: `space-y-3 ${rang === 0 || single ? '' : 'border-t border-ink-100 pt-5'}` },
+        single
+          ? null
+          : h(
+              'div',
+              { class: 'flex items-center gap-2' },
+              h('span', { class: 'flex size-6 shrink-0 items-center justify-center rounded-md bg-ink-50 text-ink-400' }, icon(GROUP_ICON[key] ?? 'file', 'size-3.5')),
+              h('h3', { class: 'text-xs font-semibold tracking-wide text-ink-500 uppercase' }, t(`design.group_${key}`)),
+              h('span', { class: 'h-px flex-1 bg-ink-100' }),
+            ),
         h('div', { class: 'grid gap-4 sm:grid-cols-2' }, ...fields.map((f) => blockField(f, data, { bare: key === 'buttons' && fields.length === 1 }))),
       ),
     ),
@@ -743,6 +754,8 @@ function blockEditor(sections, index) {
 
 /** Les champs sont regroupés par nature, toujours dans le même ordre de lecture. */
 const GROUP_ORDER = ['content', 'image', 'buttons', 'items'];
+/** Une icône par nature, pour distinguer les bandes d'un coup d'œil. */
+const GROUP_ICON = { content: 'file', image: 'image', buttons: 'link', items: 'list' };
 const groupOf = (f) => (f.type === 'image' || f.key === 'image_alt' ? 'image' : f.type === 'button' ? 'buttons' : f.type === 'list' || f.type === 'strings' ? 'items' : 'content');
 
 /** Libellé d'aide facultatif : absent du dictionnaire, il ne s'affiche pas. */
@@ -899,6 +912,10 @@ function richLine(html, onChange, { multiline = false } = {}) {
     emit();
   };
 
+  // Les champs de bloc n'acceptent que de la mise en forme de mot : le lien passe par
+  // le même panneau que l'éditeur d'article, mais avec le nettoyeur des champs.
+  const lien = linkPanel(area, onChange, cleanInline);
+
   const cmd = (label, command, cls) =>
     h(
       'button',
@@ -910,6 +927,20 @@ function richLine(html, onChange, { multiline = false } = {}) {
         onclick: () => run(command),
       },
       label,
+    );
+
+  const outil = (ico, titre, action) =>
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'icon-btn size-6 text-ink-600',
+        title: titre,
+        'aria-label': titre,
+        onmousedown: (e) => e.preventDefault(),
+        onclick: () => action(),
+      },
+      icon(ico, 'size-3.5'),
     );
 
   // Mode texte : le code source du champ, modifiable directement.
@@ -927,6 +958,9 @@ function richLine(html, onChange, { multiline = false } = {}) {
     cmd('B', 'bold', 'font-bold'),
     cmd('I', 'italic', 'italic'),
     colorTool({ palette: sitePalette(), onOpen: remember, onApply: (color) => run('foreColor', color), onClear: clearColors }),
+    h('span', { class: 'mx-0.5 h-4 w-px shrink-0 bg-ink-200' }),
+    outil('link', t('design.rt_link'), () => lien.ouvrir()),
+    outil('unlink', t('design.rt_unlink'), () => { restore(); document.execCommand('unlink'); emit(); }),
     // L'aide ne s'affiche que sur le champ en cours : répétée sous chacun, elle encombre.
     h('span', { class: 'ml-1 hidden text-[11px] text-ink-400 group-focus-within:inline' }, t('design.rich_hint')),
   );
@@ -1631,7 +1665,7 @@ function articleColorTool(area, onChange) {
  * place est reprise à l'ouverture, Entrée valide, Échap referme, et un bouton retire
  * le lien sans toucher au texte.
  */
-function linkPanel(area, onChange) {
+function linkPanel(area, onChange, nettoyer = clean) {
   let panneau = null;
   let plage = null;
 
@@ -1671,19 +1705,19 @@ function linkPanel(area, onChange) {
     if (lien && plage && lien.contains(plage.commonAncestorContainer)) {
       if (!safeUrl(adresse)) return toast(t('design.rt_link_invalid'), 'error');
       lien.setAttribute('href', adresse);
-      onChange(clean(area.innerHTML));
+      onChange(nettoyer(area.innerHTML));
       return;
     }
     if (!safeUrl(adresse)) return toast(t('design.rt_link_invalid'), 'error');
     restaurer();
     document.execCommand('createLink', false, adresse);
-    onChange(clean(area.innerHTML));
+    onChange(nettoyer(area.innerHTML));
   };
 
   const retirer = () => {
     restaurer();
     document.execCommand('unlink');
-    onChange(clean(area.innerHTML));
+    onChange(nettoyer(area.innerHTML));
   };
 
   const restaurer = () => {
@@ -1829,6 +1863,7 @@ function richEditor(html, onChange) {
   const toMode = (mode) => {
     const asText = mode === 'text';
     if (asText) {
+      lien.fermer();
       source.value = formatHtml(clean(area.innerHTML));
       entered = source.value;
     } else {

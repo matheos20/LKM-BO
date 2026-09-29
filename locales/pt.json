@@ -587,7 +587,7 @@
     "empty_hint": "Adicione um primeiro bloco para compor a página.",
     "seo": "Motores de busca",
     "seo_hint": "O que os motores de busca mostram",
-    "rich_hint": "negrito, itálico, cor",
+    "rich_hint": "negrito, itálico, cor, ligação",
     "saving": "A guardar…",
     "draft_saved_at": "Rascunho guardado às {time}",
     "draft_kept": "Rascunho a aguardar publicação",

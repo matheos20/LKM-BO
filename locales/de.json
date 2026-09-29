@@ -587,7 +587,7 @@
     "empty_hint": "Fügen Sie einen ersten Block hinzu, um die Seite aufzubauen.",
     "seo": "Suchmaschinen",
     "seo_hint": "Was Suchmaschinen anzeigen",
-    "rich_hint": "fett, kursiv, Farbe",
+    "rich_hint": "fett, kursiv, Farbe, Link",
     "saving": "Wird gespeichert…",
     "draft_saved_at": "Entwurf um {time} gespeichert",
     "draft_kept": "Entwurf wartet auf Veröffentlichung",

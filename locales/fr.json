@@ -587,7 +587,7 @@
     "empty_hint": "Ajoutez un premier bloc pour composer la page.",
     "seo": "Référencement",
     "seo_hint": "Ce que les moteurs de recherche affichent",
-    "rich_hint": "gras, italique, couleur",
+    "rich_hint": "gras, italique, couleur, lien",
     "saving": "Enregistrement…",
     "draft_saved_at": "Brouillon enregistré à {time}",
     "draft_kept": "Brouillon en attente de publication",

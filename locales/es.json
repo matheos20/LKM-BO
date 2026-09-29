@@ -587,7 +587,7 @@
     "empty_hint": "Añada un primer bloque para componer la página.",
     "seo": "Buscadores",
     "seo_hint": "Lo que muestran los buscadores",
-    "rich_hint": "negrita, cursiva, color",
+    "rich_hint": "negrita, cursiva, color, enlace",
     "saving": "Guardando…",
     "draft_saved_at": "Borrador guardado a las {time}",
     "draft_kept": "Borrador pendiente de publicación",

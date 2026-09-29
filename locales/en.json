@@ -587,7 +587,7 @@
     "empty_hint": "Add a first block to build the page.",
     "seo": "Search engines",
     "seo_hint": "What search engines display",
-    "rich_hint": "bold, italic, colour",
+    "rich_hint": "bold, italic, colour, link",
     "saving": "Saving…",
     "draft_saved_at": "Draft saved at {time}",
     "draft_kept": "Draft waiting to be published",
