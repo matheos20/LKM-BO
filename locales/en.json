@@ -640,6 +640,21 @@
       "newsletter": "Invites visitors to subscribe to the newsletter."
     },
     "hint": {
+      "title": "The block’s main heading — the first thing people read.",
+      "text": "The paragraph under the heading. Two or three sentences are enough.",
+      "label": "Small mention shown above the heading.",
+      "image": "Pick an image already on the site, or import one.",
+      "btn": "The block’s button: what it says, and where it leads.",
+      "btn_primary": "The prominent button. Leave the text empty to hide it.",
+      "btn_secondary": "A second, quieter button. Leave the text empty to hide it.",
+      "items": "The rows of the list. Add or remove as many as you need.",
+      "name": "The person’s name, as it will appear.",
+      "role": "Their role or town, in a few words.",
+      "q": "The question, as a visitor would ask it.",
+      "a": "The answer. It appears when the question is clicked.",
+      "avatar": "The person’s photo. Optional.",
+      "number": "The figure to highlight, for example \"1,200\" or \"15 years\".",
+      "icon": "An emoji, or nothing at all.",
       "badge": "Small wording shown above the title.",
       "image_alt": "Describes the image for people who cannot see it and for search engines.",
       "features": "One line per highlight.",
@@ -686,7 +701,9 @@
     "section_class_hint": "CSS class the site template puts on this block — the one the browser inspector shows.",
     "rt_pick_field": "Click inside a text to format it",
     "rt_on_field": "acts on: {field}",
-    "rt_field": "this field"
+    "rt_field": "this field",
+    "mode_code_show": "Show this field’s HTML code",
+    "mode_code_hide": "Back to the normal view"
   },
   "actions": {
     "title": "Actions",

@@ -640,6 +640,21 @@
       "newsletter": "Lädt zum Abonnieren des Newsletters ein."
     },
     "hint": {
+      "title": "Die Hauptüberschrift des Blocks — das Erste, was man liest.",
+      "text": "Der Absatz unter der Überschrift. Zwei oder drei Sätze genügen.",
+      "label": "Kleine Angabe über der Überschrift.",
+      "image": "Wählen Sie ein Bild, das schon auf der Website ist, oder laden Sie eines hoch.",
+      "btn": "Die Schaltfläche des Blocks: was daraufsteht und wohin sie führt.",
+      "btn_primary": "Die hervorgehobene Schaltfläche. Text leer lassen, um sie auszublenden.",
+      "btn_secondary": "Eine zweite, zurückhaltende Schaltfläche. Text leer lassen, um sie auszublenden.",
+      "items": "Die Zeilen der Liste. Fügen Sie so viele hinzu oder entfernen Sie so viele, wie nötig.",
+      "name": "Der Name der Person, so wie er erscheinen wird.",
+      "role": "Ihre Funktion oder ihre Stadt, in wenigen Worten.",
+      "q": "Die Frage, so wie ein Besucher sie stellen würde.",
+      "a": "Die Antwort. Sie erscheint, wenn man auf die Frage klickt.",
+      "avatar": "Das Foto der Person. Optional.",
+      "number": "Die hervorzuhebende Zahl, zum Beispiel „1 200“ oder „15 Jahre“.",
+      "icon": "Ein Emoji, oder gar nichts.",
       "badge": "Kleiner Hinweis über dem Titel.",
       "image_alt": "Beschreibt das Bild für Menschen, die es nicht sehen, und für Suchmaschinen.",
       "features": "Eine Zeile pro Stärke.",
@@ -686,7 +701,9 @@
     "section_class_hint": "CSS-Klasse, die die Vorlage der Website auf diesen Block setzt — die, die der Browser-Inspektor zeigt.",
     "rt_pick_field": "Klicken Sie in einen Text, um ihn zu formatieren",
     "rt_on_field": "wirkt auf: {field}",
-    "rt_field": "dieses Feld"
+    "rt_field": "dieses Feld",
+    "mode_code_show": "Den HTML-Code dieses Feldes anzeigen",
+    "mode_code_hide": "Zurück zur normalen Ansicht"
   },
   "actions": {
     "title": "Aktionen",

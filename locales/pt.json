@@ -640,6 +640,21 @@
       "newsletter": "Propõe a subscrição da newsletter."
     },
     "hint": {
+      "title": "O título principal do bloco, o primeiro que se lê.",
+      "text": "O parágrafo sob o título. Duas ou três frases chegam.",
+      "label": "Pequena menção mostrada acima do título.",
+      "image": "Escolha uma imagem já no site, ou importe uma.",
+      "btn": "O botão do bloco: o que diz, e para onde leva.",
+      "btn_primary": "O botão em destaque. Deixe o texto vazio para não o mostrar.",
+      "btn_secondary": "Um segundo botão, discreto. Deixe o texto vazio para não o mostrar.",
+      "items": "As linhas da lista. Acrescente ou retire quantas precisar.",
+      "name": "O nome da pessoa, tal como aparecerá.",
+      "role": "A sua função ou a sua cidade, em poucas palavras.",
+      "q": "A pergunta, tal como um visitante a faria.",
+      "a": "A resposta. Aparece quando se clica na pergunta.",
+      "avatar": "A fotografia da pessoa. Facultativa.",
+      "number": "O número a destacar, por exemplo «1 200» ou «15 anos».",
+      "icon": "Um emoji, ou nada.",
       "badge": "Pequena menção apresentada acima do título.",
       "image_alt": "Descreve a imagem para quem não a vê e para os motores de busca.",
       "features": "Uma linha por ponto forte.",
@@ -686,7 +701,9 @@
     "section_class_hint": "Classe CSS que o modelo do site coloca neste bloco — a que o inspetor do navegador mostra.",
     "rt_pick_field": "Clique num texto para o formatar",
     "rt_on_field": "atua sobre: {field}",
-    "rt_field": "este campo"
+    "rt_field": "este campo",
+    "mode_code_show": "Ver o código HTML deste campo",
+    "mode_code_hide": "Voltar à vista normal"
   },
   "actions": {
     "title": "Ações",

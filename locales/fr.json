@@ -640,6 +640,21 @@
       "newsletter": "Propose de s’inscrire à la newsletter."
     },
     "hint": {
+      "title": "Le grand titre du bloc, celui qu’on lit en premier.",
+      "text": "Le paragraphe sous le titre. Deux ou trois phrases suffisent.",
+      "label": "Petite mention affichée au-dessus du titre.",
+      "image": "Choisissez une image déjà sur le site, ou importez-en une.",
+      "btn": "Le bouton du bloc : ce qui est écrit dessus, et où il mène.",
+      "btn_primary": "Le bouton mis en avant. Laissez le texte vide pour ne pas l’afficher.",
+      "btn_secondary": "Un second bouton, discret. Laissez le texte vide pour ne pas l’afficher.",
+      "items": "Les lignes de la liste. Ajoutez-en ou retirez-en autant que nécessaire.",
+      "name": "Le nom de la personne, tel qu’il apparaîtra.",
+      "role": "Sa fonction ou sa ville, en quelques mots.",
+      "q": "La question, telle qu’un visiteur se la pose.",
+      "a": "La réponse. Elle s’affiche quand on clique sur la question.",
+      "avatar": "La photo de la personne. Facultative.",
+      "number": "Le chiffre à mettre en avant, par exemple « 1 200 » ou « 15 ans ».",
+      "icon": "Un émoji, ou rien du tout.",
       "badge": "Petite mention affichée au-dessus du titre.",
       "image_alt": "Décrit l’image pour les personnes qui ne la voient pas et pour les moteurs de recherche.",
       "features": "Une ligne par point fort.",
@@ -686,7 +701,9 @@
     "section_class_hint": "Classe CSS posée sur ce bloc par le gabarit du site — celle que montre l’inspecteur du navigateur.",
     "rt_pick_field": "Cliquez dans un texte pour le mettre en forme",
     "rt_on_field": "agit sur : {field}",
-    "rt_field": "ce champ"
+    "rt_field": "ce champ",
+    "mode_code_show": "Voir le code HTML de ce champ",
+    "mode_code_hide": "Revenir à l’affichage normal"
   },
   "actions": {
     "title": "Actions",

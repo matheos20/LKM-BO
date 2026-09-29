@@ -640,6 +640,21 @@
       "newsletter": "Propone l’iscrizione alla newsletter."
     },
     "hint": {
+      "title": "Il titolo principale del blocco, il primo che si legge.",
+      "text": "Il paragrafo sotto il titolo. Bastano due o tre frasi.",
+      "label": "Piccola dicitura mostrata sopra il titolo.",
+      "image": "Scegli un’immagine già presente sul sito, oppure importane una.",
+      "btn": "Il pulsante del blocco: cosa c’è scritto sopra e dove porta.",
+      "btn_primary": "Il pulsante in evidenza. Lascia il testo vuoto per non mostrarlo.",
+      "btn_secondary": "Un secondo pulsante, discreto. Lascia il testo vuoto per non mostrarlo.",
+      "items": "Le righe dell’elenco. Aggiungine o togline quante servono.",
+      "name": "Il nome della persona, come apparirà.",
+      "role": "Il suo ruolo o la sua città, in poche parole.",
+      "q": "La domanda, come se la porrebbe un visitatore.",
+      "a": "La risposta. Compare quando si clicca sulla domanda.",
+      "avatar": "La foto della persona. Facoltativa.",
+      "number": "La cifra da mettere in evidenza, ad esempio « 1 200 » o « 15 anni ».",
+      "icon": "Un’emoji, oppure niente.",
       "badge": "Piccola dicitura visualizzata sopra il titolo.",
       "image_alt": "Descrive l’immagine per chi non la vede e per i motori di ricerca.",
       "features": "Una riga per ogni punto di forza.",
@@ -686,7 +701,9 @@
     "section_class_hint": "Classe CSS che il modello del sito mette su questo blocco — quella che mostra l’ispettore del browser.",
     "rt_pick_field": "Clicca in un testo per formattarlo",
     "rt_on_field": "agisce su: {field}",
-    "rt_field": "questo campo"
+    "rt_field": "questo campo",
+    "mode_code_show": "Vedere il codice HTML di questo campo",
+    "mode_code_hide": "Tornare alla vista normale"
   },
   "actions": {
     "title": "Azioni",

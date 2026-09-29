@@ -863,6 +863,42 @@ function blockField(f, data, { bare = false, horizontal = false } = {}) {
  * contenu vu de deux façons. Le passage de l'un à l'autre repasse par le même filtre
  * que l'enregistrement, donc ce qui est affiché est exactement ce qui sera écrit.
  */
+/**
+ * Le commutateur DISCRET des champs de bloc : un seul bouton, pas deux mots.
+ *
+ * « Visuel | Texte » répété au-dessus de chaque champ mettait le code HTML à portée
+ * de clic, en gros, sept fois par bloc. Un agent qui ne connaît pas l'informatique y
+ * tombe, voit des balises et ne sait plus revenir. Le code reste accessible — c'est
+ * parfois le seul moyen de réparer un texte — mais derrière un bouton qui ne se
+ * confond pas avec le contenu, et qui dit ce qu'il fait au survol.
+ */
+function codeToggle(onSwitch) {
+  let mode = 'visual';
+  const b = h(
+    'button',
+    {
+      type: 'button',
+      class: 'icon-btn size-6 shrink-0 text-ink-300 hover:text-ink-600',
+      title: t('design.mode_code_show'),
+      'aria-label': t('design.mode_code_show'),
+      'aria-pressed': 'false',
+      onmousedown: (e) => e.preventDefault(),
+      onclick: () => {
+        mode = mode === 'visual' ? 'text' : 'visual';
+        const enCode = mode === 'text';
+        b.setAttribute('aria-pressed', String(enCode));
+        b.title = t(enCode ? 'design.mode_code_hide' : 'design.mode_code_show');
+        b.setAttribute('aria-label', b.title);
+        b.classList.toggle('bg-ink-100', enCode);
+        b.classList.toggle('text-ink-600', enCode);
+        onSwitch(mode);
+      },
+    },
+    icon('code', 'size-3.5'),
+  );
+  return b;
+}
+
 function modeSwitch(onSwitch, initial = 'visual') {
   const buttons = new Map();
   const set = (key) => {
@@ -934,7 +970,7 @@ const champVivant = () => {
  * Elle dit sur quel champ elle agit, et reste inactive tant qu'aucun n'a été touché —
  * un bouton qui ne sait pas où écrire ne doit pas se laisser cliquer.
  */
-function sharedRichToolbar() {
+export function sharedRichToolbar() {
   const nom = h('span', { class: 'truncate text-[11px] text-ink-400' }, t('design.rt_pick_field'));
   const boutons = [];
 
@@ -979,14 +1015,25 @@ function sharedRichToolbar() {
     nom,
   );
 
-  const suivre = (entree) => {
-    // Une barre retirée du document n'a plus à suivre quoi que ce soit : l'agent a
-    // changé de bloc, et une nouvelle barre a pris le relais.
-    if (!barre.isConnected) return champActif.ecouteurs.delete(suivre);
+  const appliquer = (entree) => {
     for (const b of boutons) b.disabled = !entree;
     nom.textContent = entree ? t('design.rt_on_field', { field: entree.nom }) : t('design.rt_pick_field');
   };
+
+  let posee = false;
+  const suivre = (entree) => {
+    // Une barre RETIRÉE du document n'a plus à suivre quoi que ce soit : l'agent a
+    // changé de bloc et une nouvelle barre a pris le relais. Mais une barre pas encore
+    // POSÉE doit rester à l'écoute : elle vient d'être construite et sera insérée
+    // juste après.
+    if (barre.isConnected) posee = true;
+    else if (posee) return champActif.ecouteurs.delete(suivre);
+    appliquer(entree);
+  };
   champActif.ecouteurs.add(suivre);
+  // Un bloc redessiné pendant qu'un champ est actif donne une barre neuve : elle doit
+  // partir dans l'état courant, pas inactive jusqu'au prochain clic.
+  appliquer(champVivant());
 
   return barre;
 }
@@ -1000,7 +1047,7 @@ function sharedRichToolbar() {
  * textes du parc sont conservés tels quels. Qui veut la main sur le code passe en
  * mode « Texte » : même contenu, même filtre, autre présentation.
  */
-function richLine(html, onChange, { multiline = false, shared = false } = {}) {
+export function richLine(html, onChange, { multiline = false, shared = false } = {}) {
   const area = h('div', {
     class: `input leading-6 ${multiline ? 'min-h-24' : 'min-h-[2.4rem]'}`,
     contenteditable: 'true',
@@ -1063,6 +1110,7 @@ function richLine(html, onChange, { multiline = false, shared = false } = {}) {
 
   // En mode partagé, le champ s'annonce à la barre du bloc dès qu'on y entre. Son
   // intitulé vient de l'attribut que field() a posé : rien à transmettre en plus.
+  let inscription = null;
   if (shared) {
     const entree = {
       area,
@@ -1079,6 +1127,7 @@ function richLine(html, onChange, { multiline = false, shared = false } = {}) {
         return area.getAttribute('aria-label') || t('design.rt_field');
       },
     };
+    inscription = entree;
     for (const event of ['focus', 'mouseup', 'keyup']) area.addEventListener(event, () => activerChamp(entree));
   }
 
@@ -1149,6 +1198,14 @@ function richLine(html, onChange, { multiline = false, shared = false } = {}) {
       if (source.value !== entered) emit();
     }
     if (asText) lien.fermer();
+    // En mode Texte, le champ SE RETIRE de la barre partagée. Sans cela, un clic sur
+    // « B » modifierait la zone visuelle cachée, puis écraserait ce que l'agent vient
+    // de taper dans le code — sans que rien ne bouge sous ses yeux.
+    if (inscription) {
+      if (asText) {
+        if (champActif.courant === inscription) activerChamp(null);
+      } else activerChamp(inscription);
+    }
     area.hidden = asText;
     source.hidden = !asText;
     note.hidden = !asText;
@@ -1159,7 +1216,9 @@ function richLine(html, onChange, { multiline = false, shared = false } = {}) {
   return h(
     'div',
     { class: 'group' },
-    h('div', { class: 'mb-1 flex items-center gap-1' }, tools, h('span', { class: 'flex-1' }), modeSwitch(toMode)),
+    // En mode partagé, la barre du bloc porte la mise en forme : il ne reste ici que
+    // le bouton du code, discret, aligné à droite du champ.
+    h('div', { class: 'mb-1 flex items-center gap-1' }, tools, h('span', { class: 'flex-1' }), shared ? codeToggle(toMode) : modeSwitch(toMode)),
     area,
     source,
     note,
