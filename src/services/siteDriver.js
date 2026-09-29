@@ -129,6 +129,33 @@ export function publishCommand(docroot, { styleB64 = '', expectMd5 = '' } = {}) 
     .join('\n');
 }
 
+/**
+ * Suppression d'un article.
+ *
+ * Le fichier est D'ABORD copié dans les sauvegardes, à l'endroit exact où l'onglet
+ * « Sauvegardes » sait le retrouver. Supprimer devient alors réversible : c'est ce qui
+ * rend le geste acceptable sur un parc en production.
+ *
+ * Ce qui n'est PAS touché : `permalinks.php` et les menus. L'adresse publique de
+ * l'article continuera d'exister et rendra une page introuvable — le moteur du site
+ * s'en charge, et y toucher ici dépasserait ce que l'agent a demandé.
+ */
+export function deleteArticleCommand(docroot, rel) {
+  return [
+    `DOC=${shq(docroot)}`,
+    `REL=${shq(rel)}`,
+    `F="$DOC/$REL"`,
+    `[ -f "$F" ] || exit 86`,
+    `BK="$DOC/${BACKUP_DIR}/articles"`,
+    `STAMP=$(date +%Y%m%d-%H%M%S)`,
+    `mkdir -p "$BK/$(dirname "$REL")" || exit 81`,
+    // La sauvegarde AVANT l'effacement : si la copie échoue, rien n'est supprimé.
+    `cp -a "$F" "$BK/$REL.$STAMP" || exit 81`,
+    `rm -f "$F" || exit 84`,
+    `echo "$STAMP"`,
+  ].join('\n');
+}
+
 /** Écriture d'un article : sauvegarde, contrôle de syntaxe, écriture sur place. */
 export function writeArticleCommand(docroot, rel, { expectMd5 = '' } = {}) {
   return [

@@ -728,7 +728,15 @@
     "backup_delete": "Eliminare questo salvataggio",
     "backup_delete_title": "Eliminare questo salvataggio?",
     "backup_delete_warning": "Il salvataggio di {file} del {when} sarà eliminato dal server. Questa perdita è definitiva, e il file in linea non è toccato.",
-    "backup_deleted": "Salvataggio di {file} eliminato."
+    "backup_deleted": "Salvataggio di {file} eliminato.",
+    "backups_loading": "Lettura dei salvataggi sul server…",
+    "article_versions": "Versioni precedenti di questo articolo",
+    "article_versions_body": "Ogni pubblicazione di {file} lascia una copia. Confrontala, oppure rimettila al suo posto.",
+    "article_versions_empty": "Nessuna versione precedente: questo articolo non è ancora stato pubblicato dal back-office.",
+    "article_delete": "Eliminare questo articolo",
+    "article_delete_title": "Eliminare questo articolo?",
+    "article_delete_warning": "«{title}» sarà tolto dal sito. Un salvataggio è fatto prima: potrai rimetterlo dalla scheda Salvataggi. Il suo indirizzo pubblico risponderà «pagina non trovata».",
+    "article_deleted": "«{title}» eliminato. Un salvataggio è stato conservato."
   },
   "actions": {
     "title": "Azioni",
@@ -1047,6 +1055,9 @@
       "redirects": {
         "add": "Reindirizzamenti aggiunti",
         "remove": "Reindirizzamenti eliminati"
+      },
+      "article": {
+        "delete": "Articolo eliminato"
       }
     }
   },

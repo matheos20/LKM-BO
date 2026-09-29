@@ -728,7 +728,15 @@
     "backup_delete": "Apagar esta cópia",
     "backup_delete_title": "Apagar esta cópia?",
     "backup_delete_warning": "A cópia de {file} de {when} será apagada do servidor. Esta perda é definitiva, e o ficheiro em linha não é tocado.",
-    "backup_deleted": "Cópia de {file} apagada."
+    "backup_deleted": "Cópia de {file} apagada.",
+    "backups_loading": "A ler as cópias no servidor…",
+    "article_versions": "Versões anteriores deste artigo",
+    "article_versions_body": "Cada publicação de {file} deixa uma cópia. Compare-a, ou reponha-a.",
+    "article_versions_empty": "Nenhuma versão anterior: este artigo ainda não foi publicado a partir do back-office.",
+    "article_delete": "Eliminar este artigo",
+    "article_delete_title": "Eliminar este artigo?",
+    "article_delete_warning": "«{title}» será retirado do site. É feita uma cópia antes: poderá repô-lo a partir do separador Cópias. O seu endereço público responderá «página não encontrada».",
+    "article_deleted": "«{title}» eliminado. Foi guardada uma cópia."
   },
   "actions": {
     "title": "Ações",
@@ -1047,6 +1055,9 @@
       "redirects": {
         "add": "Redireccionamentos acrescentados",
         "remove": "Redireccionamentos removidos"
+      },
+      "article": {
+        "delete": "Artigo eliminado"
       }
     }
   },

@@ -142,6 +142,13 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
     res.json(await audited(req, 'design.article_publish', req.body?.path, () => sites.publishArticle(id, domain, req.body?.path, user)));
   });
 
+  // Suppression d'un article. Même droit que publier : le geste atteint la production,
+  // et une sauvegarde est prise avant pour qu'il reste réversible.
+  r.delete('/article', canPublish, async (req, res) => {
+    const { id, domain } = ctx(req);
+    res.json(await audited(req, 'article.delete', req.body?.path, () => sites.deleteArticle(id, domain, req.body?.path)));
+  });
+
   // ── Sauvegardes
   r.get('/backups', canRead, async (req, res) => {
     const { id, domain } = ctx(req);

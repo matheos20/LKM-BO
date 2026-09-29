@@ -728,7 +728,15 @@
     "backup_delete": "Delete this backup",
     "backup_delete_title": "Delete this backup?",
     "backup_delete_warning": "The backup of {file} from {when} will be deleted from the server. This loss is permanent, and the live file is untouched.",
-    "backup_deleted": "Backup of {file} deleted."
+    "backup_deleted": "Backup of {file} deleted.",
+    "backups_loading": "Reading the backups on the server…",
+    "article_versions": "Earlier versions of this article",
+    "article_versions_body": "Every publish of {file} leaves a copy. Compare it, or put it back.",
+    "article_versions_empty": "No earlier version: this article has not been published from the back-office yet.",
+    "article_delete": "Delete this article",
+    "article_delete_title": "Delete this article?",
+    "article_delete_warning": "\"{title}\" will be taken off the site. A backup is made first: you can put it back from the Backups tab. Its public address will answer \"page not found\".",
+    "article_deleted": "\"{title}\" deleted. A backup was kept."
   },
   "actions": {
     "title": "Actions",
@@ -1047,6 +1055,9 @@
       "redirects": {
         "add": "Redirects added",
         "remove": "Redirects removed"
+      },
+      "article": {
+        "delete": "Article deleted"
       }
     }
   },

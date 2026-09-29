@@ -728,7 +728,15 @@
     "backup_delete": "Effacer cette sauvegarde",
     "backup_delete_title": "Effacer cette sauvegarde ?",
     "backup_delete_warning": "La sauvegarde de {file} du {when} sera effacée du serveur. Cette perte est définitive, et le fichier en ligne n’est pas touché.",
-    "backup_deleted": "Sauvegarde de {file} effacée."
+    "backup_deleted": "Sauvegarde de {file} effacée.",
+    "backups_loading": "Lecture des sauvegardes sur le serveur…",
+    "article_versions": "Versions précédentes de cet article",
+    "article_versions_body": "Chaque publication de {file} laisse une copie. Comparez-la, ou remettez-la en place.",
+    "article_versions_empty": "Aucune version précédente : cet article n’a pas encore été publié depuis le back-office.",
+    "article_delete": "Supprimer cet article",
+    "article_delete_title": "Supprimer cet article ?",
+    "article_delete_warning": "« {title} » sera retiré du site. Une sauvegarde est prise avant : vous pourrez le remettre en place depuis l’onglet Sauvegardes. Son adresse publique, elle, répondra « page introuvable ».",
+    "article_deleted": "« {title} » supprimé. Une sauvegarde a été gardée."
   },
   "actions": {
     "title": "Actions",
@@ -1047,6 +1055,9 @@
       "redirects": {
         "add": "Redirections ajoutées",
         "remove": "Redirections retirées"
+      },
+      "article": {
+        "delete": "Suppression d’article"
       }
     }
   },

@@ -80,6 +80,11 @@ export async function openDesign({ serverId, serverLabel, domain, status, permis
     articleCategory: '',
     metas: new Map(),
     backups: [],
+    // Les deux témoins de la liste de sauvegardes. Sans cette remise à zéro, ouvrir
+    // un second site montrait les sauvegardes du premier — ou, pire, sa liste vide —
+    // et ne relisait jamais.
+    backupsLoaded: false,
+    backupsLoading: false,
   });
   $('#domains-view').hidden = true;
   $('#files-view').hidden = true;
@@ -1882,8 +1887,108 @@ function articleBarChildren() {
     h('button', { type: 'button', class: 'btn btn-outline px-3 py-1.5', disabled: !can('design.edit') || !a.dirty, onclick: saveArticleDraft }, icon('save'), t('design.save_draft')),
     h('button', { type: 'button', class: 'btn btn-dark px-3 py-1.5', disabled: !can('design.edit'), onclick: () => previewSite(a.file) }, icon('eye'), t('design.article_preview')),
     h('button', { type: 'button', class: 'btn btn-primary px-3 py-1.5', disabled: !can('design.publish') || (!a.hasDraft && !a.dirty), onclick: confirmPublishArticle }, icon('upload'), t('design.publish')),
+    h('span', { class: 'mx-0.5 h-6 w-px shrink-0 bg-ink-200' }),
+    // Revenir à une version précédente de CET article, sans passer par l'onglet des
+    // sauvegardes et sans y chercher le bon fichier parmi ceux de tout le site.
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'icon-btn',
+        title: t('design.article_versions'),
+        'aria-label': t('design.article_versions'),
+        onclick: () => openArticleVersions(a.file),
+      },
+      icon('archive'),
+    ),
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'icon-btn hover:bg-red-50 hover:text-red-600',
+        title: can('design.publish') ? t('design.article_delete') : t('reason.permission_denied'),
+        'aria-label': t('design.article_delete'),
+        disabled: !can('design.publish'),
+        onclick: () => confirmDeleteArticle(a),
+      },
+      icon('trash'),
+    ),
   ];
 }
+
+/**
+ * Les versions précédentes de CET article.
+ *
+ * La liste complète des sauvegardes mêle la configuration, les couleurs et tous les
+ * articles du site : y retrouver les versions d'un article précis demandait de lire
+ * des chemins. Ici, on ne voit que les siennes.
+ */
+async function openArticleVersions(file) {
+  if (!state.backupsLoaded) await loadBackups({ force: true });
+  const versions = state.backups.filter((b) => b.kind === 'article' && b.target === file);
+
+  const ligne = (b) =>
+    h(
+      'div',
+      { class: 'flex flex-wrap items-center gap-3 border-t border-ink-100 px-5 py-2.5' },
+      h(
+        'div',
+        { class: 'min-w-0 flex-1' },
+        h('p', { class: 'text-sm' }, fmtDate(backupWhen(b))),
+        b.restored ? h('p', { class: 'text-[11px] text-accent-700' }, t('design.backup_restored', { when: fmtDate(b.restored.at) })) : null,
+      ),
+      h('span', { class: 'text-xs text-ink-400' }, fmtSize(b.size)),
+      h(
+        'button',
+        { type: 'button', class: 'btn btn-outline px-3 py-1 text-xs', onclick: () => { closeModal(); openCompare(b); } },
+        icon('eye', 'size-3.5'),
+        t('design.backup_compare'),
+      ),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn-primary px-3 py-1 text-xs',
+          disabled: !can('design.publish'),
+          onclick: () => { closeModal(); confirmRestore(b); },
+        },
+        icon('refresh', 'size-3.5'),
+        t('design.restore'),
+      ),
+    );
+
+  openModal(
+    h(
+      'div',
+      { class: 'card w-full p-0' },
+      modalHeader(t('design.article_versions'), 'bg-ink-50 text-ink-600', 'archive'),
+      h('p', { class: 'px-6 pt-4 text-sm text-ink-500' }, t('design.article_versions_body', { file })),
+      versions.length
+        ? h('div', { class: 'mt-3' }, ...versions.map(ligne))
+        : h('p', { class: 'px-6 py-10 text-center text-sm text-ink-400' }, t('design.article_versions_empty')),
+      h('div', { class: 'flex justify-end border-t border-ink-100 px-6 py-4' }, h('button', { type: 'button', class: 'btn btn-outline', onclick: closeModal }, t('action.close'))),
+    ),
+    'max-w-2xl',
+  );
+}
+
+/** Supprimer un article : une sauvegarde est prise avant, et on le dit. */
+const confirmDeleteArticle = (article) =>
+  confirmDialog({
+    title: t('design.article_delete_title'),
+    warning: t('design.article_delete_warning', { title: article.meta?.title || article.file }),
+    submitLabel: t('design.article_delete'),
+    iconName: 'trash',
+    tone: 'btn-danger',
+    run: async () => {
+      await api(`${base()}/article`, { method: 'DELETE', body: { path: article.file } });
+      toast(t('design.article_deleted', { title: article.meta?.title || article.file }), 'success');
+      state.article = null;
+      state.articles = [];
+      state.backupsLoaded = false;
+      await load();
+    },
+  });
 
 function renderArticleBar() {
   const bar = $('#design-view [data-article-bar]');
@@ -2239,11 +2344,32 @@ function backupsTab() {
     ),
     h(
       'button',
-      { type: 'button', class: 'btn btn-outline px-3 py-1.5 text-xs', onclick: () => loadBackups({ force: true }) },
-      icon('refresh', 'size-3.5'),
+      {
+        type: 'button',
+        class: 'btn btn-outline px-3 py-1.5 text-xs',
+        disabled: state.backupsLoading,
+        onclick: () => loadBackups({ force: true }),
+      },
+      icon('refresh', `size-3.5 ${state.backupsLoading ? 'animate-spin' : ''}`),
       t('files.refresh'),
     ),
   );
+
+  // PENDANT LA LECTURE, on le dit. L'écran affichait « Aucune sauvegarde » tant que le
+  // serveur n'avait pas répondu — une à deux secondes — et l'agent croyait à une panne.
+  if (state.backupsLoading) {
+    return h(
+      'section',
+      { class: 'card overflow-hidden' },
+      entete,
+      h(
+        'div',
+        { class: 'flex items-center justify-center gap-3 px-6 py-14 text-sm text-ink-400' },
+        icon('refresh', 'size-4 animate-spin'),
+        t('design.backups_loading'),
+      ),
+    );
+  }
 
   if (!state.backups.length) {
     return h(
@@ -2348,6 +2474,8 @@ function backupsTab() {
 async function loadBackups({ force = false } = {}) {
   if (state.backupsLoading && !force) return;
   state.backupsLoading = true;
+  // Redessiner tout de suite : c'est ce qui montre que l'écran travaille.
+  if (state.tab === 'backups') render();
   try {
     const { backups } = await api(`${base()}/backups`);
     state.backups = backups;
@@ -2358,6 +2486,7 @@ async function loadBackups({ force = false } = {}) {
   } catch (err) {
     toastError(err);
     state.backupsLoaded = true;
+    render();
   } finally {
     state.backupsLoading = false;
   }

@@ -728,7 +728,15 @@
     "backup_delete": "Diese Sicherung löschen",
     "backup_delete_title": "Diese Sicherung löschen?",
     "backup_delete_warning": "Die Sicherung von {file} vom {when} wird vom Server gelöscht. Dieser Verlust ist endgültig, und die Online-Datei bleibt unberührt.",
-    "backup_deleted": "Sicherung von {file} gelöscht."
+    "backup_deleted": "Sicherung von {file} gelöscht.",
+    "backups_loading": "Sicherungen werden auf dem Server gelesen…",
+    "article_versions": "Frühere Fassungen dieses Artikels",
+    "article_versions_body": "Jede Veröffentlichung von {file} hinterlässt eine Kopie. Vergleichen Sie sie oder spielen Sie sie zurück.",
+    "article_versions_empty": "Keine frühere Fassung: dieser Artikel wurde noch nicht aus dem Back-Office veröffentlicht.",
+    "article_delete": "Diesen Artikel löschen",
+    "article_delete_title": "Diesen Artikel löschen?",
+    "article_delete_warning": "„{title}“ wird von der Website genommen. Vorher wird eine Sicherung angelegt: Sie können ihn im Reiter Sicherungen zurückholen. Seine öffentliche Adresse antwortet dann „Seite nicht gefunden“.",
+    "article_deleted": "„{title}“ gelöscht. Eine Sicherung wurde behalten."
   },
   "actions": {
     "title": "Aktionen",
@@ -1047,6 +1055,9 @@
       "redirects": {
         "add": "Weiterleitungen hinzugefügt",
         "remove": "Weiterleitungen entfernt"
+      },
+      "article": {
+        "delete": "Artikel gelöscht"
       }
     }
   },

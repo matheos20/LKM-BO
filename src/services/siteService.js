@@ -8,6 +8,7 @@ import {
   dropImageCommand,
   dropRenderCommand,
   imageTmpPath,
+  deleteArticleCommand,
   deleteBackupCommand,
   listBackupsCommand,
   readBackupCommand,
@@ -741,6 +742,34 @@ export class SiteService {
     if (!info) throw new AppError('errors.file_name_invalid', { status: 400, vars: { name: String(name).slice(0, 60) } });
     this.#check(await this.#run(serverId, deleteBackupCommand(docroot, info.name)), server);
     return { deleted: info.name };
+  }
+
+  /**
+   * Suppression d'un article.
+   *
+   * L'article demandé doit être un article DE CE SITE : sans cette vérification, une
+   * chaîne quelconque désignerait le fichier effacé. Une sauvegarde est faite avant,
+   * si bien que l'onglet « Sauvegardes » peut le remettre en place.
+   */
+  async deleteArticle(serverId, domain, rel) {
+    const { server, docroot } = this.context(serverId, domain);
+    const chemin = String(rel ?? '').trim();
+    const site = await this.readSite(serverId, domain);
+    if (!site.articles.some((a) => a.file === chemin)) {
+      throw new AppError('errors.file_not_found', { status: 404, vars: { name: chemin.slice(0, 120) } });
+    }
+    const res = await this.#run(serverId, deleteArticleCommand(docroot, chemin));
+    this.#check(res, server);
+    // Le brouillon de cet article n'a plus d'objet. Mais le fichier est DÉJÀ supprimé
+    // sur le serveur : échouer ici ferait croire à l'agent que rien ne s'est passé,
+    // alors que tout s'est passé. Le ménage du brouillon ne doit donc rien faire
+    // échouer — au pire il restera un brouillon orphelin, sans effet.
+    try {
+      deleteDraft(serverId, domain, 'article', chemin);
+    } catch (err) {
+      console.error(`[design] brouillon non effacé après suppression de ${chemin} : ${err.message}`);
+    }
+    return { deleted: chemin, stamp: res.stdout.trim(), backup: `articles/${chemin}.${res.stdout.trim()}` };
   }
 
   async restoreBackup(serverId, domain, name) {
