@@ -291,7 +291,9 @@ export class SiteService {
       domain,
       published: { config: site.config, style: site.style },
       draft: draft ? { ...draft.data, updatedAt: draft.updatedAt, stale: draft.baseHash !== site.configMeta?.md5 } : null,
-      available: { sections: site.sections, images: site.images },
+      // La classe que chaque gabarit pose sur son bloc : c'est elle qu'on lit dans
+      // l'inspecteur du navigateur, et elle permet de raccorder les deux.
+      available: { sections: site.sections, images: site.images, sectionClasses: site.sectionClasses ?? {} },
       counts: { articles: site.articles.length, images: site.images.length },
       extraVars: Object.keys(site.extraVars ?? {}),
       meta: { config: site.configMeta, style: site.styleMeta },

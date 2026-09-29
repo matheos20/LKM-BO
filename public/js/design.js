@@ -637,7 +637,14 @@ function blockRow(section, index, total, editable) {
         'span',
         { class: 'min-w-0 flex-1' },
         h('span', { class: 'block truncate text-sm font-medium text-ink' }, family ? t(`design.family.${family.key}`) : section),
-        h('span', { class: 'block truncate text-xs text-ink-400', 'data-excerpt': String(index) }, blockExcerpt(family, section)),
+        // La classe posée sur le bloc par le gabarit du site : c'est elle qu'on lit
+        // dans l'inspecteur du navigateur. L'afficher ici raccorde ce qu'on voit sur
+        // la page à ce qu'on modifie dans le back-office.
+        h(
+          'span',
+          { class: 'block truncate font-mono text-[11px] text-ink-400', 'data-excerpt': String(index), title: blockExcerpt(family, section) },
+          sectionClass(section) || section,
+        ),
       ),
     ),
     h(
@@ -648,6 +655,16 @@ function blockRow(section, index, total, editable) {
     ),
   );
 }
+
+/**
+ * La classe que le gabarit du site pose sur ce bloc, lue dans ses propres fichiers.
+ *
+ * Elle n'est pas devinée ni recopiée d'une table : chaque site a ses gabarits, et
+ * c'est le fichier qui fait foi. Rendue par la lecture du site, elle vaut « hero
+ * hero-overlay » pour la bannière, « section-faq-columns » pour les questions
+ * fréquentes — exactement ce que montre l'inspecteur du navigateur.
+ */
+const sectionClass = (variant) => state.site?.available?.sectionClasses?.[variant] ?? '';
 
 const stripTags = (value) =>
   String(value ?? '')
@@ -668,7 +685,9 @@ function refreshExcerpt() {
   if (state.tab !== 'home' || typeof state.selected !== 'number') return;
   const section = state.config.homepage_sections?.[state.selected];
   const span = $(`#design-view [data-excerpt="${state.selected}"]`);
-  if (section && span) span.textContent = blockExcerpt(familyOf(section), section);
+  // La ligne montre la classe du bloc, qui ne bouge pas : c'est l'infobulle qui suit
+  // ce qu'on écrit, et qui permet de reconnaître deux blocs de même gabarit.
+  if (section && span) span.title = blockExcerpt(familyOf(section), section);
 }
 
 function selectBlock(index) {
@@ -703,6 +722,13 @@ function blockEditor(sections, index) {
         'p', { class: 'truncate text-xs text-ink-400' },
         `${t('design.block_position', { index: index + 1, total: sections.length })} · ${layoutLabel(section)}`,
       ),
+      sectionClass(section)
+        ? h(
+            'p',
+            { class: 'mt-0.5 truncate font-mono text-[11px] text-ink-400', title: t('design.section_class_hint') },
+            sectionClass(section),
+          )
+        : null,
     ),
     h(
       'button',

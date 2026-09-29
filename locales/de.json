@@ -682,7 +682,8 @@
     "rt_link_placeholder": "Link-Adresse einfügen",
     "rt_link_select": "Wählen Sie zuerst den Text aus, der ein Link werden soll.",
     "rt_link_invalid": "Diese Adresse wird nicht akzeptiert. Verwenden Sie https:// oder einen Pfad, der mit / beginnt.",
-    "image_import_named": "Das Bild erhält den Namen des Artikels: {name}-400, -600, -900, -1920."
+    "image_import_named": "Das Bild erhält den Namen des Artikels: {name}-400, -600, -900, -1920.",
+    "section_class_hint": "CSS-Klasse, die die Vorlage der Website auf diesen Block setzt — die, die der Browser-Inspektor zeigt."
   },
   "actions": {
     "title": "Aktionen",

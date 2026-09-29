@@ -71,14 +71,27 @@ if (preg_match_all('/--([a-z0-9-]+)\\s*:\\s*([^;]+);/i', $css, $m, PREG_SET_ORDE
 $out['style'] = $style;
 $out['styleMeta'] = is_file($cssFile) ? ['md5' => md5_file($cssFile), 'mtime' => filemtime($cssFile)] : null;
 
-// Bibliothèque de sections réellement présente sur ce site
+// Bibliothèque de sections réellement présente sur ce site, et la classe que chaque
+// gabarit pose sur son <section>. C'est elle qu'on lit dans l'inspecteur du navigateur :
+// l'afficher dans le back-office permet de raccorder ce qu'on voit à ce qu'on modifie.
 $sections = [];
+$classes = [];
 foreach (glob($doc . '/parts/sections/*.php') ?: [] as $f) {
     $b = basename($f, '.php');
-    if (strpos($b, '.bak') === false && strpos($b, '.pre-') === false) $sections[] = $b;
+    if (strpos($b, '.bak') !== false || strpos($b, '.pre-') !== false) continue;
+    $sections[] = $b;
+    // Seul le PREMIER bloc compte : c'est le parent, celui qui nomme la section.
+    $tete = (string) @file_get_contents($f, false, null, 0, 4096);
+    if (preg_match('/<section[^>]*\\\\bclass\\\\s*=\\\\s*"([^"]*)"/i', $tete, $m)) {
+        // La classe peut contenir du PHP intercalé : on ne garde que la partie fixe,
+        // car c'est elle que le visiteur verra dans tous les cas.
+        $c = trim(preg_replace('/\\\\s+/', ' ', preg_replace('/' . chr(60) . '\\\\?.*?\\\\?' . chr(62) . '/s', '', $m[1])));
+        if ($c !== '') $classes[$b] = $c;
+    }
 }
 sort($sections);
 $out['sections'] = $sections;
+$out['sectionClasses'] = $classes;
 
 // Images disponibles (identifiants dérivés des fichiers -600.jpg)
 $images = [];
