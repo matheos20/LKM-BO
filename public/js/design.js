@@ -267,15 +267,42 @@ const body = () => {
  * le navigateur y recopie le style du libellé et tout le texte devient gras. Elle reçoit
  * donc un `aria-label`, qui l'annonce aussi bien aux lecteurs d'écran.
  */
-const field = (label, control, hint) => {
+/**
+ * Un champ : son intitulé, sa commande, son aide éventuelle.
+ *
+ * En disposition HORIZONTALE, l'intitulé et l'aide passent à gauche et la commande à
+ * droite, bornée en largeur. Deux raisons, et pas l'esthétique : les intitulés
+ * s'alignent en colonne, donc l'œil descend le formulaire d'un trait ; et une ligne de
+ * texte cesse de s'étirer sur toute la largeur de l'écran, où elle devient illisible.
+ * Sous les grands écrans, tout se rempile, comme avant.
+ */
+const field = (label, control, hint, { horizontal = false } = {}) => {
   const editable = control.querySelector?.('[contenteditable]') ?? (control.isContentEditable ? control : null);
   if (editable) editable.setAttribute('aria-label', label);
+  if (!horizontal) {
+    return h(
+      editable ? 'div' : 'label',
+      { class: 'block' },
+      h('span', { class: 'label' }, label),
+      control,
+      hint ? h('p', { class: 'mt-1 text-xs text-ink-400' }, hint) : null,
+    );
+  }
   return h(
     editable ? 'div' : 'label',
-    { class: 'block' },
-    h('span', { class: 'label' }, label),
-    control,
-    hint ? h('p', { class: 'mt-1 text-xs text-ink-400' }, hint) : null,
+    { class: 'block xl:grid xl:grid-cols-[14rem_minmax(0,1fr)] xl:items-start xl:gap-x-6' },
+    h(
+      'span',
+      { class: 'block xl:pt-1.5' },
+      h('span', { class: 'label xl:mb-0' }, label),
+      hint ? h('span', { class: 'mt-0.5 hidden text-xs leading-5 text-ink-400 xl:block' }, hint) : null,
+    ),
+    h(
+      'span',
+      { class: 'block max-w-3xl' },
+      control,
+      hint ? h('p', { class: 'mt-1 text-xs text-ink-400 xl:hidden' }, hint) : null,
+    ),
   );
 };
 
@@ -770,7 +797,9 @@ function blockEditor(sections, index) {
               h('h3', { class: 'text-xs font-semibold tracking-wide text-ink-500 uppercase' }, t(`design.group_${key}`)),
               h('span', { class: 'h-px flex-1 bg-ink-100' }),
             ),
-        h('div', { class: 'grid gap-4 sm:grid-cols-2' }, ...fields.map((f) => blockField(f, data, { bare: key === 'buttons' && fields.length === 1 }))),
+        // Une seule colonne : c'est ce qui permet aux intitulés de s'aligner. Deux
+        // colonnes gagnaient de la place mais cassaient la lecture verticale.
+        h('div', { class: 'space-y-4' }, ...fields.map((f) => blockField(f, data, { bare: key === 'buttons' && fields.length === 1, horizontal: true }))),
       ),
     ),
   );
@@ -790,7 +819,7 @@ const hintOf = (key) => {
   return value === `design.hint.${key}` ? null : value;
 };
 
-function blockField(f, data, { bare = false } = {}) {
+function blockField(f, data, { bare = false, horizontal = false } = {}) {
   const label = t(`design.field.${f.key}`);
   const hint = hintOf(f.key);
   const wide = ['textarea', 'rich', 'list', 'strings', 'button', 'image'].includes(f.type);
@@ -822,7 +851,7 @@ function blockField(f, data, { bare = false } = {}) {
   })();
 
   // Un intitulé de groupe suffit quand il n'y a qu'un champ : on évite « Boutons › Bouton › Texte ».
-  return h('div', { class: wide ? 'sm:col-span-2' : '' }, bare ? control : field(label, control, hint));
+  return h('div', { class: horizontal ? '' : wide ? 'sm:col-span-2' : '' }, bare ? control : field(label, control, hint, { horizontal }));
 }
 
 /**
