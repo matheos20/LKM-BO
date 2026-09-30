@@ -747,7 +747,14 @@
     "backup_show_changes": "Ver só as diferenças",
     "backup_legend_before": "a vermelho, o que vai desaparecer",
     "backup_legend_after": "a verde, o que será substituído",
-    "backup_sizes": "Cópia {before} · em linha {after}"
+    "backup_sizes": "Cópia {before} · em linha {after}",
+    "backup_domain": "Domínio",
+    "publish_nothing": "Nada mudou: não era precisa nenhuma cópia.",
+    "backup_clear_restored": "Apagar as {count} já repostas",
+    "backup_clear_restored_title": "Apagar as cópias já repostas?",
+    "backup_clear_restored_warning": "{count} cópia(s) já foram repostas: o seu conteúdo voltou a ser o do site. Apagá-las liberta a lista e não toca em nada em linha. Esta perda é definitiva.",
+    "backup_clear_restored_ok": "{count} cópia(s) apagada(s).",
+    "backup_clear_restored_partial": "{count} apagada(s), mas {failed} não pôde sê-lo."
   },
   "actions": {
     "title": "Ações",

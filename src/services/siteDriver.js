@@ -129,13 +129,28 @@ export function publishCommand(docroot, { styleB64 = '', expectMd5 = '', keep = 
     `TMP="$BK/.new-config.php"`,
     `base64 -d > "$TMP" || exit 82`,
     `php -l "$TMP" > /dev/null || { rm -f "$TMP"; exit 83; }`,
-    `[ -f "$DOC/config.php" ] && cp -a "$DOC/config.php" "$BK/config-$STAMP.php"`,
-    `[ -f "$DOC/style.css" ] && cp -a "$DOC/style.css" "$BK/style-$STAMP.css"`,
-    `cat "$TMP" > "$DOC/config.php" || exit 84`,
+    // ON NE SAUVEGARDE QUE CE QUI CHANGE VRAIMENT.
+    //
+    // Avant, chaque publication copiait config.php ET style.css, même quand aucun des
+    // deux n'avait bougé. Modifier un texte de la page d'accueil produisait donc une
+    // sauvegarde « Couleurs » alors que les couleurs n'avaient pas été touchées, et
+    // parfois une « Configuration » dont la seule différence tenait à des espaces.
+    // L'agent se retrouvait avec un historique qui ne racontait pas son travail.
+    //
+    // « cmp -s » compare octet à octet : identique veut dire identique.
+    `CHANGES=""`,
+    `if [ ! -f "$DOC/config.php" ] || ! cmp -s "$TMP" "$DOC/config.php"; then [ -f "$DOC/config.php" ] && cp -a "$DOC/config.php" "$BK/config-$STAMP.php"; cat "$TMP" > "$DOC/config.php" || exit 84; CHANGES="config"; fi`,
     `rm -f "$TMP"`,
     styleB64
-      ? `printf '%s' ${shq(styleB64)} | base64 -d > "$BK/.new-style.css" && cat "$BK/.new-style.css" > "$DOC/style.css" && rm -f "$BK/.new-style.css" || exit 85`
+      ? `printf '%s' ${shq(styleB64)} | base64 -d > "$BK/.new-style.css" || exit 85`
       : '',
+    styleB64
+      ? `if [ ! -f "$DOC/style.css" ] || ! cmp -s "$BK/.new-style.css" "$DOC/style.css"; then [ -f "$DOC/style.css" ] && cp -a "$DOC/style.css" "$BK/style-$STAMP.css"; cat "$BK/.new-style.css" > "$DOC/style.css" || exit 85; CHANGES="$CHANGES style"; fi`
+      : '',
+    styleB64 ? `rm -f "$BK/.new-style.css"` : '',
+    // Ce qui a réellement changé, pour que l'écran puisse le dire au lieu d'annoncer
+    // une publication là où rien n'a bougé.
+    `echo "LKM-CHANGED:$CHANGES"`,
     // Au-delà du plafond, les plus anciennes s'effacent. Voir BACKUP_KEEP : il est assez
     // haut pour que l'usage normal ne le rencontre jamais.
     //

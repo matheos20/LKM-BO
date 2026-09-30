@@ -747,7 +747,14 @@
     "backup_show_changes": "Ne voir que les différences",
     "backup_legend_before": "en rouge, ce qui disparaîtra",
     "backup_legend_after": "en vert, ce qui sera remplacé",
-    "backup_sizes": "Sauvegarde {before} · en ligne {after}"
+    "backup_sizes": "Sauvegarde {before} · en ligne {after}",
+    "backup_domain": "Domaine",
+    "publish_nothing": "Rien n’a changé : aucune sauvegarde n’était nécessaire.",
+    "backup_clear_restored": "Effacer les {count} déjà remises en place",
+    "backup_clear_restored_title": "Effacer les sauvegardes déjà remises en place ?",
+    "backup_clear_restored_warning": "{count} sauvegarde(s) ont déjà été remises en place : leur contenu est redevenu celui du site. Les effacer libère la liste et ne touche à rien en ligne. Cette perte est définitive.",
+    "backup_clear_restored_ok": "{count} sauvegarde(s) effacée(s).",
+    "backup_clear_restored_partial": "{count} effacée(s), mais {failed} n’a pas pu l’être."
   },
   "actions": {
     "title": "Actions",

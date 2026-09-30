@@ -256,6 +256,17 @@ function normalize(value) {
 const sameConfig = (a, b) => JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
 
 /**
+ * Deux chartes portent-elles les mêmes couleurs ?
+ *
+ * On compare les VALEURS, pas le fichier. Le `style.css` en place a été écrit par le
+ * générateur du parc, avec ses espaces et son ordre à lui ; celui que nous produisons
+ * dit la même chose autrement. Comparer les deux fichiers octet à octet les déclarait
+ * différents, et modifier un simple texte de la page d'accueil créait une sauvegarde
+ * « Couleurs » alors qu'aucune couleur n'avait bougé.
+ */
+const sameStyle = sameConfig;
+
+/**
  * Éditeur de design et de contenu d'un site du parc.
  *
  * Trois garanties tenues par ce service :
@@ -546,14 +557,26 @@ export class SiteService {
       stdin: b64(buildConfigPhp(config, site.extraVars)),
     });
     this.#check(res, server);
-    const stamp = res.stdout.trim();
+
+    // La commande annonce ce qu'elle a RÉELLEMENT touché, puis l'horodatage. Publier
+    // sans rien avoir modifié ne crée aucune sauvegarde : `changed` est alors vide, et
+    // l'écran peut le dire plutôt que d'annoncer une publication imaginaire.
+    const lignes = res.stdout.trim().split('\n');
+    const stamp = lignes.at(-1).trim();
+    const changed = (lignes.find((l) => l.startsWith('LKM-CHANGED:')) ?? 'LKM-CHANGED:')
+      .slice('LKM-CHANGED:'.length)
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
 
     const after = await this.readSite(serverId, domain);
     if (!sameConfig(after.config, config)) {
-      await this.#run(serverId, restoreCommand(docroot, `config-${stamp}.php`)).catch(() => {});
+      // Le repli n'existe que si une sauvegarde a été prise, donc si la configuration
+      // a bel et bien changé.
+      if (changed.includes('config')) await this.#run(serverId, restoreCommand(docroot, `config-${stamp}.php`)).catch(() => {});
       throw new AppError('errors.design_verify_failed', { status: 500, vars: { domain } });
     }
-    return { stamp, after };
+    return { stamp, after, changed };
   }
 
   /**
@@ -672,12 +695,15 @@ export class SiteService {
 
     const config = validateConfig({ ...site.config, ...draft.data.config }, { available: site.sections });
     const style = validateStyle({ ...site.style, ...draft.data.style });
-    const { stamp, after } = await this.#commitConfig(serverId, domain, { site, config, styleB64: b64(buildStyleCss(style)) });
+    // La charte n'est envoyee QUE si ses couleurs changent : sinon, on reecrirait un
+    // fichier equivalent et on creerait une sauvegarde << Couleurs >> sans objet.
+    const styleB64 = sameStyle(site.style, style) ? '' : b64(buildStyleCss(style));
+    const { stamp, after, changed } = await this.#commitConfig(serverId, domain, { site, config, styleB64 });
 
     deleteDraft(serverId, domain, 'site', '');
     // Les prévisualisations du domaine deviennent caduques : elles montrent un état publié.
     for (const [id, entry] of this.previews) if (entry.domain === domain) this.previews.delete(id);
-    return { stamp, config: after.config, style: after.style };
+    return { stamp, config: after.config, style: after.style, changed };
   }
 
   /** Publie un article : mêmes garanties (sauvegarde, syntaxe, écriture sur place). */

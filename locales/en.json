@@ -747,7 +747,14 @@
     "backup_show_changes": "Show only the differences",
     "backup_legend_before": "in red, what will go away",
     "backup_legend_after": "in green, what will be replaced",
-    "backup_sizes": "Backup {before} · live {after}"
+    "backup_sizes": "Backup {before} · live {after}",
+    "backup_domain": "Domain",
+    "publish_nothing": "Nothing changed: no backup was needed.",
+    "backup_clear_restored": "Delete the {count} already restored",
+    "backup_clear_restored_title": "Delete the backups already restored?",
+    "backup_clear_restored_warning": "{count} backup(s) have already been put back: their content is once again the site’s. Deleting them clears the list and touches nothing live. This loss is permanent.",
+    "backup_clear_restored_ok": "{count} backup(s) deleted.",
+    "backup_clear_restored_partial": "{count} deleted, but {failed} could not be."
   },
   "actions": {
     "title": "Actions",

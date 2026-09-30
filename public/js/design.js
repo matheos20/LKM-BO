@@ -2334,6 +2334,8 @@ const backupWhen = (b) => b.at ?? b.mtime ?? null;
 function backupsTab() {
   if (!state.backupsLoaded) loadBackups();
 
+  const dejaRestaurees = state.backups.filter((b) => b.restored);
+
   const entete = h(
     'div',
     { class: 'flex flex-wrap items-center gap-3 border-b border-ink-100 px-5 py-3' },
@@ -2346,6 +2348,16 @@ function backupsTab() {
       // rien à l'écran ne disait que cette liste ne montre qu'un seul domaine.
       h('p', { class: 'mt-0.5 text-xs text-ink-400' }, t('design.backups_hint', { domain: state.domain })),
     ),
+    // Une sauvegarde remise en place a fait son travail : on peut la ranger. Le bouton
+    // n'apparaît que s'il y a quelque chose à ranger, et il nomme le nombre concerné.
+    dejaRestaurees.length && can('design.publish')
+      ? h(
+          'button',
+          { type: 'button', class: 'btn btn-outline px-3 py-1.5 text-xs', onclick: () => confirmDeleteRestored(dejaRestaurees) },
+          icon('trash', 'size-3.5'),
+          t('design.backup_clear_restored', { count: dejaRestaurees.length }),
+        )
+      : null,
     h(
       'button',
       {
@@ -2415,9 +2427,11 @@ function backupsTab() {
         icon(ico, 'size-4'),
       );
 
+    // UNE LIGNE DÉJÀ REMISE EN PLACE SE VOIT. La marque tenait en onze pixels sous la
+    // date : l'agent restaurait, revenait à la liste et la croyait inchangée.
     return h(
       'tr',
-      { class: 'border-t border-ink-100 align-middle hover:bg-ink-50/50' },
+      { class: `border-t border-ink-100 align-middle ${b.restored ? 'bg-accent-50/60 hover:bg-accent-50' : 'hover:bg-ink-50/50'}` },
       h(
         'td',
         { class: 'px-5 py-2.5 whitespace-nowrap' },
@@ -2425,11 +2439,18 @@ function backupsTab() {
         b.restored
           ? h(
               'span',
-              { class: 'mt-0.5 inline-flex items-center gap-1 text-[11px] text-accent-700' },
+              { class: 'badge mt-1 bg-accent-100 text-accent-700' },
               icon('check', 'size-3'),
               t('design.backup_restored', { when: fmtDate(b.restored.at) }),
             )
           : null,
+      ),
+      // Le domaine, en clair sur chaque ligne : c'est le repère qui manquait quand on a
+      // cru des sauvegardes perdues alors qu'elles étaient sur un autre site.
+      h(
+        'td',
+        { class: 'px-4 py-2.5 whitespace-nowrap' },
+        h('span', { class: 'text-xs text-ink-600' }, b.domain ?? state.domain),
       ),
       h('td', { class: 'px-4 py-2.5' }, h('span', { class: `badge ${BACKUP_KIND[b.kind] ?? BACKUP_KIND.htaccess}` }, t(`design.backup_kind_${b.kind}`))),
       h('td', { class: 'px-4 py-2.5' }, h('span', { class: 'block max-w-md truncate font-mono text-xs text-ink-500', title: b.label }, b.label)),
@@ -2470,6 +2491,7 @@ function backupsTab() {
             'tr',
             {},
             th('design.backup_when', 'px-5'),
+            th('design.backup_domain'),
             th('design.backup_kind'),
             th('design.backup_target'),
             th('design.backup_size'),
@@ -2676,6 +2698,40 @@ async function openCompare(backup) {
     'max-w-5xl',
   );
 }
+/**
+ * Ranger les sauvegardes déjà remises en place.
+ *
+ * Une sauvegarde restaurée a fait son travail : son contenu est redevenu celui du site.
+ * La garder n'est plus utile, et l'agent nous a dit qu'elles « restent toujours là »
+ * après une restauration. On les efface donc en un geste — mais une par une côté
+ * serveur, pour qu'un échec sur l'une n'empêche pas les autres, et en disant ensuite
+ * exactement ce qui est parti.
+ */
+const confirmDeleteRestored = (backups) =>
+  confirmDialog({
+    title: t('design.backup_clear_restored_title'),
+    warning: t('design.backup_clear_restored_warning', { count: backups.length }),
+    submitLabel: t('design.backup_delete'),
+    iconName: 'trash',
+    tone: 'btn-danger',
+    run: async () => {
+      const partis = [];
+      const restants = [];
+      for (const b of backups) {
+        try {
+          await api(`${base()}/backups`, { method: 'DELETE', body: { name: b.name } });
+          partis.push(b.name);
+        } catch {
+          restants.push(b.label ?? b.name);
+        }
+      }
+      state.backups = state.backups.filter((b) => !partis.includes(b.name));
+      render();
+      if (restants.length) toast(t('design.backup_clear_restored_partial', { count: partis.length, failed: restants.join(', ') }), 'error');
+      else toast(t('design.backup_clear_restored_ok', { count: partis.length }), 'success');
+    },
+  });
+
 /** Effacer une sauvegarde est sans retour : on le dit, et on nomme ce qui part. */
 const confirmDeleteBackup = (backup) =>
   confirmDialog({
@@ -2828,7 +2884,13 @@ const confirmPublish = () =>
     run: async () => {
       if (state.dirty) await saveDraft();
       const res = await api(`${base()}/publish`, { method: 'POST' });
-      toast(t('design.publish_ok', { stamp: res.stamp }), 'success', `${t('design.publish_cache')}\nhttps://${state.domain}/?lkm=${Date.now()}`);
+      // Publier sans avoir rien modifié ne crée plus de sauvegarde : autant le dire,
+      // sinon l'agent cherche dans la liste une entrée qui n'existe pas.
+      if (Array.isArray(res.changed) && res.changed.length === 0) toast(t('design.publish_nothing'), 'info');
+      else toast(t('design.publish_ok', { stamp: res.stamp }), 'success', `${t('design.publish_cache')}\nhttps://${state.domain}/?lkm=${Date.now()}`);
+      // La liste des sauvegardes vient de changer : on la relira.
+      state.backupsLoaded = false;
+      state.backups = [];
       await load();
     },
   });

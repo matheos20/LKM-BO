@@ -747,7 +747,14 @@
     "backup_show_changes": "Nur die Unterschiede anzeigen",
     "backup_legend_before": "rot: was verschwindet",
     "backup_legend_after": "grün: was ersetzt wird",
-    "backup_sizes": "Sicherung {before} · online {after}"
+    "backup_sizes": "Sicherung {before} · online {after}",
+    "backup_domain": "Domain",
+    "publish_nothing": "Nichts hat sich geändert: eine Sicherung war nicht nötig.",
+    "backup_clear_restored": "Die {count} bereits zurückgespielten löschen",
+    "backup_clear_restored_title": "Bereits zurückgespielte Sicherungen löschen?",
+    "backup_clear_restored_warning": "{count} Sicherung(en) wurden bereits zurückgespielt: ihr Inhalt ist wieder der der Website. Ein Löschen räumt die Liste auf und rührt nichts Online an. Dieser Verlust ist endgültig.",
+    "backup_clear_restored_ok": "{count} Sicherung(en) gelöscht.",
+    "backup_clear_restored_partial": "{count} gelöscht, aber {failed} konnte es nicht."
   },
   "actions": {
     "title": "Aktionen",
