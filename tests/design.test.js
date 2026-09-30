@@ -552,3 +552,48 @@ test('une couleur nouvelle ou absente de l origine passe telle quelle', () => {
   assert.deepEqual(keepColorCase({}, { a: '#fff' }), {});
   assert.deepEqual(keepColorCase(null), {});
 });
+
+// ───────── Le gras doit survivre au nettoyage ─────────
+
+test('le gras ecrit en CSS devient une balise au lieu de disparaitre', () => {
+  // Le bouton B produisait << <span style="font-weight: bold"> >> parce que
+  // styleWithCSS etait actif. Nos champs ne gardent du style que la couleur : le span
+  // perdait le sien, devenait vide de sens et disparaissait. L'agent voyait le mot
+  // grossir, puis le retrouvait maigre apres enregistrement.
+  assert.equal(sanitizeInline('<span style="font-weight: bold;">gras</span>'), '<strong>gras</strong>');
+  assert.equal(sanitizeInline('<span style="font-weight: 700">gras</span> suite'), '<strong>gras</strong> suite');
+  assert.equal(sanitizeInline('<span style="font-style: italic">ital</span>'), '<em>ital</em>');
+  // Un traitement de texte ecrit volontiers << bolder >>.
+  assert.equal(sanitizeInline('<span style="font-weight: bolder">x</span>'), '<strong>x</strong>');
+});
+
+test('une graisse normale n habille rien', () => {
+  assert.equal(sanitizeInline('<span style="font-weight: normal">maigre</span>'), 'maigre');
+  assert.equal(sanitizeInline('<span style="font-weight: 400">maigre</span>'), 'maigre');
+  assert.equal(sanitizeInline('<span>rien</span> du texte'), 'rien du texte');
+});
+
+test('couleur et gras tiennent ensemble, et se referment dans le bon ordre', () => {
+  assert.equal(
+    sanitizeInline('<span style="color: rgb(255,0,0); font-weight: bold">deux</span> apres'),
+    '<span style="color:#ff0000"><strong>deux</strong></span> apres',
+  );
+});
+
+test('les balises de gras passent telles quelles', () => {
+  for (const s of ['<b>gras</b>', '<strong>gras</strong>', '<i>x</i>', '<em>x</em>', 'a <b>b <em>c</em></b> d']) {
+    assert.equal(sanitizeInline(s), s);
+  }
+});
+
+test('un span jamais referme ne devore pas la suite du texte', () => {
+  assert.equal(sanitizeInline('<span style="font-weight:bold">gras'), '<strong>gras</strong>');
+  assert.equal(sanitizeInline('<span style="font-weight:bold">a</span>b<b>c'), '<strong>a</strong>b<b>c</b>');
+});
+
+test('le style ne laisse pas passer autre chose que couleur, gras et italique', () => {
+  // Une taille, une police ou un fond n'ont rien a faire dans un champ de bloc.
+  assert.equal(sanitizeInline('<span style="font-size: 48px">enorme</span>'), 'enorme');
+  assert.equal(sanitizeInline('<span style="background: url(javascript:alert(1))">x</span>'), 'x');
+  assert.equal(sanitizeInline('<span style="font-family: Comic Sans">x</span>'), 'x');
+});

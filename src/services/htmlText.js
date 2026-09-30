@@ -89,16 +89,31 @@ const safeRel = (value) => {
   return kept.length ? [...new Set(kept)].join(' ') : null;
 };
 
-/** Couleur d'un attribut `style` : la déclaration `color`, et rien d'autre. */
-function colorOfStyle(attrs) {
+/**
+ * Ce qu'un attribut `style` demande, parmi ce que nos champs savent garder : une
+ * couleur, du gras, de l'italique.
+ *
+ * Le gras et l'italique arrivent ici parce qu'un navigateur peut les écrire en CSS
+ * plutôt qu'en balise — « <span style="font-weight: bold"> » au lieu de « <b> ». Un tel
+ * span n'était pas conservé, et le gras disparaissait sans bruit. On le traduit
+ * désormais en balise plutôt que de le perdre. C'est aussi ce qui sauve un texte collé
+ * depuis un traitement de texte, qui ne met jamais de balises.
+ */
+function styleOf(attrs) {
   const style = /\sstyle\s*=\s*("([^"]*)"|'([^']*)')/i.exec(attrs);
-  if (!style) return null;
+  const out = { color: null, bold: false, italic: false };
+  if (!style) return out;
   for (const declaration of (style[2] ?? style[3] ?? '').split(';')) {
     const [name, ...rest] = declaration.split(':');
-    if (name?.trim().toLowerCase() !== 'color') continue;
-    return normalizeColor(rest.join(':'));
+    const key = name?.trim().toLowerCase();
+    const raw = rest.join(':').trim().toLowerCase();
+    if (key === 'color') out.color = normalizeColor(raw);
+    // « bolder » et les graisses numériques comptent autant que « bold » : les
+    // traitements de texte emploient volontiers « 700 ».
+    else if (key === 'font-weight') out.bold = raw === 'bold' || raw === 'bolder' || Number.parseInt(raw, 10) >= 600;
+    else if (key === 'font-style') out.italic = raw === 'italic' || raw === 'oblique';
   }
-  return null;
+  return out;
 }
 
 /**
@@ -127,18 +142,32 @@ export function sanitizeInline(value) {
     }
     if (closing) {
       // Une fermeture orpheline n'a rien à fermer : on l'ignore.
-      const at = open.lastIndexOf(tag);
+      const at = open.findLastIndex((e) => e.name === tag);
       if (at === -1) continue;
-      while (open.length > at) out += `</${open.pop()}>`;
+      while (open.length > at) out += open.pop().close;
       continue;
     }
     if (open.length >= 8) continue; // imbrication déraisonnable : on s'arrête là
 
     if (tag === 'span') {
-      const color = colorOfStyle(match[2]);
-      if (!color) continue; // un span sans couleur n'apporte rien : on garde son texte
-      out += `<span style="color:${color}">`;
-    } else if (tag === 'a') {
+      const { color, bold, italic } = styleOf(match[2]);
+      // Un span n'a de valeur que par ce qu'il porte. S'il ne porte rien de ce que nous
+      // gardons, on laisse passer son texte sans lui. S'il porte du gras ou de
+      // l'italique écrits en CSS, ils deviennent des balises — sans quoi ils seraient
+      // perdus, comme ils l'étaient.
+      let ouvert = '';
+      let ferme = '';
+      if (color) { ouvert += `<span style="color:${color}">`; ferme = `</span>${ferme}`; }
+      if (bold) { ouvert += '<strong>'; ferme = `</strong>${ferme}`; }
+      if (italic) { ouvert += '<em>'; ferme = `</em>${ferme}`; }
+      if (!ouvert) continue;
+      out += ouvert;
+      // La pile retient « span » pour que « </span> » referme bien tout ce bloc.
+      open.push({ name: 'span', close: ferme });
+      continue;
+    }
+
+    if (tag === 'a') {
       const href = safeHref(attrOf(match[2], 'href'));
       if (!href) continue; // lien non recevable : le libellé reste, l'adresse part
       const target = safeTarget(attrOf(match[2], 'target'));
@@ -147,10 +176,10 @@ export function sanitizeInline(value) {
     } else {
       out += `<${tag}>`;
     }
-    open.push(tag);
+    open.push({ name: tag, close: `</${tag}>` });
   }
   out += escapeAngles(source.slice(last));
-  while (open.length) out += `</${open.pop()}>`;
+  while (open.length) out += open.pop().close;
   return out;
 }
 

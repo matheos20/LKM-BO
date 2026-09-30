@@ -1104,10 +1104,27 @@ export function richLine(html, onChange, { multiline = false, shared = false, wr
     selection.addRange(saved);
   };
 
+  /**
+   * Les seules commandes qui ont besoin d'écrire du CSS. Pour toutes les autres, le
+   * navigateur doit produire des BALISES.
+   */
+  const COMMANDES_CSS = new Set(['forecolor', 'backcolor', 'hilitecolor']);
+
+  /**
+   * « styleWithCSS » décide de la forme du résultat : activé, le navigateur écrit
+   * « <span style="font-weight: bold">gras</span> » ; désactivé, il écrit « <b>gras</b> ».
+   *
+   * Il était activé pour TOUTES les commandes. Or nos champs ne gardent du style que la
+   * couleur : le gras perdait donc le sien, son span devenait vide de sens et
+   * disparaissait au nettoyage. L'agent cliquait sur B, voyait le mot grossir, et le
+   * retrouvait maigre après enregistrement. L'italique subissait le même sort ; la
+   * couleur, elle, passait — d'où l'impression que « la page d'accueil n'accepte pas
+   * le gras » alors que c'est nous qui ne l'envoyions jamais.
+   */
   const run = (command, value = null) => {
     remember();
     restore();
-    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('styleWithCSS', false, COMMANDES_CSS.has(String(command).toLowerCase()));
     document.execCommand(command, false, value);
     remember();
     emit();
