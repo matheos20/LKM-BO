@@ -86,6 +86,8 @@ export async function openDesign({ serverId, serverLabel, domain, status, permis
     // et ne relisait jamais.
     backupsLoaded: false,
     backupsLoading: false,
+    // La dernière remise en place appartient au domaine : elle se remet à zéro aussi.
+    lastRestore: null,
   });
   $('#domains-view').hidden = true;
   $('#files-view').hidden = true;
@@ -1936,7 +1938,13 @@ async function openArticleVersions(file) {
         'div',
         { class: 'min-w-0 flex-1' },
         h('p', { class: 'text-sm' }, fmtDate(backupWhen(b))),
-        b.restored ? h('p', { class: 'text-[11px] text-accent-700' }, t('design.backup_restored', { when: fmtDate(b.restored.at) })) : null,
+        b.restored
+          ? h(
+              'p',
+              { class: 'text-[11px] text-accent-700' },
+              t('design.backup_restored', { when: fmtDate(b.restored.at), who: b.restored.by || t('design.backup_by_unknown') }),
+            )
+          : null,
       ),
       h('span', { class: 'text-xs text-ink-400' }, fmtSize(b.size)),
       h(
@@ -2345,6 +2353,20 @@ function backupsTab() {
       // sauvegardes de la veille : elles étaient intactes, mais sur un AUTRE site, et
       // rien à l'écran ne disait que cette liste ne montre qu'un seul domaine.
       h('p', { class: 'mt-0.5 text-xs text-ink-400' }, t('design.backups_hint', { domain: state.domain })),
+      // LA TRACE DU DERNIER GESTE, qui survit à la disparition de sa ligne. Depuis
+      // qu'une sauvegarde remise en place quitte la liste, la marque portée par sa
+      // ligne ne se voit plus : l'agent perdrait le souvenir de ce qu'il vient de faire.
+      state.lastRestore
+        ? h(
+            'p',
+            { class: 'mt-2 inline-flex items-center gap-1.5 rounded-lg bg-accent-50 px-2.5 py-1 text-xs text-accent-700' },
+            icon('check', 'size-3.5'),
+            t('design.backups_last_restore', {
+              when: fmtDate(state.lastRestore.at),
+              who: state.lastRestore.by || t('design.backup_by_unknown'),
+            }),
+          )
+        : null,
     ),
     h(
       'button',
@@ -2429,7 +2451,7 @@ function backupsTab() {
               'span',
               { class: 'badge mt-1 bg-accent-100 text-accent-700' },
               icon('check', 'size-3'),
-              t('design.backup_restored', { when: fmtDate(b.restored.at) }),
+              t('design.backup_restored', { when: fmtDate(b.restored.at), who: b.restored.by || t('design.backup_by_unknown') }),
             )
           : null,
       ),
@@ -2508,8 +2530,10 @@ async function loadBackups({ force = false } = {}) {
   if (state.tab === 'backups') render();
 
   try {
-    const { backups } = await api(`${base()}/backups`);
+    const { backups, lastRestore } = await api(`${base()}/backups`);
     state.backups = backups;
+    // La dernière remise en place survit à la disparition de sa ligne.
+    state.lastRestore = lastRestore ?? null;
   } catch (err) {
     toastError(err);
   }

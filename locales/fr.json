@@ -718,7 +718,7 @@
     "backup_kind_style": "Couleurs",
     "backup_kind_article": "Article",
     "backup_kind_htaccess": "Redirections",
-    "backup_restored": "Remise en place le {when}",
+    "backup_restored": "Remise en place le {when} par {who}",
     "backup_compare": "Comparer avant / après",
     "backup_compare_body": "À gauche, la sauvegarde de {file} faite le {when}. À droite, ce qui est en ligne aujourd’hui.",
     "backup_side_saved": "La sauvegarde — ce que vous récupérez",
@@ -749,7 +749,9 @@
     "backup_legend_after": "en vert, ce qui sera remplacé",
     "backup_sizes": "Sauvegarde {before} · en ligne {after}",
     "backup_domain": "Domaine",
-    "publish_nothing": "Rien n’a changé : aucune sauvegarde n’était nécessaire."
+    "publish_nothing": "Rien n’a changé : aucune sauvegarde n’était nécessaire.",
+    "backups_last_restore": "Dernière remise en place : le {when} par {who}",
+    "backup_by_unknown": "un compte supprimé"
   },
   "actions": {
     "title": "Actions",

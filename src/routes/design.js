@@ -157,9 +157,13 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
     // Ce qui a déjà été remis en place vient du journal d'audit : c'est la seule trace
     // qui survit à un redémarrage, et elle dit AUSSI qui l'a fait et quand.
     const faites = new Map();
+    let derniere = null;
     try {
+      // Les événements arrivent du plus récent au plus ancien : le premier est le bon.
       for (const e of queryEvents({ domain, action: 'design.restore', ok: true, perPage: 200 }).events) {
-        if (e.target && !faites.has(e.target)) faites.set(e.target, { at: e.at, by: e.user?.displayName || e.user?.username || null });
+        const qui = e.user?.displayName || e.user?.username || null;
+        if (!derniere) derniere = { at: e.at, by: qui, target: e.target ?? null };
+        if (e.target && !faites.has(e.target)) faites.set(e.target, { at: e.at, by: qui });
       }
     } catch (err) {
       // Ce catch protège la liste : sans journal, on préfère des sauvegardes non
@@ -168,7 +172,19 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
       // « remise en place » n'apparaissait donc jamais, et rien ne le disait.
       console.error(`[design] marquage des restaurations impossible pour ${domain} : ${err.message}`);
     }
-    res.json({ backups: backups.map((b) => ({ ...b, restored: faites.get(b.name) ?? null })) });
+
+    // LA DERNIÈRE REMISE EN PLACE, À PART.
+    //
+    // Depuis qu'une sauvegarde restaurée quitte la liste, la marque portée par sa ligne
+    // ne se voit plus : la ligne n'est plus là. L'agent perdrait donc la trace de son
+    // propre geste. Ce résumé la garde, avec qui l'a fait et quand, sans dépendre
+    // d'aucun rapprochement approximatif — il lit l'événement le plus récent, point.
+    const dernier = derniere ?? null;
+
+    res.json({
+      backups: backups.map((b) => ({ ...b, restored: faites.get(b.name) ?? null })),
+      lastRestore: dernier,
+    });
   });
 
   // Comparer avant de remettre en place : lecture seule, donc le droit de lire suffit.

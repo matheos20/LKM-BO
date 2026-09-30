@@ -718,7 +718,7 @@
     "backup_kind_style": "Farben",
     "backup_kind_article": "Artikel",
     "backup_kind_htaccess": "Weiterleitungen",
-    "backup_restored": "Zurückgespielt am {when}",
+    "backup_restored": "Zurückgespielt am {when} von {who}",
     "backup_compare": "Vorher / nachher vergleichen",
     "backup_compare_body": "Links die Sicherung von {file} vom {when}. Rechts, was heute online ist.",
     "backup_side_saved": "Die Sicherung — was Sie zurückbekommen",
@@ -749,7 +749,9 @@
     "backup_legend_after": "grün: was ersetzt wird",
     "backup_sizes": "Sicherung {before} · online {after}",
     "backup_domain": "Domain",
-    "publish_nothing": "Nichts hat sich geändert: eine Sicherung war nicht nötig."
+    "publish_nothing": "Nichts hat sich geändert: eine Sicherung war nicht nötig.",
+    "backups_last_restore": "Letztes Zurückspielen: am {when} von {who}",
+    "backup_by_unknown": "einem gelöschten Konto"
   },
   "actions": {
     "title": "Aktionen",

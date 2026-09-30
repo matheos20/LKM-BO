@@ -718,7 +718,7 @@
     "backup_kind_style": "Colours",
     "backup_kind_article": "Article",
     "backup_kind_htaccess": "Redirects",
-    "backup_restored": "Restored on {when}",
+    "backup_restored": "Restored on {when} by {who}",
     "backup_compare": "Compare before / after",
     "backup_compare_body": "On the left, the backup of {file} made on {when}. On the right, what is live today.",
     "backup_side_saved": "The backup — what you get back",
@@ -749,7 +749,9 @@
     "backup_legend_after": "in green, what will be replaced",
     "backup_sizes": "Backup {before} · live {after}",
     "backup_domain": "Domain",
-    "publish_nothing": "Nothing changed: no backup was needed."
+    "publish_nothing": "Nothing changed: no backup was needed.",
+    "backups_last_restore": "Last restore: {when} by {who}",
+    "backup_by_unknown": "a deleted account"
   },
   "actions": {
     "title": "Actions",

@@ -718,7 +718,7 @@
     "backup_kind_style": "Cores",
     "backup_kind_article": "Artigo",
     "backup_kind_htaccess": "Redireccionamentos",
-    "backup_restored": "Reposta a {when}",
+    "backup_restored": "Reposta a {when} por {who}",
     "backup_compare": "Comparar antes / depois",
     "backup_compare_body": "À esquerda, a cópia de {file} feita a {when}. À direita, o que está em linha hoje.",
     "backup_side_saved": "A cópia — o que recupera",
@@ -749,7 +749,9 @@
     "backup_legend_after": "a verde, o que será substituído",
     "backup_sizes": "Cópia {before} · em linha {after}",
     "backup_domain": "Domínio",
-    "publish_nothing": "Nada mudou: não era precisa nenhuma cópia."
+    "publish_nothing": "Nada mudou: não era precisa nenhuma cópia.",
+    "backups_last_restore": "Última reposição: a {when} por {who}",
+    "backup_by_unknown": "uma conta apagada"
   },
   "actions": {
     "title": "Ações",
