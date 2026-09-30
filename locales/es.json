@@ -708,7 +708,7 @@
     "mode_text_plain": "Este texto no contiene ninguna etiqueta: el código es idéntico a lo que lee.",
     "mode_text_wrapped": "El sitio añade {tag} alrededor de este texto: no lo vuelva a escribir, tendría la etiqueta dos veces.",
     "mode_text_wrapped_plain": "Este texto no tiene etiquetas propias. El sitio lo envuelve en {tag}, que usted no tiene que escribir.",
-    "backups_hint": "Se hace una copia antes de cada publicación, del sitio como de un artículo.",
+    "backups_hint": "Se hace una copia antes de cada publicación, del sitio como de un artículo. Permanece aquí mientras no la borre. Esta lista solo muestra {domain}.",
     "backups_empty_hint": "La primera aparecerá aquí en cuanto publique un cambio.",
     "backup_when": "Hecha el",
     "backup_kind": "Tipo",
@@ -737,7 +737,17 @@
     "article_delete_title": "¿Eliminar este artículo?",
     "article_delete_warning": "«{title}» se retirará del sitio. Se hace una copia antes: podrá volver a ponerlo desde la pestaña Copias. Su dirección pública responderá «página no encontrada».",
     "article_deleted": "«{title}» eliminado. Se ha guardado una copia.",
-    "backups_empty_locked": "Este dominio está bloqueado: no se puede publicar nada, por lo que no se puede crear ninguna copia. Desbloquéelo primero."
+    "backups_empty_locked": "Este dominio está bloqueado: no se puede publicar nada, por lo que no se puede crear ninguna copia. Desbloquéelo primero.",
+    "backup_changes": "{count} diferencia(s)",
+    "backup_changed_lines": "{count} línea(s) retocada(s)",
+    "backup_added_lines": "{count} línea(s) añadida(s)",
+    "backup_removed_lines": "{count} línea(s) quitada(s)",
+    "backup_fold": "{count} línea(s) idéntica(s) — pulse para verlas",
+    "backup_show_all": "Ver todo el archivo",
+    "backup_show_changes": "Ver solo las diferencias",
+    "backup_legend_before": "en rojo, lo que desaparecerá",
+    "backup_legend_after": "en verde, lo que será reemplazado",
+    "backup_sizes": "Copia {before} · en línea {after}"
   },
   "actions": {
     "title": "Acciones",

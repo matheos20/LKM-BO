@@ -708,7 +708,7 @@
     "mode_text_plain": "Este texto não contém nenhuma etiqueta: o código é igual ao que lê.",
     "mode_text_wrapped": "O site acrescenta {tag} à volta deste texto: não o volte a escrever, teria a etiqueta duas vezes.",
     "mode_text_wrapped_plain": "Este texto não tem etiquetas próprias. O site envolve-o em {tag}, que não tem de escrever.",
-    "backups_hint": "É feita uma cópia antes de cada publicação, do site como de um artigo.",
+    "backups_hint": "É feita uma cópia antes de cada publicação, do site como de um artigo. Fica aqui enquanto não a apagar. Esta lista só mostra {domain}.",
     "backups_empty_hint": "A primeira aparecerá aqui assim que publicar uma alteração.",
     "backup_when": "Feita a",
     "backup_kind": "Tipo",
@@ -737,7 +737,17 @@
     "article_delete_title": "Eliminar este artigo?",
     "article_delete_warning": "«{title}» será retirado do site. É feita uma cópia antes: poderá repô-lo a partir do separador Cópias. O seu endereço público responderá «página não encontrada».",
     "article_deleted": "«{title}» eliminado. Foi guardada uma cópia.",
-    "backups_empty_locked": "Este domínio está bloqueado: nada pode ser publicado, por isso nenhuma cópia pode ser criada. Desbloqueie-o primeiro."
+    "backups_empty_locked": "Este domínio está bloqueado: nada pode ser publicado, por isso nenhuma cópia pode ser criada. Desbloqueie-o primeiro.",
+    "backup_changes": "{count} diferença(s)",
+    "backup_changed_lines": "{count} linha(s) alterada(s)",
+    "backup_added_lines": "{count} linha(s) acrescentada(s)",
+    "backup_removed_lines": "{count} linha(s) retirada(s)",
+    "backup_fold": "{count} linha(s) idêntica(s) — clique para as ver",
+    "backup_show_all": "Ver o ficheiro todo",
+    "backup_show_changes": "Ver só as diferenças",
+    "backup_legend_before": "a vermelho, o que vai desaparecer",
+    "backup_legend_after": "a verde, o que será substituído",
+    "backup_sizes": "Cópia {before} · em linha {after}"
   },
   "actions": {
     "title": "Ações",

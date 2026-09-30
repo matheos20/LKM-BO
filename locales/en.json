@@ -708,7 +708,7 @@
     "mode_text_plain": "This text has no tags: the code is identical to what you read.",
     "mode_text_wrapped": "The site adds {tag} around this text: do not retype it, you would get the tag twice.",
     "mode_text_wrapped_plain": "This text has no tags of its own. The site wraps it in {tag}, which you do not have to write.",
-    "backups_hint": "A copy is made before every publish, of the site as of an article.",
+    "backups_hint": "A copy is made before every publish, of the site as of an article. It stays here until you delete it. This list only shows {domain}.",
     "backups_empty_hint": "The first one will appear here as soon as you publish a change.",
     "backup_when": "Made on",
     "backup_kind": "Type",
@@ -737,7 +737,17 @@
     "article_delete_title": "Delete this article?",
     "article_delete_warning": "\"{title}\" will be taken off the site. A backup is made first: you can put it back from the Backups tab. Its public address will answer \"page not found\".",
     "article_deleted": "\"{title}\" deleted. A backup was kept.",
-    "backups_empty_locked": "This domain is locked: nothing can be published, so no backup can be created. Unlock it first."
+    "backups_empty_locked": "This domain is locked: nothing can be published, so no backup can be created. Unlock it first.",
+    "backup_changes": "{count} difference(s)",
+    "backup_changed_lines": "{count} line(s) edited",
+    "backup_added_lines": "{count} line(s) added",
+    "backup_removed_lines": "{count} line(s) removed",
+    "backup_fold": "{count} identical line(s) — click to show",
+    "backup_show_all": "Show the whole file",
+    "backup_show_changes": "Show only the differences",
+    "backup_legend_before": "in red, what will go away",
+    "backup_legend_after": "in green, what will be replaced",
+    "backup_sizes": "Backup {before} · live {after}"
   },
   "actions": {
     "title": "Actions",

@@ -708,7 +708,7 @@
     "mode_text_plain": "Questo testo non contiene alcun tag: il codice è identico a ciò che leggi.",
     "mode_text_wrapped": "Il sito aggiunge {tag} attorno a questo testo: non riscriverlo, avresti il tag due volte.",
     "mode_text_wrapped_plain": "Questo testo non ha tag propri. Il sito lo racchiude in {tag}, che non devi scrivere.",
-    "backups_hint": "Una copia è fatta prima di ogni pubblicazione, del sito come di un articolo.",
+    "backups_hint": "Una copia è fatta prima di ogni pubblicazione, del sito come di un articolo. Resta qui finché non la elimini. Questo elenco mostra solo {domain}.",
     "backups_empty_hint": "Il primo comparirà qui non appena pubblicherai una modifica.",
     "backup_when": "Fatto il",
     "backup_kind": "Tipo",
@@ -737,7 +737,17 @@
     "article_delete_title": "Eliminare questo articolo?",
     "article_delete_warning": "«{title}» sarà tolto dal sito. Un salvataggio è fatto prima: potrai rimetterlo dalla scheda Salvataggi. Il suo indirizzo pubblico risponderà «pagina non trovata».",
     "article_deleted": "«{title}» eliminato. Un salvataggio è stato conservato.",
-    "backups_empty_locked": "Questo dominio è bloccato: non si può pubblicare nulla, quindi nessun salvataggio può essere creato. Sbloccalo prima."
+    "backups_empty_locked": "Questo dominio è bloccato: non si può pubblicare nulla, quindi nessun salvataggio può essere creato. Sbloccalo prima.",
+    "backup_changes": "{count} differenza/e",
+    "backup_changed_lines": "{count} riga/righe modificata/e",
+    "backup_added_lines": "{count} riga/righe aggiunta/e",
+    "backup_removed_lines": "{count} riga/righe tolta/e",
+    "backup_fold": "{count} riga/righe identica/che — clicca per vederle",
+    "backup_show_all": "Vedere tutto il file",
+    "backup_show_changes": "Vedere solo le differenze",
+    "backup_legend_before": "in rosso, ciò che sparirà",
+    "backup_legend_after": "in verde, ciò che sarà sostituito",
+    "backup_sizes": "Salvataggio {before} · in linea {after}"
   },
   "actions": {
     "title": "Azioni",

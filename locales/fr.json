@@ -708,7 +708,7 @@
     "mode_text_plain": "Ce texte ne contient aucune balise : le code est identique à ce que vous lisez.",
     "mode_text_wrapped": "Le site ajoute {tag} autour de ce texte : ne le retapez pas, vous auriez la balise deux fois.",
     "mode_text_wrapped_plain": "Ce texte n’a aucune balise à lui. Le site l’entoure de {tag}, que vous n’avez pas à écrire.",
-    "backups_hint": "Une copie est faite avant chaque publication, du site comme d’un article.",
+    "backups_hint": "Une copie est faite avant chaque publication, du site comme d’un article. Elle reste ici tant que vous ne l’effacez pas. Cette liste ne montre que {domain}.",
     "backups_empty_hint": "La première apparaîtra ici dès que vous publierez une modification.",
     "backup_when": "Fait le",
     "backup_kind": "Type",
@@ -737,7 +737,17 @@
     "article_delete_title": "Supprimer cet article ?",
     "article_delete_warning": "« {title} » sera retiré du site. Une sauvegarde est prise avant : vous pourrez le remettre en place depuis l’onglet Sauvegardes. Son adresse publique, elle, répondra « page introuvable ».",
     "article_deleted": "« {title} » supprimé. Une sauvegarde a été gardée.",
-    "backups_empty_locked": "Ce domaine est verrouillé : aucune publication n’est possible, donc aucune sauvegarde ne peut être créée. Déverrouillez-le d’abord."
+    "backups_empty_locked": "Ce domaine est verrouillé : aucune publication n’est possible, donc aucune sauvegarde ne peut être créée. Déverrouillez-le d’abord.",
+    "backup_changes": "{count} passage(s) différent(s)",
+    "backup_changed_lines": "{count} ligne(s) retouchée(s)",
+    "backup_added_lines": "{count} ligne(s) ajoutée(s)",
+    "backup_removed_lines": "{count} ligne(s) retirée(s)",
+    "backup_fold": "{count} ligne(s) identique(s) — cliquez pour les voir",
+    "backup_show_all": "Voir tout le fichier",
+    "backup_show_changes": "Ne voir que les différences",
+    "backup_legend_before": "en rouge, ce qui disparaîtra",
+    "backup_legend_after": "en vert, ce qui sera remplacé",
+    "backup_sizes": "Sauvegarde {before} · en ligne {after}"
   },
   "actions": {
     "title": "Actions",

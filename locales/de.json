@@ -708,7 +708,7 @@
     "mode_text_plain": "Dieser Text enthält keine Tags: der Code ist identisch mit dem, was Sie lesen.",
     "mode_text_wrapped": "Die Website setzt {tag} um diesen Text: nicht erneut eingeben, sonst steht das Tag doppelt.",
     "mode_text_wrapped_plain": "Dieser Text hat keine eigenen Tags. Die Website umschließt ihn mit {tag}, das Sie nicht schreiben müssen.",
-    "backups_hint": "Vor jeder Veröffentlichung wird eine Kopie angelegt, von der Website wie von einem Artikel.",
+    "backups_hint": "Vor jeder Veröffentlichung wird eine Kopie angelegt, von der Website wie von einem Artikel. Sie bleibt hier, bis Sie sie löschen. Diese Liste zeigt nur {domain}.",
     "backups_empty_hint": "Die erste erscheint hier, sobald Sie eine Änderung veröffentlichen.",
     "backup_when": "Erstellt am",
     "backup_kind": "Art",
@@ -737,7 +737,17 @@
     "article_delete_title": "Diesen Artikel löschen?",
     "article_delete_warning": "„{title}“ wird von der Website genommen. Vorher wird eine Sicherung angelegt: Sie können ihn im Reiter Sicherungen zurückholen. Seine öffentliche Adresse antwortet dann „Seite nicht gefunden“.",
     "article_deleted": "„{title}“ gelöscht. Eine Sicherung wurde behalten.",
-    "backups_empty_locked": "Diese Domain ist gesperrt: es kann nichts veröffentlicht werden, also kann auch keine Sicherung entstehen. Entsperren Sie sie zuerst."
+    "backups_empty_locked": "Diese Domain ist gesperrt: es kann nichts veröffentlicht werden, also kann auch keine Sicherung entstehen. Entsperren Sie sie zuerst.",
+    "backup_changes": "{count} Unterschied(e)",
+    "backup_changed_lines": "{count} Zeile(n) geändert",
+    "backup_added_lines": "{count} Zeile(n) hinzugefügt",
+    "backup_removed_lines": "{count} Zeile(n) entfernt",
+    "backup_fold": "{count} gleiche Zeile(n) — zum Anzeigen klicken",
+    "backup_show_all": "Ganze Datei anzeigen",
+    "backup_show_changes": "Nur die Unterschiede anzeigen",
+    "backup_legend_before": "rot: was verschwindet",
+    "backup_legend_after": "grün: was ersetzt wird",
+    "backup_sizes": "Sicherung {before} · online {after}"
   },
   "actions": {
     "title": "Aktionen",

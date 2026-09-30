@@ -15,6 +15,22 @@ import { shq } from '../ssh/shell.js';
  */
 
 export const BACKUP_DIR = '.lkm-backups';
+
+/**
+ * Combien de sauvegardes on garde par fichier.
+ *
+ * L'agent s'est inquiété de voir « beaucoup de sauvegardes hier, plus rien aujourd'hui ».
+ * Rien n'avait été effacé — il regardait un autre site — mais le plafond d'alors, dix,
+ * promettait bel et bien cette perte un jour, et sans prévenir.
+ *
+ * Mesure du parc au 30/09/2026 : 27 sites ont des sauvegardes, 87 fichiers, 0,48 Mo en
+ * tout ; le site le plus travaillé en a six, après onze publications dans la journée.
+ * Une sauvegarde pèse 5,8 Ko en moyenne. À cent par fichier, le parc entier tiendrait
+ * dans une quinzaine de gigaoctets même si CHACUN des 28 177 sites atteignait le
+ * plafond — ce qui, au rythme observé, n'arrivera pas. Le plafond n'est donc plus là
+ * pour faire de la place, mais pour empêcher un emballement.
+ */
+export const BACKUP_KEEP = Math.max(1, Number(process.env.BACKUP_KEEP ?? 100) || 100);
 const RENDER_ROOT = '/tmp/lkm-render';
 
 /** Fichiers du moteur recopiés dans le dossier de rendu temporaire. */
@@ -100,7 +116,7 @@ export const renderTmpPath = (token) => `${RENDER_ROOT}-${token}`;
  * Publication : sauvegarde horodatée, contrôle de syntaxe, puis écriture sur place
  * (l'écriture par `cat >` conserve propriétaire, droits et ACL du fichier d'origine).
  */
-export function publishCommand(docroot, { styleB64 = '', expectMd5 = '' } = {}) {
+export function publishCommand(docroot, { styleB64 = '', expectMd5 = '', keep = BACKUP_KEEP } = {}) {
   return [
     `DOC=${shq(docroot)}`,
     `BK="$DOC/${BACKUP_DIR}"`,
@@ -120,13 +136,14 @@ export function publishCommand(docroot, { styleB64 = '', expectMd5 = '' } = {}) 
     styleB64
       ? `printf '%s' ${shq(styleB64)} | base64 -d > "$BK/.new-style.css" && cat "$BK/.new-style.css" > "$DOC/style.css" && rm -f "$BK/.new-style.css" || exit 85`
       : '',
-    // On ne conserve que les dix dernières sauvegardes de chaque type.
+    // Au-delà du plafond, les plus anciennes s'effacent. Voir BACKUP_KEEP : il est assez
+    // haut pour que l'usage normal ne le rencontre jamais.
     //
     // Le tri se fait sur le NOM, pas sur la date du fichier : « cp -a » conserve celle
     // de l'original, si bien qu'un « ls -t » classerait les sauvegardes par l'âge de
     // leur CONTENU. L'horodatage du nom, lui, se trie tout seul dans l'ordre.
-    `ls -1 "$BK"/config-*.php 2>/dev/null | sort -r | tail -n +11 | xargs -r rm -f`,
-    `ls -1 "$BK"/style-*.css 2>/dev/null | sort -r | tail -n +11 | xargs -r rm -f`,
+    `ls -1 "$BK"/config-*.php 2>/dev/null | sort -r | tail -n +${keep + 1} | xargs -r rm -f`,
+    `ls -1 "$BK"/style-*.css 2>/dev/null | sort -r | tail -n +${keep + 1} | xargs -r rm -f`,
     `echo "$STAMP"`,
   ]
     .filter(Boolean)
@@ -161,7 +178,7 @@ export function deleteArticleCommand(docroot, rel) {
 }
 
 /** Écriture d'un article : sauvegarde, contrôle de syntaxe, écriture sur place. */
-export function writeArticleCommand(docroot, rel, { expectMd5 = '' } = {}) {
+export function writeArticleCommand(docroot, rel, { expectMd5 = '', keep = BACKUP_KEEP } = {}) {
   return [
     `DOC=${shq(docroot)}`,
     `REL=${shq(rel)}`,
@@ -177,7 +194,11 @@ export function writeArticleCommand(docroot, rel, { expectMd5 = '' } = {}) {
     `php -l "$TMP" > /dev/null || { rm -f "$TMP"; exit 83; }`,
     `cat "$TMP" > "$F" || exit 84`,
     `rm -f "$TMP"`,
-    `ls -1t "$BK/$REL".* 2>/dev/null | tail -n +6 | xargs -r rm -f`,
+    // « ls -1 | sort -r » et NON « ls -1t » : le tri par date de fichier se trompe,
+    // parce que « cp -a » donne a la copie la date du contenu d'origine. Un article
+    // vieux de six mois, sauvegarde ce matin, passait alors pour la plus ancienne
+    // version et s'effacait avant les autres. L'horodatage du nom, lui, ne ment pas.
+    `ls -1 "$BK/$REL".* 2>/dev/null | sort -r | tail -n +${keep + 1} | xargs -r rm -f`,
     `echo "$STAMP"`,
   ]
     .filter(Boolean)

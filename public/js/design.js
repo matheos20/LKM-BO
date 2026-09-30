@@ -1,5 +1,6 @@
 import { ApiError, api } from './api.js';
 import { colorTool, normalizeColor } from './colors.js';
+import { diffLines, diffWords, groupHunks, summarize } from './diff.js';
 import { layoutLabel, wireframe } from './blocks.js';
 import { getLang, t } from './i18n.js';
 import { $, closeModal, enc, fmtDate, fmtSize, formError, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
@@ -2340,7 +2341,10 @@ function backupsTab() {
       'div',
       { class: 'min-w-0 flex-1' },
       h('h2', { class: 'text-sm font-semibold text-ink-600' }, t('design.backups_title')),
-      h('p', { class: 'mt-0.5 text-xs text-ink-400' }, t('design.backups_hint')),
+      // LE DOMAINE EST NOMMÉ ICI, et c'est le but. L'agent a cru avoir perdu les
+      // sauvegardes de la veille : elles étaient intactes, mais sur un AUTRE site, et
+      // rien à l'écran ne disait que cette liste ne montre qu'un seul domaine.
+      h('p', { class: 'mt-0.5 text-xs text-ink-400' }, t('design.backups_hint', { domain: state.domain })),
     ),
     h(
       'button',
@@ -2508,11 +2512,15 @@ async function loadBackups({ force = false } = {}) {
 }
 
 /**
- * La fenêtre « avant / après ».
+ * Comparatif avant / après.
  *
- * Restaurer écrase le fichier en place : l'agent doit voir ce qu'il va récupérer ET ce
- * qu'il va perdre, côte à côte, avant de décider. Les deux versions sont lues sur le
- * serveur ; rien n'est écrit tant que le bouton n'est pas cliqué.
+ * L'écran montrait deux colonnes de texte brut : pour trouver le mot modifié au milieu
+ * de quatre kilo-octets de PHP, l'agent devait lire les deux côtés en parallèle. Il
+ * entourait les passages au crayon sur sa capture d'écran — c'était le signe que le
+ * travail de comparaison lui restait sur les bras.
+ *
+ * Désormais l'écran le fait : ce qui change est surligné jusqu'au MOT près, le reste
+ * est replié, et un bandeau annonce combien de passages diffèrent.
  */
 async function openCompare(backup) {
   let vue;
@@ -2522,23 +2530,106 @@ async function openCompare(backup) {
     return toastError(err);
   }
 
-  const identiques = vue.backup === vue.current;
-  const colonne = (titre, contenu, accent) =>
+  const lignes = diffLines(vue.backup, vue.current);
+  const compte = summarize(lignes);
+  const identiques = compte.total === 0;
+  // Par défaut on ne montre QUE ce qui change : c'est la question posée.
+  let replie = true;
+  const corps = h('div', { class: 'overflow-hidden rounded-lg border border-ink-200' });
+
+  // Une moitié de ligne, avec son numéro et, si la ligne a été retouchée, le mot changé
+  // surligné à l'intérieur.
+  const demi = (l, cote) => {
+    const texte = cote === 'a' ? l.a : l.b;
+    const absente = texte == null;
+    const numero = cote === 'a' ? l.ia : l.ib;
+    const fond = absente
+      ? 'bg-ink-50/60'
+      : l.type === 'same'
+        ? 'bg-white'
+        : cote === 'a'
+          ? 'bg-red-50'
+          : 'bg-accent-50';
+
+    let contenu = texte ?? '';
+    if (l.type === 'chg') {
+      const garde = cote === 'a' ? 'del' : 'add';
+      contenu = diffWords(l.a, l.b)
+        .filter((p) => p.type === 'same' || p.type === garde)
+        .map((p) => (p.type === 'same'
+          ? p.text
+          : h('mark', { class: `rounded px-0.5 ${cote === 'a' ? 'bg-red-200 text-red-900' : 'bg-accent-200 text-ink-800'}` }, p.text)));
+    }
+
+    return h(
+      'div',
+      { class: `flex gap-2 px-2 py-0.5 ${fond}` },
+      h('span', { class: 'w-8 shrink-0 text-right text-[10px] leading-5 text-ink-300 select-none tabular-nums' }, absente ? '' : String(numero + 1)),
+      h('span', { class: 'min-w-0 flex-1 font-mono text-[11px] leading-5 break-words whitespace-pre-wrap' }, ...[contenu].flat()),
+    );
+  };
+
+  const rangee = (l) => h('div', { class: 'grid grid-cols-2 divide-x divide-ink-100 border-b border-ink-50 last:border-b-0' }, demi(l, 'a'), demi(l, 'b'));
+
+  /** Une plage inchangée : on dit combien de lignes on replie, et on peut l'ouvrir. */
+  const pliure = (bloc) => {
+    const bande = h(
+      'button',
+      { type: 'button', class: 'flex w-full items-center justify-center gap-1.5 border-b border-ink-100 bg-ink-50 px-3 py-1 text-[11px] text-ink-400 transition hover:bg-ink-100 hover:text-ink-600' },
+      icon('expand', 'size-3'),
+      t('design.backup_fold', { count: bloc.count }),
+    );
+    bande.addEventListener('click', () => {
+      const ouvert = h('div', {});
+      for (const l of lignes.slice(bloc.start, bloc.start + bloc.count)) ouvert.append(rangee(l));
+      bande.replaceWith(ouvert);
+    });
+    return bande;
+  };
+
+  const peindre = () => {
+    const blocs = replie ? groupHunks(lignes, 3) : [{ kind: 'hunk', lines: lignes, start: 0 }];
+    const enfants = [];
+    for (const bloc of blocs) {
+      if (bloc.kind === 'fold') enfants.push(pliure(bloc));
+      else for (const l of bloc.lines) enfants.push(rangee(l));
+    }
+    corps.replaceChildren(...enfants);
+  };
+  peindre();
+
+  const bascule = h(
+    'button',
+    { type: 'button', class: 'btn btn-outline px-3 py-1 text-xs', disabled: identiques },
+    icon('eye', 'size-3.5'),
+    t('design.backup_show_all'),
+  );
+  bascule.addEventListener('click', () => {
+    replie = !replie;
+    bascule.replaceChildren(icon('eye', 'size-3.5'), t(replie ? 'design.backup_show_all' : 'design.backup_show_changes'));
+    peindre();
+  });
+
+  const pastille = (classe, texte) => h('span', { class: `badge ${classe}` }, texte);
+  const resume = h(
+    'div',
+    { class: 'flex flex-wrap items-center gap-2' },
+    identiques
+      ? pastille('bg-ink-100 text-ink-600', t('design.backup_same'))
+      : pastille('bg-ink-800 text-white', t('design.backup_changes', { count: compte.total })),
+    compte.changed ? pastille('bg-amber-100 text-amber-800', t('design.backup_changed_lines', { count: compte.changed })) : null,
+    compte.added ? pastille('bg-accent-100 text-accent-700', t('design.backup_added_lines', { count: compte.added })) : null,
+    compte.removed ? pastille('bg-red-100 text-red-700', t('design.backup_removed_lines', { count: compte.removed })) : null,
+    h('span', { class: 'flex-1' }),
+    bascule,
+  );
+
+  const entete = (titre, accent, aide) =>
     h(
       'div',
-      { class: 'min-w-0 flex-1' },
-      h(
-        'p',
-        { class: `mb-1 flex items-center gap-1.5 text-xs font-semibold ${accent}` },
-        icon(accent.includes('accent') ? 'archive' : 'globe', 'size-3.5'),
-        titre,
-      ),
-      h(
-        'pre',
-        { class: 'max-h-[45vh] overflow-auto rounded-lg border border-ink-200 bg-ink-50 p-3 font-mono text-[11px] leading-5 whitespace-pre-wrap' },
-        contenu || t('design.backup_empty_side'),
-      ),
-      h('p', { class: 'mt-1 text-[11px] text-ink-400' }, fmtSize(contenu.length)),
+      { class: 'px-2 py-1.5' },
+      h('p', { class: `flex items-center gap-1.5 text-xs font-semibold ${accent}` }, icon(accent.includes('red') ? 'archive' : 'globe', 'size-3.5'), titre),
+      h('p', { class: 'mt-0.5 text-[10px] text-ink-400' }, aide),
     );
 
   const bouton = h(
@@ -2560,18 +2651,20 @@ async function openCompare(backup) {
       h(
         'div',
         { class: 'space-y-3 px-6 py-5' },
-        h(
-          'p',
-          { class: 'text-sm text-ink-500' },
-          t('design.backup_compare_body', { file: vue.label, when: fmtDate(backup.at ?? backup.mtime) }),
-        ),
-        identiques ? h('p', { class: 'rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600' }, t('design.backup_same')) : null,
+        h('p', { class: 'text-sm text-ink-500' }, t('design.backup_compare_body', { file: vue.label, when: fmtDate(backup.at ?? backup.mtime) })),
+        resume,
         h(
           'div',
-          { class: 'flex flex-col gap-4 lg:flex-row' },
-          colonne(t('design.backup_side_saved'), vue.backup, 'text-accent-700'),
-          colonne(t('design.backup_side_live'), vue.current, 'text-ink-600'),
+          { class: 'overflow-hidden rounded-lg border border-ink-200' },
+          h(
+            'div',
+            { class: 'grid grid-cols-2 divide-x divide-ink-200 border-b border-ink-200 bg-ink-50' },
+            entete(t('design.backup_side_saved'), 'text-red-700', t('design.backup_legend_before')),
+            entete(t('design.backup_side_live'), 'text-accent-700', t('design.backup_legend_after')),
+          ),
+          h('div', { class: 'max-h-[52vh] overflow-auto bg-white' }, corps),
         ),
+        h('p', { class: 'text-[11px] text-ink-400' }, t('design.backup_sizes', { before: fmtSize(vue.backup.length), after: fmtSize(vue.current.length) })),
       ),
       h(
         'div',
@@ -2583,7 +2676,6 @@ async function openCompare(backup) {
     'max-w-5xl',
   );
 }
-
 /** Effacer une sauvegarde est sans retour : on le dit, et on nomme ce qui part. */
 const confirmDeleteBackup = (backup) =>
   confirmDialog({
