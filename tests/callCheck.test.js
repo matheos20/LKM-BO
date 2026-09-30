@@ -1,21 +1,51 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { checkFile, stripLiterals } from '../src/dev/callCheck.js';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
-const JS_NAVIGATEUR = join(RACINE, 'public/js');
 
-test('aucun module du navigateur n’appelle une fonction ni déclarée ni importée', () => {
-  const fautifs = [];
-  for (const nom of readdirSync(JS_NAVIGATEUR).filter((f) => f.endsWith('.js')).sort()) {
-    for (const { name, count, line } of checkFile(readFileSync(join(JS_NAVIGATEUR, nom), 'utf8'))) {
-      fautifs.push(`${nom}:${line} — ${name}() appelé ${count}× : ni déclaré ni importé`);
-    }
+/** Tous les .js d'un dossier, en descendant. */
+function fichiers(dossier, prefixe = '') {
+  const out = [];
+  for (const e of readdirSync(dossier)) {
+    const p = join(dossier, e);
+    if (statSync(p).isDirectory()) out.push(...fichiers(p, `${prefixe}${e}/`));
+    else if (e.endsWith('.js')) out.push([`${prefixe}${e}`, p]);
   }
-  assert.deepEqual(fautifs, [], `\n${fautifs.join('\n')}\n`);
+  return out.sort((x, y) => x[0].localeCompare(y[0]));
+}
+
+// LE NAVIGATEUR ET LE SERVEUR. Le serveur a été ajouté après coup, et pour cause :
+// « queryEvents » y était appelé sans figurer aux imports de src/routes/design.js, et un
+// « catch » vide avalait la ReferenceError. La marque « remise en place » n'apparaissait
+// donc jamais dans la liste des sauvegardes, et rien, nulle part, ne le disait.
+for (const coin of ['public/js', 'src']) {
+  test(`aucun module de ${coin} n’appelle une fonction ni déclarée ni importée`, () => {
+    const fautifs = [];
+    for (const [nom, chemin] of fichiers(join(RACINE, coin))) {
+      for (const { name, count, line } of checkFile(readFileSync(chemin, 'utf8'))) {
+        fautifs.push(`${coin}/${nom}:${line} — ${name}() appelé ${count}× : ni déclaré ni importé`);
+      }
+    }
+    assert.deepEqual(fautifs, [], `\n${fautifs.join('\n')}\n`);
+  });
+}
+
+test('le garde-fou refuse de conclure si le nettoyage a perdu le fil', () => {
+  // Un fichier fait surtout de chaînes — scripts PHP, commandes shell — est légitime et
+  // doit être contrôlé quand même : c'est l'équilibre des accolades qui dit si le
+  // balayage a gardé le fil, pas la quantité de code restante.
+  assert.deepEqual(checkFile('export const CMD = `ls -1 "$BK" | sort -r`;\n'), []);
+  // Un accent grave non refermé fait perdre le fil : on doit lever, pas se taire.
+  assert.throws(() => checkFile('const a = `ouvert sans fin;\nfunction f() { return 1; }\n'), /déraillé/);
+});
+
+test('une méthode privée n’est pas prise pour un appel inconnu', () => {
+  // « this.#run() » se lit par le point, mais « #run() » dans sa déclaration, non.
+  assert.deepEqual(checkFile('class A {\n  #run(x) { return x; }\n  go() { return this.#run(1); }\n}\n'), []);
 });
 
 test('le contrôle voit bien un import manquant', () => {

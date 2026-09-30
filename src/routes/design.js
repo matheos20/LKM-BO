@@ -2,6 +2,7 @@ import express, { Router } from 'express';
 import { requireConnection, requirePermission, requireServerAccess } from '../middleware/index.js';
 import { PRESETS, SECTION_FAMILIES, SITE_LANGS } from '../services/siteCatalog.js';
 import { deletePhrase, listPhrases, savePhrase } from '../db/phrases.js';
+import { queryEvents } from '../db/audit.js';
 
 /**
  * Éditeur de design et de contenu, monté sous
@@ -160,7 +161,13 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
       for (const e of queryEvents({ domain, action: 'design.restore', ok: true, perPage: 200 }).events) {
         if (e.target && !faites.has(e.target)) faites.set(e.target, { at: e.at, by: e.user?.displayName || e.user?.username || null });
       }
-    } catch {}
+    } catch (err) {
+      // Ce catch protège la liste : sans journal, on préfère des sauvegardes non
+      // marquées à un écran en erreur. Mais il ne doit RIEN avaler en silence. Il a
+      // masqué pendant deux jours un « queryEvents » jamais importé : la marque
+      // « remise en place » n'apparaissait donc jamais, et rien ne le disait.
+      console.error(`[design] marquage des restaurations impossible pour ${domain} : ${err.message}`);
+    }
     res.json({ backups: backups.map((b) => ({ ...b, restored: faites.get(b.name) ?? null })) });
   });
 

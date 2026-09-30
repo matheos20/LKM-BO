@@ -27,7 +27,7 @@ const GLOBALS = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'typ
  * 90 % du code : tout passait alors pour propre. D'où ce balayage caractère par
  * caractère, et le garde-fou de `checkFile`.
  */
-export function stripLiterals(source) {
+export function scanSource(source) {
   // « split('') » et non « Array.from » : celui-ci découpe par POINTS DE CODE, alors que
   // les indices ci-dessous parcourent la chaîne en unités UTF-16. Un seul emoji dans le
   // fichier — il y en a un — décalait d'un cran tout ce qui suit, et le nettoyage rognait
@@ -43,6 +43,11 @@ export function stripLiterals(source) {
     return j >= 0 && /[\w$)\]]/.test(source[j]);
   };
 
+  // Ce qui est entre en cours de route et n'a jamais ete referme. C'est LE symptome
+  // d'un balayage qui a perdu le fil : compter les accolades ne suffit pas, car avaler
+  // tout le reste du fichier les laisse trivialement equilibrees a zero.
+  let ouvert = null;
+
   // Profondeur d'accolades de chaque « ${ … } » ouvert : on y revient à sa fermeture.
   const templates = [];
   // Avance dans un gabarit jusqu'à sa fin, ou jusqu'au prochain « ${ » qui rend la
@@ -56,6 +61,7 @@ export function stripLiterals(source) {
       blank(i);
       i += 1;
     }
+    ouvert = 'gabarit';
     return i;
   };
 
@@ -66,6 +72,7 @@ export function stripLiterals(source) {
     if (c === '/' && source[i + 1] === '*') {
       blank(i++); blank(i++);
       while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) blank(i++);
+      if (i >= source.length) ouvert = 'commentaire de bloc';
       blank(i++); blank(i++);
       continue;
     }
@@ -76,6 +83,7 @@ export function stripLiterals(source) {
         if (source[i] === '\\') blank(i++);
         if (i < source.length) blank(i++);
       }
+      if (i >= source.length) ouvert = 'chaîne';
       blank(i++);
       continue;
     }
@@ -103,8 +111,12 @@ export function stripLiterals(source) {
     }
     i += 1;
   }
-  return out.join('');
+  if (templates.length) ouvert = 'expression de gabarit';
+  return { code: out.join(''), ouvert };
 }
+
+/** Le code seul, chaines neutralisees. Raccourci de `scanSource`. */
+export const stripLiterals = (source) => scanSource(source).code;
 
 /** Tous les noms qu'un fichier peut appeler : importés, déclarés, reçus en paramètre. */
 function knownNames(source, code) {
@@ -141,13 +153,40 @@ function knownNames(source, code) {
  * qu'un contrôle qui se tait à tort.
  */
 export function checkFile(source) {
-  const code = stripLiterals(source);
-  const kept = code.replace(/\s/g, '').length / Math.max(1, source.replace(/\s/g, '').length);
-  if (kept < 0.3) throw new Error(`nettoyage des chaînes déraillé : ${Math.round(kept * 100)} % du code restant`);
+  const { code, ouvert } = scanSource(source);
 
-  const known = knownNames(source, code);
+  // GARDE-FOU : le balayage a-t-il gardé le fil ?
+  //
+  // Un premier jet comparait la quantité de code restante à l'originale et refusait de
+  // conclure en dessous de 30 %. Mauvais critère : `phpScripts.js` et `siteDriver.js`
+  // sont faits presque entièrement de chaînes — des scripts PHP et des commandes shell —
+  // et tombent légitimement à 1 % et 21 %. Ils échappaient donc au contrôle.
+  //
+  // Deux signes valent mieux. Un littéral jamais refermé dit que le balayage s'est perdu
+  // et a tout avalé jusqu'au bout — et cet avalement-là laisse justement les accolades
+  // équilibrées à zéro, donc le second signe ne suffirait pas. Un déséquilibre, lui,
+  // trahit un avalement partiel : un fichier qui compile a ses paires complètes.
+  if (ouvert) throw new Error(`nettoyage des chaînes déraillé : ${ouvert} jamais refermé`);
+  for (const [ouvre, ferme, nom] of [['{', '}', 'accolades'], ['(', ')', 'parenthèses'], ['[', ']', 'crochets']]) {
+    const a = code.split(ouvre).length - 1;
+    const b = code.split(ferme).length - 1;
+    if (a !== b) throw new Error(`nettoyage des chaînes déraillé : ${a} ${ouvre} pour ${b} ${ferme} (${nom})`);
+  }
+
+  // LES ESPACES SONT COMPACTÉS AVANT L'ANALYSE, les retours à la ligne conservés.
+  // Neutraliser une chaîne laisse sa place en blancs : `phpScripts.js`, qui est fait de
+  // scripts PHP, devenait 69 Ko d'espaces. Les motifs ci-dessous enchaînent des « \s* »,
+  // et sur de telles étendues leur retour arrière explose — ce seul fichier coûtait
+  // cent douze secondes. Compacté, l'ensemble du dépôt tient en moins d'une seconde, et
+  // aucun nom détecté ne change.
+  const dense = code.replace(/[^\S\n]+/g, ' ');
+
+  const known = knownNames(source, dense);
   const counts = new Map();
-  for (const m of code.matchAll(/(^|[^.\w$])([a-zA-Z_$][\w$]*)\s*\(/g)) {
+  // « [^.\w$#] » : le dièse exclut les méthodes privées d'une classe. « this.#run() »
+  // se lit déjà par le point, mais « #run() » dans sa propre déclaration, non — et le
+  // contrôle criait alors au nom inconnu sur du code parfaitement sain.
+  for (const m of dense.matchAll(/(^|[^.\w$#])([a-zA-Z_$][\w$]*)\s*\(/g)) {
     const name = m[2];
     if (!known.has(name)) counts.set(name, (counts.get(name) ?? 0) + 1);
   }
