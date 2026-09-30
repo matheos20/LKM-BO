@@ -267,6 +267,27 @@ const sameConfig = (a, b) => JSON.stringify(normalize(a)) === JSON.stringify(nor
 const sameStyle = sameConfig;
 
 /**
+ * Rend aux couleurs inchangées l'écriture qu'elles avaient dans le fichier.
+ *
+ * La validation met les hexadécimaux en minuscules — « #0047AB » devient « #0047ab ».
+ * C'est la même couleur, mais un fichier différent : la première publication d'un site
+ * réécrivait donc style.css en entier et créait une sauvegarde « Couleurs » alors que
+ * personne n'avait touché à la charte. Une couleur réellement modifiée, elle, garde la
+ * forme normalisée.
+ *
+ * Exporté pour être éprouvé seul.
+ */
+export function keepColorCase(valide, origine = {}) {
+  return Object.fromEntries(
+    Object.entries(valide ?? {}).map(([cle, valeur]) => {
+      const avant = origine?.[cle];
+      const memeCouleur = typeof avant === 'string' && typeof valeur === 'string' && avant.toLowerCase() === valeur.toLowerCase();
+      return [cle, memeCouleur ? avant : valeur];
+    }),
+  );
+}
+
+/**
  * Éditeur de design et de contenu d'un site du parc.
  *
  * Trois garanties tenues par ce service :
@@ -694,9 +715,9 @@ export class SiteService {
     }
 
     const config = validateConfig({ ...site.config, ...draft.data.config }, { available: site.sections });
-    const style = validateStyle({ ...site.style, ...draft.data.style });
-    // La charte n'est envoyee QUE si ses couleurs changent : sinon, on reecrirait un
-    // fichier equivalent et on creerait une sauvegarde << Couleurs >> sans objet.
+    const style = keepColorCase(validateStyle({ ...site.style, ...draft.data.style }), site.style);
+    // La charte n'est envoyée QUE si ses couleurs changent : sinon, on réécrirait un
+    // fichier équivalent et on créerait une sauvegarde « Couleurs » sans objet.
     const styleB64 = sameStyle(site.style, style) ? '' : b64(buildStyleCss(style));
     const { stamp, after, changed } = await this.#commitConfig(serverId, domain, { site, config, styleB64 });
 

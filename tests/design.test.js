@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { renderDirFor, renderPageCommand } from '../src/services/siteDriver.js';
 import { normalizeColor, sanitizeInline, sanitizePlain } from '../src/services/htmlText.js';
 import { ALL_VARIANTS, SECTION_FAMILIES, familyOf, validateArticleContent, validateConfig, validateStyle } from '../src/services/siteCatalog.js';
-import { imageKind, mergeArticleMeta, preparePreviewHtml, uniqueImageId } from '../src/services/siteService.js';
+import { imageKind, keepColorCase, mergeArticleMeta, preparePreviewHtml, uniqueImageId } from '../src/services/siteService.js';
 
 const key = (fn) => {
   try {
@@ -18,13 +18,37 @@ const key = (fn) => {
 
 test('génération PHP : échappement et mise en forme', () => {
   assert.equal(phpString("L'été"), "'L\\'été'");
+  assert.equal(phpString('sans apostrophe'), "'sans apostrophe'");
   assert.equal(phpString('C:\\chemin'), "'C:\\\\chemin'");
-  assert.equal(phpValue(['a', 'b']), "['a', 'b']");
-  assert.equal(phpValue({ text: 'Voir', url: '/' }), "['text' => 'Voir', 'url' => '/']");
+  // En profondeur, un tableau plat tient sur une ligne ; au premier niveau, jamais.
+  assert.equal(phpValue(['a', 'b'], 1), "['a', 'b']");
+  assert.equal(phpValue({ text: 'Voir', url: '/' }, 1), "['text' => 'Voir', 'url' => '/']");
   assert.equal(phpValue(true), 'true');
   assert.equal(phpValue(30), '30');
-  // Un contenu long passe sur plusieurs lignes, comme dans les fichiers d'origine.
-  assert.match(phpValue({ title: 'x'.repeat(200) }), /^\[\n {4}'title' => 'x+',\n\]$/);
+  // Un tableau plat reste sur une ligne quelle que soit sa longueur : le parc le fait,
+  // et couper à 150 caractères réécrivait des lignes que personne n'avait touchées.
+  assert.equal(phpValue({ title: 'x'.repeat(200) }, 1), `['title' => '${'x'.repeat(200)}']`);
+});
+
+test('l’apostrophe est échappée, jamais contournée', () => {
+  // Une version a essayé de passer aux guillemets doubles quand le texte contient une
+  // apostrophe, parce que deux fichiers du parc font ainsi. Mesuré sur vingt-quatre
+  // fichiers de quatre serveurs : cela AJOUTAIT 148 écarts. Le parc échappe.
+  assert.equal(phpString("l'un et l'autre"), "'l\\'un et l\\'autre'");
+  assert.equal(phpString('il a dit "bonjour"'), '\'il a dit "bonjour"\'');
+  assert.equal(phpString("prix 100$ l'unité"), "'prix 100$ l\\'unité'");
+  // Entre apostrophes, PHP n'interprète ni le dollar ni les accolades : rien à protéger.
+  assert.equal(phpString('{$piege}'), "'{$piege}'");
+  // Un antislash déjà présent est doublé, l'apostrophe échappée : deux protections
+  // distinctes, appliquées dans cet ordre.
+  assert.equal(phpString("l\\'actualité"), "'l\\\\\\'actualité'");
+});
+
+test('la valeur d’une variable ne tient jamais sur une ligne', () => {
+  // Relevé sur douze fichiers d'origine de quatre serveurs : 48 cas sur 48. Mettre
+  // « $footer_show » sur une ligne réécrivait quatre lignes à chaque publication.
+  assert.equal(phpValue({ navigation: true, social: false }), "[\n    'navigation' => true,\n    'social' => false,\n]");
+  assert.equal(phpValue(['a', 'b'], 1), "['a', 'b']", 'mais en profondeur, un tableau plat reste en ligne');
 });
 
 test('config.php : structure, bouton conditionnel, variables préservées', () => {
@@ -54,7 +78,8 @@ test('config.php : structure, bouton conditionnel, variables préservées', () =
   assert.match(php, /\$site_name = 'L\\'Atelier';/);
   assert.match(php, /\$header_cta_text = 'Voir →';/);
   assert.match(php, /\$categories = \[\n {4}'news' => \['name' => 'Actu'/);
-  assert.match(php, /\$homepage_sections = \['hero_split', 'cta_gradient'\];/);
+  // Au premier niveau, jamais sur une ligne : c'est l'écriture des fichiers du parc.
+  assert.match(php, /\$homepage_sections = \[\n {4}'hero_split',\n {4}'cta_gradient',\n\];/);
   assert.match(php, /\$article_style = 'minimal';/);
   assert.match(php, /\$\$legacy = 'valeur';|\$legacy = 'valeur';/);
 
@@ -506,4 +531,24 @@ test('images : le nom vient de l’article, les largeurs restent', async () => {
 
   // Un nom d'article accentué ou ponctué redevient une adresse de fichier tenable.
   assert.equal(uniqueImageId(articleSlug('actu/Été à la Réunion !.php'), []), 'ete-a-la-reunion');
+});
+
+test('la casse des couleurs inchangees est preservee', () => {
+  // La validation met les hexadecimaux en minuscules. Sans ce rattrapage, la premiere
+  // publication d'un site reecrivait style.css en entier et creait une sauvegarde
+  // << Couleurs >> alors que personne n'avait touche a la charte.
+  const origine = { primary: '#0047AB', 'primary-dark': '#003080', accent: '#FF6B35' };
+  const valide = { primary: '#0047ab', 'primary-dark': '#003080', accent: '#00ff00' };
+  assert.deepEqual(keepColorCase(valide, origine), {
+    primary: '#0047AB',
+    'primary-dark': '#003080',
+    accent: '#00ff00',
+  });
+});
+
+test('une couleur nouvelle ou absente de l origine passe telle quelle', () => {
+  assert.deepEqual(keepColorCase({ surface: '#FFFFFF' }, {}), { surface: '#FFFFFF' });
+  assert.deepEqual(keepColorCase({ surface: '#ffffff' }, { surface: 42 }), { surface: '#ffffff' });
+  assert.deepEqual(keepColorCase({}, { a: '#fff' }), {});
+  assert.deepEqual(keepColorCase(null), {});
 });

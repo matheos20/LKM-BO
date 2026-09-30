@@ -10,7 +10,15 @@
 
 const INDENT = '    ';
 
-/** Chaîne PHP entre apostrophes : seuls l'antislash et l'apostrophe sont à protéger. */
+/**
+ * Chaîne PHP entre apostrophes : seuls l'antislash et l'apostrophe sont à protéger.
+ *
+ * Une version a essayé de passer aux guillemets doubles quand le texte contient une
+ * apostrophe, parce que deux fichiers du parc faisaient ainsi. Mesure faite sur
+ * vingt-quatre fichiers de quatre serveurs : cela AJOUTAIT 148 écarts. Le parc échappe
+ * l'apostrophe dans la très grande majorité des cas ; les deux exemples contraires
+ * étaient l'exception. On garde donc l'écriture simple et majoritaire.
+ */
 export const phpString = (value) => `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -27,6 +35,23 @@ function scalar(value) {
 const flat = (value) =>
   (Array.isArray(value) && value.every(isScalar)) || (isPlainObject(value) && Object.values(value).every(isScalar));
 
+/**
+ * La règle de mise en forme du parc, relevée sur les fichiers d'origine et non devinée.
+ *
+ * Sur douze sites de quatre serveurs, jamais publiés par le back-office :
+ *   - profondeur 0, la valeur d'une variable : TOUJOURS sur plusieurs lignes, 48 cas
+ *     sur 48. Même « $footer_show = ['navigation' => true, 'social' => false] », pourtant
+ *     court, s'écrit sur quatre lignes ;
+ *   - au-delà : sur une ligne dès que le contenu est plat, sans plafond de longueur —
+ *     on observe des lignes de 262 caractères.
+ *
+ * Pourquoi cela compte. Une version antérieure mettait en ligne à la profondeur 0 et
+ * coupait à 150 caractères. Republier un fichier SANS rien y changer en réécrivait donc
+ * une trentaine de lignes : l'agent modifiait un mot et le comparatif lui annonçait
+ * trente-neuf différences. Le bruit noyait son changement.
+ */
+const inlinable = (value, depth) => depth > 0 && flat(value);
+
 export function phpValue(value, depth = 0) {
   if (isScalar(value) || value === undefined) return scalar(value);
 
@@ -35,15 +60,13 @@ export function phpValue(value, depth = 0) {
 
   if (Array.isArray(value)) {
     if (!value.length) return '[]';
-    const inline = `[${value.map((v) => phpValue(v, depth + 1)).join(', ')}]`;
-    if (flat(value) && inline.length + depth * 4 <= 150) return inline;
+    if (inlinable(value, depth)) return `[${value.map((v) => phpValue(v, depth + 1)).join(', ')}]`;
     return `[\n${value.map((v) => `${pad}${phpValue(v, depth + 1)},`).join('\n')}\n${close}]`;
   }
 
   const entries = Object.entries(value).filter(([, v]) => v !== undefined);
   if (!entries.length) return '[]';
-  const inline = `[${entries.map(([k, v]) => `${phpString(k)} => ${phpValue(v, depth + 1)}`).join(', ')}]`;
-  if (flat(value) && inline.length + depth * 4 <= 150) return inline;
+  if (inlinable(value, depth)) return `[${entries.map(([k, v]) => `${phpString(k)} => ${phpValue(v, depth + 1)}`).join(', ')}]`;
   return `[\n${entries.map(([k, v]) => `${pad}${phpString(k)} => ${phpValue(v, depth + 1)},`).join('\n')}\n${close}]`;
 }
 
@@ -86,7 +109,9 @@ export function buildConfigPhp(config, extraVars = {}) {
   out.push('', '// Homepage data');
   if (has('homepage')) out.push(assign('homepage', config.homepage));
 
-  if (has('article_style')) out.push('', assign('article_style', config.article_style));
+  // Sans ligne vide avant : les fichiers du parc collent « $article_style » au « ]; »
+  // qui le précède, et une ligne blanche de plus suffisait à marquer un écart.
+  if (has('article_style')) out.push(assign('article_style', config.article_style));
 
   const extras = Object.entries(extraVars ?? {});
   if (extras.length) {
