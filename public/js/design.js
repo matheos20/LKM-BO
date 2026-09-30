@@ -2334,8 +2334,6 @@ const backupWhen = (b) => b.at ?? b.mtime ?? null;
 function backupsTab() {
   if (!state.backupsLoaded) loadBackups();
 
-  const dejaRestaurees = state.backups.filter((b) => b.restored);
-
   const entete = h(
     'div',
     { class: 'flex flex-wrap items-center gap-3 border-b border-ink-100 px-5 py-3' },
@@ -2348,16 +2346,6 @@ function backupsTab() {
       // rien à l'écran ne disait que cette liste ne montre qu'un seul domaine.
       h('p', { class: 'mt-0.5 text-xs text-ink-400' }, t('design.backups_hint', { domain: state.domain })),
     ),
-    // Une sauvegarde remise en place a fait son travail : on peut la ranger. Le bouton
-    // n'apparaît que s'il y a quelque chose à ranger, et il nomme le nombre concerné.
-    dejaRestaurees.length && can('design.publish')
-      ? h(
-          'button',
-          { type: 'button', class: 'btn btn-outline px-3 py-1.5 text-xs', onclick: () => confirmDeleteRestored(dejaRestaurees) },
-          icon('trash', 'size-3.5'),
-          t('design.backup_clear_restored', { count: dejaRestaurees.length }),
-        )
-      : null,
     h(
       'button',
       {
@@ -2698,40 +2686,6 @@ async function openCompare(backup) {
     'max-w-5xl',
   );
 }
-/**
- * Ranger les sauvegardes déjà remises en place.
- *
- * Une sauvegarde restaurée a fait son travail : son contenu est redevenu celui du site.
- * La garder n'est plus utile, et l'agent nous a dit qu'elles « restent toujours là »
- * après une restauration. On les efface donc en un geste — mais une par une côté
- * serveur, pour qu'un échec sur l'une n'empêche pas les autres, et en disant ensuite
- * exactement ce qui est parti.
- */
-const confirmDeleteRestored = (backups) =>
-  confirmDialog({
-    title: t('design.backup_clear_restored_title'),
-    warning: t('design.backup_clear_restored_warning', { count: backups.length }),
-    submitLabel: t('design.backup_delete'),
-    iconName: 'trash',
-    tone: 'btn-danger',
-    run: async () => {
-      const partis = [];
-      const restants = [];
-      for (const b of backups) {
-        try {
-          await api(`${base()}/backups`, { method: 'DELETE', body: { name: b.name } });
-          partis.push(b.name);
-        } catch {
-          restants.push(b.label ?? b.name);
-        }
-      }
-      state.backups = state.backups.filter((b) => !partis.includes(b.name));
-      render();
-      if (restants.length) toast(t('design.backup_clear_restored_partial', { count: partis.length, failed: restants.join(', ') }), 'error');
-      else toast(t('design.backup_clear_restored_ok', { count: partis.length }), 'success');
-    },
-  });
-
 /** Effacer une sauvegarde est sans retour : on le dit, et on nomme ce qui part. */
 const confirmDeleteBackup = (backup) =>
   confirmDialog({
@@ -2942,8 +2896,9 @@ const confirmRestore = (backup) =>
     run: async () => {
       const out = await api(`${base()}/backups/restore`, { method: 'POST', body: { name: backup.name } });
       toast(t('design.restored', { file: out.target ?? backup.label ?? backup.name }), 'success');
-      // Le fichier en place a changé : tout ce que l'écran montre doit être relu, et
-      // la liste des sauvegardes repasse par le serveur pour marquer celle-ci.
+      // Le fichier en place a changé : tout ce que l'écran montre doit être relu. La
+      // liste repasse par le serveur, où la sauvegarde remise en place a disparu et où
+      // celle de l'état remplacé vient d'apparaître.
       state.backupsLoaded = false;
       state.backups = [];
       await load();

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BACKUP_KEEP, publishCommand, writeArticleCommand } from '../src/services/siteDriver.js';
+import { BACKUP_KEEP, publishCommand, restoreCommand, writeArticleCommand } from '../src/services/siteDriver.js';
+import { backupNameFor, describeBackup, stampNow } from '../src/services/siteService.js';
 
 const DOC = '/srv/www/exemple.com/public_html';
 
@@ -83,4 +84,61 @@ test('le contrôle de syntaxe PHP garde sa place avant toute écriture', () => {
     const ecriture = ou(cmd, /cat "\$TMP" > "\$DOC\/config\.php"|cat "\$TMP" > "\$F"/);
     assert.ok(lint >= 0 && lint < ecriture, `php -l doit précéder l’écriture : ${cmd}`);
   }
+});
+
+// ───────── Restaurer, c'est sortir de la corbeille ─────────
+
+test('restaurer met de côté ce qu’on remplace AVANT d’écraser', () => {
+  // Sans cette copie, sortir la sauvegarde de la liste rendrait le geste irréversible :
+  // l'état d'avant la restauration n'existerait plus nulle part.
+  const cmd = restoreCommand(DOC, 'config-20260930-063119.php', 'config.php', { replacementName: 'config-20260930-150000.php' });
+  const copie = ou(cmd, /cp -a "\$DST"/);
+  const ecrase = ou(cmd, /cat "\$SRC" > "\$DST"/);
+  const efface = ou(cmd, /rm -f "\$SRC"/);
+  assert.ok(copie >= 0, `une copie de ce qui est remplacé est attendue : ${cmd}`);
+  assert.ok(copie < ecrase, 'la copie précède l’écrasement');
+  assert.ok(ecrase < efface, 'la sauvegarde n’est effacée qu’une fois le fichier écrit');
+});
+
+test('la sauvegarde remise en place quitte la liste', () => {
+  const cmd = restoreCommand(DOC, 'style-20260930-063119.css', 'style.css', { replacementName: 'style-20260930-150000.css' });
+  assert.match(cmd, /rm -f "\$SRC"/);
+});
+
+test('sans nom de remplacement, rien n’est ni copié ni effacé', () => {
+  // Le repli interne de la publication restaure sans vouloir ranger quoi que ce soit.
+  const cmd = restoreCommand(DOC, 'config-20260930-063119.php', 'config.php');
+  assert.ok(!cmd.includes('cp -a'), cmd);
+  assert.ok(!cmd.includes('rm -f'), cmd);
+});
+
+test('un fichier PHP est contrôlé avant d’être remis en place', () => {
+  const cmd = restoreCommand(DOC, 'config-20260930-063119.php', 'config.php', { replacementName: 'config-x.php' });
+  assert.ok(ou(cmd, /php -l/) < ou(cmd, /cat "\$SRC" > "\$DST"/), 'php -l avant l’écriture');
+  // Une charte n'est pas du PHP : pas de contrôle de syntaxe à lui appliquer.
+  assert.ok(!restoreCommand(DOC, 'style-x.css', 'style.css', { replacementName: 'style-y.css' }).includes('php -l'));
+});
+
+test('le nom de la sauvegarde de remplacement est relisible par la liste', () => {
+  // backupNameFor et describeBackup sont l'inverse l'un de l'autre. Si l'un dérivait,
+  // la sauvegarde créée par une restauration n'apparaîtrait dans aucune liste.
+  for (const cible of ['config.php', 'style.css', '.htaccess', 'rubrique/mon-article.php']) {
+    const nom = backupNameFor(cible, '20260930-150000');
+    assert.ok(nom, `aucun nom pour ${cible}`);
+    const relu = describeBackup(nom);
+    assert.ok(relu, `« ${nom} » n’est pas reconnu par la liste`);
+    assert.equal(relu.target, cible, `la cible relue diffère pour ${nom}`);
+    assert.equal(relu.stamp, '20260930-150000');
+  }
+});
+
+test('une cible douteuse ne produit aucun nom de sauvegarde', () => {
+  assert.equal(backupNameFor('../../etc/passwd.php', '20260930-150000'), '');
+  assert.equal(backupNameFor('image.png', '20260930-150000'), '');
+  assert.equal(backupNameFor('', '20260930-150000'), '');
+});
+
+test('l’horodatage est en UTC, comme les noms du serveur', () => {
+  assert.equal(stampNow(new Date('2026-09-30T06:31:19Z')), '20260930-063119');
+  assert.equal(stampNow(new Date('2026-01-05T00:00:00Z')), '20260105-000000');
 });

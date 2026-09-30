@@ -104,6 +104,26 @@ export function describeBackup(name, extra = {}) {
   return null;
 }
 
+/** L'horodatage du moment, dans la forme que portent les noms de sauvegarde. */
+export const stampNow = (d = new Date()) => {
+  const p = (n, l = 2) => String(n).padStart(l, '0');
+  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}-${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`;
+};
+
+/**
+ * Le nom qu'aura la sauvegarde d'un fichier donné. C'est l'inverse exact de
+ * `describeBackup`, et l'un ne doit pas dériver de l'autre : une sauvegarde que la
+ * lecture ne saurait pas reconnaître n'apparaîtrait dans aucune liste.
+ */
+export function backupNameFor(target, stamp) {
+  const t = String(target ?? '');
+  if (t === 'config.php') return `config-${stamp}.php`;
+  if (t === 'style.css') return `style-${stamp}.css`;
+  if (t === '.htaccess') return `htaccess-${stamp}`;
+  if (t.endsWith('.php') && !t.includes('..')) return `articles/${t}.${stamp}`;
+  return '';
+}
+
 /** Identifiant tiré du nom d'origine, dans la forme utilisée par le parc, et libre. */
 export function uniqueImageId(name, existing) {
   const base = String(name ?? '')
@@ -825,7 +845,11 @@ export class SiteService {
     // jamais le fichier écrasé.
     const info = describeBackup(name);
     if (!info) throw new AppError('errors.file_name_invalid', { status: 400, vars: { name: String(name).slice(0, 60) } });
-    this.#check(await this.#run(serverId, restoreCommand(docroot, info.name, info.target)), server);
-    return { restored: info.name, target: info.target, kind: info.kind };
+
+    // La sauvegarde restaurée quitte la liste, et ce qu'elle remplace y entre à sa
+    // place, horodaté de maintenant. On peut donc toujours revenir en arrière.
+    const replacementName = backupNameFor(info.target, stampNow());
+    this.#check(await this.#run(serverId, restoreCommand(docroot, info.name, info.target, { replacementName })), server);
+    return { restored: info.name, target: info.target, kind: info.kind, replaced: replacementName };
   }
 }

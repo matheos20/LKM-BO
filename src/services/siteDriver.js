@@ -245,15 +245,34 @@ export const listBackupsCommand = (docroot) =>
  * reçue du navigateur. Un fichier PHP repasse par le contrôle de syntaxe avant d'être
  * remis : une sauvegarde abîmée mettrait la page en erreur, même si elle vient de nous.
  */
-export function restoreCommand(docroot, backupName, target) {
+export function restoreCommand(docroot, backupName, target, { replacementName = '' } = {}) {
+  const BK = `$DOC/${BACKUP_DIR}`;
   return [
     `DOC=${shq(docroot)}`,
-    `SRC="$DOC/${BACKUP_DIR}/"${shq(backupName)}`,
+    `SRC="${BK}/"${shq(backupName)}`,
     `[ -f "$SRC" ] || exit 87`,
     `DST="$DOC/"${shq(target)}`,
     target.endsWith('.php') ? `php -l "$SRC" > /dev/null || exit 83` : '',
     `mkdir -p "$(dirname "$DST")" || exit 81`,
+
+    // CE QU'ON REMPLACE EST D'ABORD MIS DE CÔTÉ.
+    //
+    // La restauration écrasait le fichier en place sans en garder trace. Tant que la
+    // sauvegarde restait dans la liste, on pouvait s'en accommoder. Mais l'agent veut
+    // qu'elle en sorte une fois remise en place — comme un objet qui quitte la
+    // corbeille — et sans cette copie, une restauration malheureuse deviendrait
+    // irréversible sur un site en production. Elle prend la place de celle qui part :
+    // la liste ne s'allonge pas, elle avance d'un cran.
+    replacementName
+      ? `if [ -f "$DST" ]; then mkdir -p "$(dirname "${BK}/"${shq(replacementName)})" && cp -a "$DST" "${BK}/"${shq(replacementName)} || exit 81; fi`
+      : '',
+
     `cat "$SRC" > "$DST" || exit 84`,
+
+    // La sauvegarde remise en place quitte la liste : son contenu EST devenu celui du
+    // site, la garder ne dirait plus rien de neuf. Rien d'autre n'est touché.
+    replacementName ? `rm -f "$SRC" || exit 84` : '',
+
     `echo restored`,
   ]
     .filter(Boolean)

@@ -516,8 +516,8 @@
     "backups_empty": "Noch keine Sicherung",
     "restore": "Wiederherstellen",
     "restore_title": "Diese Sicherung zurückspielen?",
-    "restore_warning": "Die Datei {file} wird durch ihre Fassung vom {when} ersetzt. Was heute online ist, geht verloren — vergleichen Sie zuerst, wenn Sie unsicher sind.",
-    "restored": "{file} zurückgespielt.",
+    "restore_warning": "Die Datei {file} erhält ihre Fassung vom {when} zurück. Diese Sicherung verlässt dann die Liste, und was heute online ist, tritt an ihre Stelle: Sie können also zurück.",
+    "restored": "{file} zurückgespielt. Die Sicherung hat die Liste verlassen, der vorherige Stand ist an ihre Stelle getreten.",
     "unsupported": "Diese Domain nutzt die Website-Engine des Parks nicht: der Editor ist nicht anwendbar.",
     "locked": "Domain gesperrt: zum Veröffentlichen entsperren.",
     "family": {
@@ -749,12 +749,7 @@
     "backup_legend_after": "grün: was ersetzt wird",
     "backup_sizes": "Sicherung {before} · online {after}",
     "backup_domain": "Domain",
-    "publish_nothing": "Nichts hat sich geändert: eine Sicherung war nicht nötig.",
-    "backup_clear_restored": "Die {count} bereits zurückgespielten löschen",
-    "backup_clear_restored_title": "Bereits zurückgespielte Sicherungen löschen?",
-    "backup_clear_restored_warning": "{count} Sicherung(en) wurden bereits zurückgespielt: ihr Inhalt ist wieder der der Website. Ein Löschen räumt die Liste auf und rührt nichts Online an. Dieser Verlust ist endgültig.",
-    "backup_clear_restored_ok": "{count} Sicherung(en) gelöscht.",
-    "backup_clear_restored_partial": "{count} gelöscht, aber {failed} konnte es nicht."
+    "publish_nothing": "Nichts hat sich geändert: eine Sicherung war nicht nötig."
   },
   "actions": {
     "title": "Aktionen",

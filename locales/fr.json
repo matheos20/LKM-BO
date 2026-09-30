@@ -516,8 +516,8 @@
     "backups_empty": "Aucune sauvegarde pour le moment",
     "restore": "Restaurer",
     "restore_title": "Remettre cette sauvegarde en place ?",
-    "restore_warning": "Le fichier {file} sera remplacé par sa version du {when}. Ce qui est en ligne aujourd’hui sera perdu — comparez-les d’abord si vous avez un doute.",
-    "restored": "{file} restauré.",
+    "restore_warning": "Le fichier {file} va reprendre sa version du {when}. Cette sauvegarde quittera alors la liste, et ce qui est en ligne aujourd’hui y prendra sa place : vous pourrez donc revenir en arrière.",
+    "restored": "{file} restauré. La sauvegarde a quitté la liste, l’état précédent y est entré.",
     "unsupported": "Ce domaine n'utilise pas le moteur de site du parc : l'éditeur ne s'applique pas.",
     "locked": "Domaine verrouillé : déverrouillez-le pour publier.",
     "family": {
@@ -749,12 +749,7 @@
     "backup_legend_after": "en vert, ce qui sera remplacé",
     "backup_sizes": "Sauvegarde {before} · en ligne {after}",
     "backup_domain": "Domaine",
-    "publish_nothing": "Rien n’a changé : aucune sauvegarde n’était nécessaire.",
-    "backup_clear_restored": "Effacer les {count} déjà remises en place",
-    "backup_clear_restored_title": "Effacer les sauvegardes déjà remises en place ?",
-    "backup_clear_restored_warning": "{count} sauvegarde(s) ont déjà été remises en place : leur contenu est redevenu celui du site. Les effacer libère la liste et ne touche à rien en ligne. Cette perte est définitive.",
-    "backup_clear_restored_ok": "{count} sauvegarde(s) effacée(s).",
-    "backup_clear_restored_partial": "{count} effacée(s), mais {failed} n’a pas pu l’être."
+    "publish_nothing": "Rien n’a changé : aucune sauvegarde n’était nécessaire."
   },
   "actions": {
     "title": "Actions",

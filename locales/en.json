@@ -516,8 +516,8 @@
     "backups_empty": "No backup yet",
     "restore": "Restore",
     "restore_title": "Put this backup back in place?",
-    "restore_warning": "The file {file} will be replaced by its version from {when}. What is live today will be lost — compare them first if in doubt.",
-    "restored": "{file} restored.",
+    "restore_warning": "The file {file} will go back to its version from {when}. That backup then leaves the list, and what is live today takes its place: you can still go back.",
+    "restored": "{file} restored. The backup left the list, the previous state took its place.",
     "unsupported": "This domain does not use the fleet site engine: the editor does not apply.",
     "locked": "Domain locked: unlock it to publish.",
     "family": {
@@ -749,12 +749,7 @@
     "backup_legend_after": "in green, what will be replaced",
     "backup_sizes": "Backup {before} · live {after}",
     "backup_domain": "Domain",
-    "publish_nothing": "Nothing changed: no backup was needed.",
-    "backup_clear_restored": "Delete the {count} already restored",
-    "backup_clear_restored_title": "Delete the backups already restored?",
-    "backup_clear_restored_warning": "{count} backup(s) have already been put back: their content is once again the site’s. Deleting them clears the list and touches nothing live. This loss is permanent.",
-    "backup_clear_restored_ok": "{count} backup(s) deleted.",
-    "backup_clear_restored_partial": "{count} deleted, but {failed} could not be."
+    "publish_nothing": "Nothing changed: no backup was needed."
   },
   "actions": {
     "title": "Actions",

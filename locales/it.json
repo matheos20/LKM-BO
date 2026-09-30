@@ -516,8 +516,8 @@
     "backups_empty": "Nessun salvataggio per ora",
     "restore": "Ripristina",
     "restore_title": "Rimettere questo salvataggio al suo posto?",
-    "restore_warning": "Il file {file} sarà sostituito dalla sua versione del {when}. Ciò che è in linea oggi andrà perso — confrontali prima, in caso di dubbio.",
-    "restored": "{file} ripristinato.",
+    "restore_warning": "Il file {file} tornerà alla sua versione del {when}. Quel salvataggio uscirà allora dall’elenco, e ciò che è in linea oggi prenderà il suo posto: potrai tornare indietro.",
+    "restored": "{file} ripristinato. Il salvataggio è uscito dall’elenco, lo stato precedente ha preso il suo posto.",
     "unsupported": "Questo dominio non usa il motore di siti del parco: l'editor non si applica.",
     "locked": "Dominio bloccato: sbloccalo per pubblicare.",
     "family": {
@@ -749,12 +749,7 @@
     "backup_legend_after": "in verde, ciò che sarà sostituito",
     "backup_sizes": "Salvataggio {before} · in linea {after}",
     "backup_domain": "Dominio",
-    "publish_nothing": "Niente è cambiato: nessun salvataggio era necessario.",
-    "backup_clear_restored": "Eliminare i {count} già ripristinati",
-    "backup_clear_restored_title": "Eliminare i salvataggi già ripristinati?",
-    "backup_clear_restored_warning": "{count} salvataggio/i sono già stati rimessi al loro posto: il loro contenuto è tornato quello del sito. Eliminarli libera l’elenco e non tocca nulla in linea. Questa perdita è definitiva.",
-    "backup_clear_restored_ok": "{count} salvataggio/i eliminato/i.",
-    "backup_clear_restored_partial": "{count} eliminato/i, ma {failed} non ha potuto esserlo."
+    "publish_nothing": "Niente è cambiato: nessun salvataggio era necessario."
   },
   "actions": {
     "title": "Azioni",

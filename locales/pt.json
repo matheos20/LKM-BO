@@ -516,8 +516,8 @@
     "backups_empty": "Nenhuma cópia por agora",
     "restore": "Restaurar",
     "restore_title": "Repor esta cópia?",
-    "restore_warning": "O ficheiro {file} será substituído pela sua versão de {when}. O que está em linha hoje será perdido — compare-os primeiro se tiver dúvidas.",
-    "restored": "{file} reposto.",
+    "restore_warning": "O ficheiro {file} vai voltar à sua versão de {when}. Essa cópia sairá então da lista, e o que está em linha hoje ocupará o seu lugar: poderá voltar atrás.",
+    "restored": "{file} reposto. A cópia saiu da lista, o estado anterior ocupou o seu lugar.",
     "unsupported": "Este domínio não usa o motor de sites do parque: o editor não se aplica.",
     "locked": "Domínio bloqueado: desbloqueie-o para publicar.",
     "family": {
@@ -749,12 +749,7 @@
     "backup_legend_after": "a verde, o que será substituído",
     "backup_sizes": "Cópia {before} · em linha {after}",
     "backup_domain": "Domínio",
-    "publish_nothing": "Nada mudou: não era precisa nenhuma cópia.",
-    "backup_clear_restored": "Apagar as {count} já repostas",
-    "backup_clear_restored_title": "Apagar as cópias já repostas?",
-    "backup_clear_restored_warning": "{count} cópia(s) já foram repostas: o seu conteúdo voltou a ser o do site. Apagá-las liberta a lista e não toca em nada em linha. Esta perda é definitiva.",
-    "backup_clear_restored_ok": "{count} cópia(s) apagada(s).",
-    "backup_clear_restored_partial": "{count} apagada(s), mas {failed} não pôde sê-lo."
+    "publish_nothing": "Nada mudou: não era precisa nenhuma cópia."
   },
   "actions": {
     "title": "Ações",
