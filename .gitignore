@@ -13,3 +13,6 @@ info.md
 # aux comptes. Ne doit jamais être publié, ni quitter cette machine.
 dataCF.csv
 *.csv
+
+# Documents de presentation : utiles, mais ce ne sont pas des sources.
+*.pdf
