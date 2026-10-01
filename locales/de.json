@@ -9,11 +9,12 @@
   "auth": {
     "title": "Anmelden",
     "subtitle": "Nur für Administratoren des Parks.",
-    "username": "Benutzername",
+    "username": "Benutzername oder E-Mail-Adresse",
     "password": "Passwort",
     "submit": "Anmelden",
     "logout": "Abmelden",
-    "signed_in_as": "Angemeldet: {user}"
+    "signed_in_as": "Angemeldet: {user}",
+    "username_hint": "Ihr Benutzername oder die E-Mail-Adresse Ihres Kontos."
   },
   "nav": {
     "servers": "Server",
@@ -214,7 +215,7 @@
     "auth_locked": "Zu viele Fehlversuche: Konto für {minutes} Minute(n) gesperrt.",
     "password_wrong": "Das aktuelle Passwort ist falsch.",
     "password_too_short": "Das Passwort muss mindestens {min} Zeichen lang sein.",
-    "user_name_invalid": "Ungültiger Benutzername: {username} (3 bis 32 Zeichen: Buchstaben, Ziffern, Punkt, Bindestrich, Unterstrich).",
+    "user_name_invalid": "Ungültiger Benutzername: {username} (3 bis 64 Zeichen: Buchstaben, Ziffern, Punkt, Bindestrich, Unterstrich, At-Zeichen).",
     "user_exists": "Der Benutzername {username} ist bereits vergeben.",
     "user_not_found": "Konto nicht gefunden.",
     "user_last_admin": "Nicht möglich: mindestens ein aktiver Administrator muss bleiben.",
@@ -272,7 +273,10 @@
     "cf_unknown_setting": "Unknown setting: {setting}",
     "cf_unknown_bulk": "Unknown bulk operation: {kind}",
     "cf_csv_columns": "The file lacks the expected columns",
-    "password_change_required": "Ändern Sie Ihr vorläufiges Passwort, bevor Sie die Anwendung nutzen."
+    "password_change_required": "Ändern Sie Ihr vorläufiges Passwort, bevor Sie die Anwendung nutzen.",
+    "auth_unknown_user": "Kein Konto entspricht „{login}“. Prüfen Sie Benutzername oder E-Mail-Adresse.",
+    "auth_wrong_password": "Falsches Passwort. Sie haben noch {remaining} Versuch(e), bevor das Konto gesperrt wird.",
+    "auth_email_ambiguous": "Mehrere Konten teilen sich diese E-Mail-Adresse. Melden Sie sich mit Ihrem Benutzernamen an."
   },
   "files": {
     "title": "Dateien",
@@ -443,7 +447,8 @@
     "role_created": "Rolle {name} erstellt.",
     "role_updated": "Rolle {name} aktualisiert.",
     "role_deleted": "Rolle {name} gelöscht.",
-    "tab_audit": "Protokoll"
+    "tab_audit": "Protokoll",
+    "form_username_hint": "3 bis 64 Zeichen. Die Anmeldung ist mit diesem Benutzernamen ODER mit der E-Mail-Adresse möglich."
   },
   "account": {
     "title": "Mein Konto",

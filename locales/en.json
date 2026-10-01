@@ -9,11 +9,12 @@
   "auth": {
     "title": "Sign in",
     "subtitle": "Restricted to fleet administrators.",
-    "username": "Username",
+    "username": "Username or email address",
     "password": "Password",
     "submit": "Sign in",
     "logout": "Sign out",
-    "signed_in_as": "Signed in: {user}"
+    "signed_in_as": "Signed in: {user}",
+    "username_hint": "Your username, or your account’s email address."
   },
   "nav": {
     "servers": "Servers",
@@ -214,7 +215,7 @@
     "auth_locked": "Too many failed sign-ins: account locked for {minutes} minute(s).",
     "password_wrong": "Current password is incorrect.",
     "password_too_short": "The password must be at least {min} characters long.",
-    "user_name_invalid": "Invalid username: {username} (3 to 32 characters: letters, digits, dot, dash, underscore).",
+    "user_name_invalid": "Invalid username: {username} (3 to 64 characters: letters, digits, dot, dash, underscore, at sign).",
     "user_exists": "Username {username} is already taken.",
     "user_not_found": "Account not found.",
     "user_last_admin": "Not possible: at least one active administrator must remain.",
@@ -272,7 +273,10 @@
     "cf_unknown_setting": "Unknown setting: {setting}",
     "cf_unknown_bulk": "Unknown bulk operation: {kind}",
     "cf_csv_columns": "The file lacks the expected columns",
-    "password_change_required": "Change your temporary password before using the application."
+    "password_change_required": "Change your temporary password before using the application.",
+    "auth_unknown_user": "No account matches “{login}”. Check your username or email address.",
+    "auth_wrong_password": "Wrong password. You have {remaining} attempt(s) left before the account is locked.",
+    "auth_email_ambiguous": "Several accounts share this email address. Please sign in with your username."
   },
   "files": {
     "title": "Files",
@@ -443,7 +447,8 @@
     "role_created": "Role {name} created.",
     "role_updated": "Role {name} updated.",
     "role_deleted": "Role {name} deleted.",
-    "tab_audit": "Audit log"
+    "tab_audit": "Audit log",
+    "form_username_hint": "3 to 64 characters. The user will be able to sign in with this username OR with their email address."
   },
   "account": {
     "title": "My account",

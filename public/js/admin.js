@@ -327,7 +327,7 @@ function userForm(user = null) {
     iconName: 'user',
     submitLabel: user ? t('admin.edit') : t('action.create'),
     fields: [
-      field(t('admin.form_username'), username),
+      field(t('admin.form_username'), username, user ? null : t('admin.form_username_hint')),
       field(t('admin.form_display_name'), displayName),
       field(t('admin.form_email'), email),
       user ? null : field(t('admin.form_password'), password, t('admin.password_copy')),

@@ -80,6 +80,14 @@ export const config = {
   loginMaxAttempts: int(env.LOGIN_MAX_ATTEMPTS, 10),
   loginRateLimit: int(env.LOGIN_RATE_LIMIT, 20),
   loginLockMinutes: int(env.LOGIN_LOCK_MINUTES, 15),
+  // L'ecran de connexion dit-il LEQUEL des deux champs cloche ?
+  //
+  // Oui par defaut : les comptes sont crees un par un par l'administrateur, pour une
+  // poignee d'agents, et « identifiant ou mot de passe incorrect » ne dit pas lequel
+  // reprendre. A mettre a false si ce back-office devient joignable depuis l'exterieur :
+  // le message unique empeche alors d'essayer des identifiants pour decouvrir lesquels
+  // existent.
+  loginPreciseErrors: env.LOGIN_PRECISE_ERRORS !== 'false',
   serversFile: file(env.SERVERS_FILE, 'config/servers.json'),
   knownHostsFile: file(env.KNOWN_HOSTS_FILE, 'config/known_hosts.json'),
   auditLog: file(env.AUDIT_LOG, 'logs/audit.log'),

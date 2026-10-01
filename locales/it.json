@@ -9,11 +9,12 @@
   "auth": {
     "title": "Accesso",
     "subtitle": "Accesso riservato agli amministratori del parco.",
-    "username": "Nome utente",
+    "username": "Nome utente o indirizzo e-mail",
     "password": "Password",
     "submit": "Accedi",
     "logout": "Esci",
-    "signed_in_as": "Connesso: {user}"
+    "signed_in_as": "Connesso: {user}",
+    "username_hint": "Il suo nome utente o l’indirizzo e-mail del suo account."
   },
   "nav": {
     "servers": "Server",
@@ -214,7 +215,7 @@
     "auth_locked": "Troppi tentativi falliti: account bloccato per {minutes} minuto/i.",
     "password_wrong": "La password attuale non è corretta.",
     "password_too_short": "La password deve contenere almeno {min} caratteri.",
-    "user_name_invalid": "Nome utente non valido: {username} (da 3 a 32 caratteri: lettere, cifre, punto, trattino, trattino basso).",
+    "user_name_invalid": "Nome utente non valido: {username} (da 3 a 64 caratteri: lettere, cifre, punto, trattino, trattino basso, chiocciola).",
     "user_exists": "Il nome utente {username} è già in uso.",
     "user_not_found": "Account non trovato.",
     "user_last_admin": "Impossibile: deve restare almeno un amministratore attivo.",
@@ -272,7 +273,10 @@
     "cf_unknown_setting": "Unknown setting: {setting}",
     "cf_unknown_bulk": "Unknown bulk operation: {kind}",
     "cf_csv_columns": "The file lacks the expected columns",
-    "password_change_required": "Cambi la password provvisoria prima di usare l’applicazione."
+    "password_change_required": "Cambi la password provvisoria prima di usare l’applicazione.",
+    "auth_unknown_user": "Nessun account corrisponde a «{login}». Verifichi il nome utente o l’indirizzo e-mail.",
+    "auth_wrong_password": "Password errata. Le restano {remaining} tentativo/i prima del blocco dell’account.",
+    "auth_email_ambiguous": "Più account condividono questo indirizzo e-mail. Acceda con il suo nome utente."
   },
   "files": {
     "title": "File",
@@ -443,7 +447,8 @@
     "role_created": "Ruolo {name} creato.",
     "role_updated": "Ruolo {name} aggiornato.",
     "role_deleted": "Ruolo {name} eliminato.",
-    "tab_audit": "Registro"
+    "tab_audit": "Registro",
+    "form_username_hint": "Da 3 a 64 caratteri. L’agente potrà accedere con questo nome utente O con il suo indirizzo e-mail."
   },
   "account": {
     "title": "Il mio account",

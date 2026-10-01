@@ -9,11 +9,12 @@
   "auth": {
     "title": "Connexion",
     "subtitle": "Accès réservé aux administrateurs du parc.",
-    "username": "Identifiant",
+    "username": "Identifiant ou adresse e-mail",
     "password": "Mot de passe",
     "submit": "Se connecter",
     "logout": "Déconnexion",
-    "signed_in_as": "Connecté : {user}"
+    "signed_in_as": "Connecté : {user}",
+    "username_hint": "Votre identifiant, ou l’adresse e-mail de votre compte."
   },
   "nav": {
     "servers": "Serveurs",
@@ -214,7 +215,7 @@
     "auth_locked": "Trop d'échecs de connexion : compte verrouillé pendant {minutes} minute(s).",
     "password_wrong": "Mot de passe actuel incorrect.",
     "password_too_short": "Le mot de passe doit contenir au moins {min} caractères.",
-    "user_name_invalid": "Identifiant invalide : {username} (3 à 32 caractères : lettres, chiffres, point, tiret, souligné).",
+    "user_name_invalid": "Identifiant invalide : {username} (3 à 64 caractères : lettres, chiffres, point, tiret, souligné, arobase).",
     "user_exists": "L'identifiant {username} est déjà utilisé.",
     "user_not_found": "Compte introuvable.",
     "user_last_admin": "Impossible : il doit rester au moins un administrateur actif.",
@@ -272,7 +273,10 @@
     "cf_unknown_setting": "Réglage inconnu : {setting}",
     "cf_unknown_bulk": "Opération groupée inconnue : {kind}",
     "cf_csv_columns": "Le fichier n’a pas les colonnes attendues",
-    "password_change_required": "Changez votre mot de passe provisoire avant d’utiliser l’application."
+    "password_change_required": "Changez votre mot de passe provisoire avant d’utiliser l’application.",
+    "auth_unknown_user": "Aucun compte ne correspond à « {login} ». Vérifiez votre identifiant ou votre adresse e-mail.",
+    "auth_wrong_password": "Mot de passe incorrect. Il vous reste {remaining} essai(s) avant le verrouillage du compte.",
+    "auth_email_ambiguous": "Cette adresse e-mail est partagée par plusieurs comptes. Connectez-vous avec votre identifiant."
   },
   "files": {
     "title": "Fichiers",
@@ -443,7 +447,8 @@
     "role_created": "Rôle {name} créé.",
     "role_updated": "Rôle {name} mis à jour.",
     "role_deleted": "Rôle {name} supprimé.",
-    "tab_audit": "Journal"
+    "tab_audit": "Journal",
+    "form_username_hint": "3 à 64 caractères. L’agent pourra se connecter avec cet identifiant OU avec son adresse e-mail."
   },
   "account": {
     "title": "Mon compte",

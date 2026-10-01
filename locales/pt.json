@@ -9,11 +9,12 @@
   "auth": {
     "title": "Iniciar sessão",
     "subtitle": "Acesso reservado aos administradores do parque.",
-    "username": "Utilizador",
+    "username": "Utilizador ou endereço de e-mail",
     "password": "Palavra-passe",
     "submit": "Entrar",
     "logout": "Terminar sessão",
-    "signed_in_as": "Ligado: {user}"
+    "signed_in_as": "Ligado: {user}",
+    "username_hint": "O seu utilizador ou o endereço de e-mail da sua conta."
   },
   "nav": {
     "servers": "Servidores",
@@ -214,7 +215,7 @@
     "auth_locked": "Demasiadas tentativas falhadas: conta bloqueada durante {minutes} minuto(s).",
     "password_wrong": "A palavra-passe atual está incorreta.",
     "password_too_short": "A palavra-passe deve ter pelo menos {min} carateres.",
-    "user_name_invalid": "Utilizador inválido: {username} (3 a 32 carateres: letras, algarismos, ponto, hífen, sublinhado).",
+    "user_name_invalid": "Utilizador inválido: {username} (3 a 64 caracteres: letras, algarismos, ponto, hífen, sublinhado, arroba).",
     "user_exists": "O utilizador {username} já existe.",
     "user_not_found": "Conta não encontrada.",
     "user_last_admin": "Impossível: tem de permanecer pelo menos um administrador ativo.",
@@ -272,7 +273,10 @@
     "cf_unknown_setting": "Unknown setting: {setting}",
     "cf_unknown_bulk": "Unknown bulk operation: {kind}",
     "cf_csv_columns": "The file lacks the expected columns",
-    "password_change_required": "Altere a sua palavra-passe provisória antes de usar a aplicação."
+    "password_change_required": "Altere a sua palavra-passe provisória antes de usar a aplicação.",
+    "auth_unknown_user": "Nenhuma conta corresponde a «{login}». Verifique o seu utilizador ou o seu e-mail.",
+    "auth_wrong_password": "Palavra-passe incorreta. Restam-lhe {remaining} tentativa(s) antes do bloqueio da conta.",
+    "auth_email_ambiguous": "Várias contas partilham este endereço de e-mail. Inicie sessão com o seu utilizador."
   },
   "files": {
     "title": "Ficheiros",
@@ -443,7 +447,8 @@
     "role_created": "Perfil {name} criado.",
     "role_updated": "Perfil {name} atualizado.",
     "role_deleted": "Perfil {name} eliminado.",
-    "tab_audit": "Registo"
+    "tab_audit": "Registo",
+    "form_username_hint": "3 a 64 caracteres. O agente poderá iniciar sessão com este utilizador OU com o seu e-mail."
   },
   "account": {
     "title": "A minha conta",

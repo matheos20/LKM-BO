@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { AppError } from '../errors.js';
 import { config } from '../config.js';
 import { hashPassword, verifyPassword } from './password.js';
-import { countUsers, createUser, findUserByUsername, getRoleByKey, recordLoginFailure, recordLoginSuccess } from '../db/repositories.js';
+import { countUsers, createUser, findUserByLogin, getRoleByKey, recordLoginFailure, recordLoginSuccess } from '../db/repositories.js';
 
 /** Haché de comparaison : la vérification coûte le même temps pour un compte inexistant. */
 const DUMMY_HASH = hashPassword(crypto.randomBytes(24).toString('hex'));
@@ -10,12 +10,30 @@ const DUMMY_HASH = hashPassword(crypto.randomBytes(24).toString('hex'));
 /**
  * Vérifie un couple identifiant / mot de passe.
  * Compte désactivé, verrouillage temporaire et échecs successifs sont traités ici.
+ *
+ * DEUX MESSAGES DISTINCTS, ET POURQUOI.
+ *
+ * Un seul message pour « ce compte n'existe pas » et « ce mot de passe est faux » est
+ * l'usage sur un site ouvert à tous : il empêche d'essayer des identifiants pour
+ * découvrir lesquels existent. Ici, les comptes sont créés un par un par
+ * l'administrateur, pour une poignée d'agents, et le coût de ce silence est réel :
+ * l'agent qui tape son adresse au lieu de son identifiant voit « incorrect » et ne sait
+ * pas quoi corriger — ni lequel des deux champs reprendre.
+ *
+ * On dit donc lequel des deux cloche. Si ce back-office devient un jour joignable depuis
+ * l'extérieur, `LOGIN_PRECISE_ERRORS=false` remet le message unique, sans rien changer
+ * d'autre : la vérification garde son coût constant dans les deux cas.
  */
-export async function authenticate(username, password) {
-  const user = await findUserByUsername(username);
+export async function authenticate(login, password) {
+  const flou = () => new AppError('errors.auth_invalid', { status: 401 });
+  const precis = (key, vars) => (config.loginPreciseErrors ? new AppError(key, { status: 401, vars }) : flou());
+
+  const { user, reason } = await findUserByLogin(login);
   if (!user) {
     verifyPassword(password, DUMMY_HASH); // même coût qu'un compte réel
-    throw new AppError('errors.auth_invalid', { status: 401 });
+    // Une adresse portée par deux comptes ne désigne personne : on ne devine pas.
+    if (reason === 'ambiguous') throw new AppError('errors.auth_email_ambiguous', { status: 409 });
+    throw precis('errors.auth_unknown_user', { login: String(login ?? '').trim().slice(0, 60) });
   }
   if (!user.isActive) throw new AppError('errors.auth_disabled', { status: 403 });
 
@@ -23,9 +41,12 @@ export async function authenticate(username, password) {
     throw new AppError('errors.auth_locked', { status: 429, vars: { minutes: Math.ceil((user.lockedUntil - Date.now()) / 60000) } });
   }
   if (!verifyPassword(password, user.passwordHash)) {
-    const { lockedUntil } = await recordLoginFailure(user.id);
+    const { attempts, lockedUntil } = await recordLoginFailure(user.id);
     if (lockedUntil) throw new AppError('errors.auth_locked', { status: 429, vars: { minutes: config.loginLockMinutes } });
-    throw new AppError('errors.auth_invalid', { status: 401 });
+    // Le nombre d'essais restants évite la surprise du verrouillage : un agent qui se
+    // trompe deux fois doit savoir qu'il approche d'une porte qui se ferme.
+    const restants = Math.max(0, config.loginMaxAttempts - attempts);
+    throw precis('errors.auth_wrong_password', { remaining: restants });
   }
 
   await recordLoginSuccess(user.id);

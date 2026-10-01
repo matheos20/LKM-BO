@@ -17,7 +17,19 @@ import { prepare, transaction } from './mysql.js';
  */
 
 const now = () => Date.now();
-const USERNAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}$/;
+/**
+ * Ce qu'un identifiant de connexion a le droit d'être.
+ *
+ * L'arobase y est admise, et la longueur va jusqu'à 64 caractères : une adresse de
+ * courriel est un identifiant parfaitement légitime, et c'est souvent elle que
+ * l'administrateur a sous la main au moment de créer le compte. La règle précédente la
+ * refusait — « good@gmail.com » n'entrait pas — sans rien apporter en échange.
+ *
+ * Ce champ ne part jamais dans une commande : il voyage en paramètre lié jusqu'à la base
+ * et s'affiche dans l'interface. Le jeu de caractères est donc borné pour rester lisible,
+ * pas pour se protéger d'une injection.
+ */
+const USERNAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._@-]{2,63}$/;
 
 const bad = (key, vars) => new AppError(key, { status: 400, vars });
 
@@ -166,15 +178,46 @@ export async function getUser(id) {
   return userRow(row, { servers, permissions });
 }
 
-export async function findUserByUsername(username) {
-  const row = await prepare(`${SELECT_USER} WHERE u.username = ?`).get(String(username ?? '').trim());
-  if (!row) return null;
+/** Le compte, ses droits et son empreinte de mot de passe, à partir d'une ligne lue. */
+async function userComplet(row) {
   const [servers, permissions] = await Promise.all([serversOf(row.id), permissionsOf(row.role_id)]);
   return {
     ...userRow(row, { servers, permissions }),
     passwordHash: row.password_hash,
     failedAttempts: Number(row.failed_attempts),
   };
+}
+
+export async function findUserByUsername(username) {
+  const row = await prepare(`${SELECT_USER} WHERE u.username = ?`).get(String(username ?? '').trim());
+  return row ? userComplet(row) : null;
+}
+
+/**
+ * Le compte derrière ce qu'on a tapé pour se connecter : son identifiant, OU son adresse.
+ *
+ * L'administrateur crée un compte, remplit l'adresse de l'agent, et c'est elle qu'il lui
+ * communique — c'est ce qu'il a sous la main. L'agent la tapait donc pour entrer, et se
+ * voyait refuser sans comprendre : seul l'identifiant était accepté, et rien ne le disait.
+ *
+ * L'identifiant passe en premier : il est unique par construction, l'adresse ne l'est
+ * pas. Si deux comptes partagent une adresse, on ne devine pas lequel est visé — on le
+ * dit, et l'agent se connecte avec son identifiant.
+ *
+ * @returns {{ user: object|null, reason?: 'ambiguous' }}
+ */
+export async function findUserByLogin(login) {
+  const saisi = String(login ?? '').trim();
+  if (!saisi) return { user: null };
+
+  const parIdentifiant = await prepare(`${SELECT_USER} WHERE u.username = ?`).get(saisi);
+  if (parIdentifiant) return { user: await userComplet(parIdentifiant) };
+
+  // Une adresse vide ne désigne personne : la plupart des comptes n'en ont pas.
+  if (!saisi.includes('@')) return { user: null };
+  const parAdresse = await prepare(`${SELECT_USER} WHERE u.email = ? AND u.email <> ''`).all(saisi);
+  if (parAdresse.length > 1) return { user: null, reason: 'ambiguous' };
+  return { user: parAdresse.length ? await userComplet(parAdresse[0]) : null };
 }
 
 export const countUsers = async () => Number((await prepare('SELECT COUNT(*) AS n FROM users').get()).n);
@@ -232,7 +275,10 @@ export async function updateUser(id, patch) {
     values.push(role.id);
   }
   if (patch.isActive !== undefined && Boolean(patch.isActive) !== user.isActive) {
-    if (!patch.isActive) await assertNotLastAdmin(id);
+    // La garde ne concerne QUE les administrateurs : désactiver un lecteur ne peut pas
+    // priver le parc de son dernier administrateur. Sans cette condition, elle répondait
+    // « il doit rester un administrateur actif » à qui désactivait un compte d'agent.
+    if (!patch.isActive && user.role.key === PROTECTED_ROLE) await assertNotLastAdmin(id);
     sets.push('is_active = ?', 'failed_attempts = 0', 'locked_until = NULL');
     values.push(patch.isActive ? 1 : 0);
   }
