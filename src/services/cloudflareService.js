@@ -7,7 +7,7 @@
  * titulaire d'un compte.
  */
 import { config } from '../config.js';
-import { getDb } from '../db/database.js';
+import { prepare } from '../db/mysql.js';
 import { parseDomainInput } from './cloudflareImport.js';
 import { AppError } from '../errors.js';
 import { redact } from './cloudflareClient.js';
@@ -18,6 +18,16 @@ import {
   updateDnsRecord,
 } from './cloudflareOps.js';
 
+/**
+ * Borne une valeur venue de l'API à la taille de sa colonne.
+ *
+ * Depuis que la base refuse les valeurs trop longues au lieu de les tronquer, ce qui
+ * arrive de l'extérieur doit être taillé avant d'entrer. Ici, perdre la fin d'un libellé
+ * d'offre n'a aucune conséquence — contrairement à un nom de domaine, qui n'est jamais
+ * tronqué puisqu'il sert de clé.
+ */
+const borne = (v, max) => String(v ?? '').slice(0, max);
+
 /** Les réglages que l'écran sait montrer et changer, dans cet ordre. */
 export const EXPOSED_SETTINGS = [
   'ssl', 'always_use_https', 'development_mode', 'security_level',
@@ -26,9 +36,9 @@ export const EXPOSED_SETTINGS = [
 
 export class CloudflareService {
   /** Une zone et ses accès, prêts à servir. Lève si quelque chose manque. */
-  #cible(domain) {
+  async #cible(domain) {
     const nom = String(domain ?? '').trim().toLowerCase();
-    const ligne = getDb().prepare(
+    const ligne = await prepare(
       `SELECT z.domain, z.zone_id, a.account_id, a.email, a.global_api_key, a.api_token
        FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref WHERE z.domain = ?`,
     ).get(nom);
@@ -47,21 +57,21 @@ export class CloudflareService {
 
   /** Comme `#cible`, mais retrouve l'identifiant de zone s'il manque ou s'il est faux. */
   async #cibleSure(domain) {
-    const cible = this.#cible(domain);
+    const cible = await this.#cible(domain);
     if (cible.zoneId) return cible;
     const trouvee = await findZoneByName(cible.domain, cible.creds);
     if (!trouvee?.id) throw new AppError('errors.cf_zone_not_found', { status: 404, vars: { domain: cible.domain } });
-    getDb().prepare('UPDATE cf_zones SET zone_id = ?, updated_at = ? WHERE domain = ?').run(trouvee.id, Date.now(), cible.domain);
+    await prepare('UPDATE cf_zones SET zone_id = ?, updated_at = ? WHERE domain = ?').run(trouvee.id, Date.now(), cible.domain);
     return { ...cible, zoneId: trouvee.id };
   }
 
   /** Plusieurs cibles d'un coup : ce qui est prêt, et ce qui ne l'est pas, avec le motif. */
-  targets(domains) {
+  async targets(domains) {
     const pretes = [];
     const skipped = [];
     for (const d of domains ?? []) {
       try {
-        const c = this.#cible(d);
+        const c = await this.#cible(d);
         if (!c.zoneId) { skipped.push({ domain: c.domain, reason: 'errors.cf_zone_unknown' }); continue; }
         pretes.push(c);
       } catch (err) {
@@ -74,26 +84,31 @@ export class CloudflareService {
   // ───────────────────────────── Lecture ─────────────────────────────
 
   /** L'inventaire, filtré et paginé : c'est la liste que l'écran affiche. */
-  list({ search = '', status = '', page = 1, perPage = 50 } = {}) {
-    const db = getDb();
+  async list({ search = '', status = '', page = 1, perPage = 50 } = {}) {
     const ou = [];
     const args = [];
     const q = String(search ?? '').trim().toLowerCase();
-    if (q) { ou.push('z.domain LIKE ?'); args.push(`%${q}%`); }
+    // Les jokers de LIKE sont neutralisés : un agent qui tape « % » cherche un
+    // pourcentage dans un nom de domaine, il ne demande pas les 38 000 lignes.
+    // MySQL refuse ESCAPE '\\' : le caractère d'échappement est donc « ! ».
+    if (q) { ou.push("z.domain LIKE ? ESCAPE '!'"); args.push(`%${q.replace(/[!%_]/g, (c) => `!${c}`)}%`); }
     if (status === 'ready') ou.push("z.zone_id <> '' AND (a.api_token <> '' OR a.email <> '')");
     if (status === 'blocked') ou.push("(z.zone_id = '' OR (a.api_token = '' AND a.email = ''))");
     const where = ou.length ? `WHERE ${ou.join(' AND ')}` : '';
 
     const taille = Math.min(200, Math.max(1, Number(perPage) || 50));
     const numero = Math.max(1, Number(page) || 1);
-    const { total } = db.prepare(`SELECT COUNT(*) AS total FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref ${where}`).get(...args);
+    const total = Number((await prepare(`SELECT COUNT(*) AS total FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref ${where}`).get(...args)).total);
 
-    const lignes = db.prepare(
+    // LIMIT et OFFSET sont écrits dans le texte, pas liés : MySQL refuse un paramètre à
+    // cette place. Les deux valeurs sont passées par Number() juste au-dessus — un
+    // nombre ne peut rien injecter.
+    const lignes = await prepare(
       `SELECT z.domain, z.zone_id, z.status, z.plan, z.ssl_mode, z.always_https, z.checked_at,
               a.account_id, a.email, a.api_token, a.global_api_key, a.last_error
        FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref
-       ${where} ORDER BY z.domain LIMIT ? OFFSET ?`,
-    ).all(...args, taille, (numero - 1) * taille);
+       ${where} ORDER BY z.domain LIMIT ${taille} OFFSET ${(numero - 1) * taille}`,
+    ).all(...args);
 
     return {
       total,
@@ -128,21 +143,20 @@ export class CloudflareService {
    * Il les colle, et il obtient ceux qui existent, plus ceux qui manquent à l'appel :
    * un domaine absent de la réponse doit se voir, sinon on croit avoir tout traité.
    *
-   * La requête est découpée en paquets : SQLite limite le nombre de paramètres, et une
-   * liste collée peut en compter des milliers.
+   * La requête est découpée en paquets : une liste collée peut compter des milliers de
+   * lignes, et un ordre SQL n'accepte pas un nombre illimité de paramètres.
    */
-  lookup(domains) {
+  async lookup(domains) {
     const { entries, invalid } = parseDomainInput(Array.isArray(domains) ? domains.join('\n') : String(domains ?? ''));
     const demandes = entries.map((e) => e.domain);
     if (!demandes.length) return { zones: [], missing: [], invalid, requested: 0 };
 
-    const db = getDb();
     const trouvees = new Map();
     const PAQUET = 400;
     for (let i = 0; i < demandes.length; i += PAQUET) {
       const lot = demandes.slice(i, i + PAQUET);
       const trous = lot.map(() => '?').join(',');
-      const lignes = db.prepare(
+      const lignes = await prepare(
         `SELECT z.domain, z.zone_id, z.status, z.plan, z.ssl_mode, z.always_https, z.checked_at,
                 a.account_id, a.email, a.api_token, a.global_api_key, a.last_error
          FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref
@@ -176,16 +190,26 @@ export class CloudflareService {
     return { zones, missing, invalid, requested: demandes.length + invalid.length };
   }
 
-  stats() {
-    const db = getDb();
-    const un = (sql) => db.prepare(sql).get() ?? {};
+  async stats() {
+    const un = async (sql) => Number((await prepare(sql).get())?.n ?? 0);
+    // Les six comptages partent ENSEMBLE : ils ne dépendent pas les uns des autres, et
+    // le groupe de connexions sait les mener de front. Six attentes à la file
+    // multiplieraient par six le temps d'affichage de l'écran.
+    const [accounts, zones, ready, withoutZone, withoutEmail, lastImport] = await Promise.all([
+      un('SELECT COUNT(*) AS n FROM cf_accounts'),
+      un('SELECT COUNT(*) AS n FROM cf_zones'),
+      un("SELECT COUNT(*) AS n FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref WHERE z.zone_id <> '' AND (a.api_token <> '' OR a.email <> '')"),
+      un("SELECT COUNT(*) AS n FROM cf_zones WHERE zone_id = ''"),
+      un("SELECT COUNT(*) AS n FROM cf_accounts WHERE email = '' AND api_token = ''"),
+      prepare('SELECT at, source, rows_read, zones_added, skipped FROM cf_imports ORDER BY at DESC LIMIT 1').get(),
+    ]);
     return {
-      accounts: un('SELECT COUNT(*) AS n FROM cf_accounts').n ?? 0,
-      zones: un('SELECT COUNT(*) AS n FROM cf_zones').n ?? 0,
-      ready: un("SELECT COUNT(*) AS n FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref WHERE z.zone_id <> '' AND (a.api_token <> '' OR a.email <> '')").n ?? 0,
-      withoutZone: un("SELECT COUNT(*) AS n FROM cf_zones WHERE zone_id = ''").n ?? 0,
-      withoutEmail: un("SELECT COUNT(*) AS n FROM cf_accounts WHERE email = '' AND api_token = ''").n ?? 0,
-      lastImport: db.prepare('SELECT at, source, rows_read, zones_added, skipped FROM cf_imports ORDER BY at DESC LIMIT 1').get() ?? null,
+      accounts,
+      zones,
+      ready,
+      withoutZone,
+      withoutEmail,
+      lastImport: lastImport ?? null,
       emailDomain: config.cloudflare.emailDomain,
     };
   }
@@ -200,9 +224,24 @@ export class CloudflareService {
     ]);
 
     // Ce qu'on vient d'apprendre est gardé, pour que la liste le montre sans rappeler l'API.
-    getDb().prepare(
+    //
+    // Ces valeurs viennent de l'EXTÉRIEUR : rien ne garantit qu'un libellé d'offre ou
+    // une liste de serveurs de noms tiendra dans sa colonne. Depuis que la base est en
+    // mode strict, une valeur trop longue fait échouer la requête au lieu d'être
+    // tronquée — et faire échouer l'affichage d'une zone parce que Cloudflare a rallongé
+    // un libellé serait absurde. On borne donc ici, où le sens est connu.
+    await prepare(
       `UPDATE cf_zones SET status = ?, plan = ?, name_servers = ?, ssl_mode = ?, always_https = ?, checked_at = ?, updated_at = ? WHERE domain = ?`,
-    ).run(zone.status, zone.plan, (zone.nameServers ?? []).join(' '), settings.ssl ?? '', settings.always_use_https === 'on' ? 1 : 0, Date.now(), Date.now(), cible.domain);
+    ).run(
+      borne(zone.status, 30),
+      borne(zone.plan, 60),
+      borne((zone.nameServers ?? []).join(' '), 400),
+      borne(settings.ssl, 20),
+      settings.always_use_https === 'on' ? 1 : 0,
+      Date.now(),
+      Date.now(),
+      cible.domain,
+    );
 
     const exposes = {};
     for (const k of EXPOSED_SETTINGS) if (settings[k] !== undefined) exposes[k] = settings[k];
@@ -253,9 +292,9 @@ export class CloudflareService {
    * que par une route qui exige le droit d'écriture et qui journalise la demande — on
    * saura toujours qui a révélé quelle clé, et quand.
    */
-  credentials(domain) {
+  async credentials(domain) {
     const nom = String(domain ?? '').trim().toLowerCase();
-    const l = getDb().prepare(
+    const l = await prepare(
       `SELECT z.domain, z.zone_id, a.account_id, a.email, a.global_api_key, a.api_token
        FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref WHERE z.domain = ?`,
     ).get(nom);
@@ -316,7 +355,7 @@ export class CloudflareService {
    * chaque domaine, réussite comme échec.
    */
   async bulk(kind, domains, options = {}) {
-    const { targets, skipped } = this.targets(domains);
+    const { targets, skipped } = await this.targets(domains);
     const batch = { concurrency: config.cloudflare.concurrency };
 
     let out;

@@ -44,6 +44,23 @@ export function openMysql(config) {
     namedPlaceholders: false,
   };
   pool = mysql.createPool(reglages);
+
+  // MODE STRICT, SUR CHAQUE CONNEXION.
+  //
+  // Par défaut, MariaDB TRONQUE une valeur trop longue pour sa colonne et se contente
+  // d'un avertissement que personne ne lit. Pour une donnée d'affichage c'est fâcheux ;
+  // pour un nom de domaine, qui sert de clé pour agir sur un site, c'est inacceptable :
+  // l'opération partirait vers une autre zone, et rien ne le dirait. On préfère une
+  // erreur franche, qu'on voit et qu'on corrige, à une donnée fausse qui passe.
+  //
+  // Le réglage est posé à l'ouverture de chaque connexion du groupe, car il ne vaut que
+  // pour la session. Les requêtes d'une connexion partent dans l'ordre : celle-ci est
+  // enfilée la première, avant tout ce que l'application demandera ensuite.
+  pool.on('connection', (cnx) => {
+    cnx.query("SET SESSION sql_mode = CONCAT(@@sql_mode, ',STRICT_TRANS_TABLES')", (err) => {
+      if (err) console.error(`[mysql] mode strict non appliqué : ${err.message}`);
+    });
+  });
   return pool;
 }
 
@@ -143,16 +160,21 @@ export async function transaction(fn) {
  * L'import Cloudflare écrit 38 000 lignes : une requête par ligne tiendrait des
  * minutes. On les groupe par paquets, en restant loin de la taille maximale d'un
  * paquet MySQL.
+ *
+ * `via` sert à écrire DANS une transaction : sans lui, les paquets partent sur le pool,
+ * donc sur des connexions quelconques, et un échec à mi-parcours laisserait les
+ * premiers paquets en place. On lui passe l'objet reçu par `transaction()`.
  */
-export async function insertMany(table, colonnes, lignes, { chunk = 500, onDuplicate = '' } = {}) {
+export async function insertMany(table, colonnes, lignes, { chunk = 500, onDuplicate = '', via = null } = {}) {
   if (!lignes.length) return 0;
   const noms = colonnes.map((c) => `\`${c}\``).join(', ');
   const trou = `(${colonnes.map(() => '?').join(', ')})`;
+  const canal = via ?? getPool();
   let total = 0;
   for (let i = 0; i < lignes.length; i += chunk) {
     const lot = lignes.slice(i, i + chunk);
     const sql = `INSERT INTO \`${table}\` (${noms}) VALUES ${lot.map(() => trou).join(', ')}${onDuplicate ? ` ON DUPLICATE KEY UPDATE ${onDuplicate}` : ''}`;
-    const [r] = await getPool().query(sql, lot.flat().map((v) => (v === undefined ? null : v)));
+    const [r] = await canal.query(sql, lot.flat().map((v) => (v === undefined ? null : v)));
     total += r.affectedRows ?? 0;
   }
   return total;

@@ -39,12 +39,12 @@ export function cloudflareRouter({ cloudflare, audit }) {
     }
   };
 
-  r.get('/', canRead, (req, res) => {
+  r.get('/', canRead, async (req, res) => {
     const { search, status, page, perPage } = req.query;
-    res.json(cloudflare.list({ search, status, page, perPage }));
+    res.json(await cloudflare.list({ search, status, page, perPage }));
   });
 
-  r.get('/stats', canRead, (_req, res) => res.json(cloudflare.stats()));
+  r.get('/stats', canRead, async (_req, res) => res.json(await cloudflare.stats()));
 
   /**
    * Retrouve une liste de domaines d'un coup.
@@ -52,7 +52,7 @@ export function cloudflareRouter({ cloudflare, audit }) {
    * En POST, et non en paramètre d'adresse : une liste collée peut compter des milliers
    * de lignes, bien au-delà de ce qu'une adresse accepte. Lecture seule malgré le verbe.
    */
-  r.post('/lookup', canRead, (req, res) => res.json(cloudflare.lookup(req.body?.domains ?? req.body?.text ?? '')));
+  r.post('/lookup', canRead, async (req, res) => res.json(await cloudflare.lookup(req.body?.domains ?? req.body?.text ?? '')));
 
   /**
    * Les acces d'un domaine, cle comprise.
@@ -60,9 +60,9 @@ export function cloudflareRouter({ cloudflare, audit }) {
    * Droit d'ECRITURE exige, et demande journalisee : une cle globale ouvre le compte
    * entier. Cloudflare masque la sienne derriere un bouton pour la meme raison.
    */
-  r.get('/zones/:domain/credentials', canWrite, (req, res) => {
+  r.get('/zones/:domain/credentials', canWrite, async (req, res) => {
     audit(req, { action: 'cloudflare.reveal_key', domain: req.params.domain, target: 'credentials', ok: true });
-    res.json(cloudflare.credentials(req.params.domain));
+    res.json(await cloudflare.credentials(req.params.domain));
   });
 
   /**

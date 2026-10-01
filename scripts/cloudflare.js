@@ -17,7 +17,7 @@
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { config } from '../src/config.js';
-import { closeDatabase, getDb, openDatabase } from '../src/db/database.js';
+import { closeMysql, openMysql, prepare } from '../src/db/mysql.js';
 import { analyzeCsv, cloudflareStats, deriveMissingEmails, importCsv } from '../src/services/cloudflareImport.js';
 import { redact } from '../src/services/cloudflareClient.js';
 import {
@@ -42,6 +42,14 @@ const info = (s) => console.log(`  ${s}`);
 const note = (s) => console.log(`  ${gris(s)}`);
 const nombre = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 const court = (id) => (id ? `${String(id).slice(0, 8)}…` : '—');
+
+/**
+ * Borne une valeur venue de l'API à la taille de sa colonne.
+ *
+ * La base refuse désormais une valeur trop longue au lieu de la tronquer : un libellé
+ * d'offre rallongé par Cloudflare ne doit pas faire échouer une vérification.
+ */
+const borne = (v, max) => String(v ?? '').slice(0, max);
 
 /** Une barre de progression tenue sur une seule ligne. */
 function progression(fait, total, suffixe = '') {
@@ -77,16 +85,15 @@ function lireArguments(argv) {
  * Un domaine sans identifiant de zone ou sans accès utilisable est écarté ICI, avec
  * son motif — plutôt que d'échouer plus tard, un appel et un quota plus loin.
  */
-function cibles({ domains = [], all = false, limit = 0 }) {
-  const db = getDb();
+async function cibles({ domains = [], all = false, limit = 0 }) {
   const base = `SELECT z.domain, z.zone_id, a.account_id, a.email, a.global_api_key, a.api_token
                 FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref`;
   // La limite porte sur les domaines UTILISABLES, pas sur les lignes lues. Appliquée à
   // la requête, elle tombait sur les premiers par ordre alphabétique — tous sans accès
   // — et « verify --limit 6 » ne vérifiait rien du tout.
   const lignes = all
-    ? db.prepare(`${base} ORDER BY z.domain`).all()
-    : domains.map((d) => db.prepare(`${base} WHERE z.domain = ?`).get(String(d).trim().toLowerCase())).filter(Boolean);
+    ? await prepare(`${base} ORDER BY z.domain`).all()
+    : (await Promise.all(domains.map((d) => prepare(`${base} WHERE z.domain = ?`).get(String(d).trim().toLowerCase())))).filter(Boolean);
 
   const pretes = [];
   const ecartees = [];
@@ -184,11 +191,11 @@ const commandes = {
     if (!options.yes) { console.log(); info(`${orange('Rien n’a été écrit.')} Ajoutez ${gras('--yes')} pour importer.`); return 0; }
 
     console.log();
-    const r = importCsv(texte, { source: basename(fichier), onProgress: (n, t) => progression(n, t, 'lignes') });
+    const r = await importCsv(texte, { source: basename(fichier), onProgress: (n, t) => progression(n, t, 'lignes') });
     progression(a.rowsRead, a.rowsRead, 'lignes');
     ok(`${nombre(r.accountsAdded)} compte(s) créé(s), ${nombre(r.zonesAdded)} zone(s) créée(s), ${nombre(r.zonesUpdated)} mise(s) à jour`);
 
-    const s = cloudflareStats();
+    const s = await cloudflareStats();
     if (s.accounts && !s.accountsWithEmail && !s.accountsWithToken) {
       console.log();
       info(orange('À SAVOIR'));
@@ -201,13 +208,13 @@ const commandes = {
   },
 
   async stats() {
-    const s = cloudflareStats();
+    const s = await cloudflareStats();
     titre('État du module Cloudflare');
     info(`comptes : ${gras(nombre(s.accounts))}`);
     note(`avec e-mail : ${s.accountsWithEmail ? vert(nombre(s.accountsWithEmail)) : rouge('0')}   avec jeton : ${s.accountsWithToken ? vert(nombre(s.accountsWithToken)) : '0'}`);
     info(`zones   : ${gras(nombre(s.zones))}`);
     note(`avec identifiant : ${nombre(s.zonesWithId)}   sans : ${s.zones - s.zonesWithId}`);
-    const utilisables = cibles({ all: true }).pretes.length;
+    const utilisables = (await cibles({ all: true })).pretes.length;
     console.log();
     info(`${utilisables ? vert(nombre(utilisables)) : rouge('0')} domaine(s) prêt(s) à recevoir une commande`);
     if (s.lastImport) {
@@ -225,12 +232,12 @@ const commandes = {
     // La dérivation : l'adresse se déduit du domaine, « 201eat.com@linkuma.co ».
     if (options.derive || compte === '--derive') {
       const emailDomain = typeof options.derive === 'string' ? options.derive : config.cloudflare.emailDomain;
-      const apercu = deriveMissingEmails(emailDomain, { dryRun: true });
+      const apercu = await deriveMissingEmails(emailDomain, { dryRun: true });
       info(`${gras(nombre(apercu.candidates))} compte(s) sans adresse, à compléter en « <domaine>@${emailDomain} »`);
       for (const c of apercu.samples) note(`• ${c.domain} → ${c.email}`);
       if (!apercu.candidates) { ok('aucun compte à compléter.'); return 0; }
       if (!options.yes) { console.log(); info(`${orange('Rien n’a été modifié.')} Ajoutez ${gras('--yes')}.`); return 0; }
-      const r = deriveMissingEmails(emailDomain);
+      const r = await deriveMissingEmails(emailDomain);
       ok(`${nombre(r.updated)} compte(s) complété(s)`);
       note('Vérifiez maintenant les accès : npm run cf -- verify --limit 20');
       return 0;
@@ -244,31 +251,29 @@ const commandes = {
     }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(adresse)) { ko(`adresse invalide : ${adresse}`); return 1; }
 
-    const db = getDb();
-    const ligne = db.prepare('SELECT a.id FROM cf_accounts a LEFT JOIN cf_zones z ON z.account_ref = a.id WHERE a.account_id = ? OR z.domain = ? LIMIT 1').get(compte, compte.toLowerCase());
+    const ligne = await prepare('SELECT a.id FROM cf_accounts a LEFT JOIN cf_zones z ON z.account_ref = a.id WHERE a.account_id = ? OR z.domain = ? LIMIT 1').get(compte, compte.toLowerCase());
     if (!ligne) { ko(`ni compte ni domaine connu : ${compte}`); return 1; }
-    db.prepare('UPDATE cf_accounts SET email = ?, updated_at = ? WHERE id = ?').run(adresse, Date.now(), ligne.id);
+    await prepare('UPDATE cf_accounts SET email = ?, updated_at = ? WHERE id = ?').run(adresse, Date.now(), ligne.id);
     ok(`compte mis à jour : ${adresse}`);
     return 0;
   },
 
   async verify(positionnels, options) {
     const demandes = domainesDemandes(positionnels, options);
-    const { pretes, ecartees } = cibles({ domains: demandes, all: !demandes.length, limit: options.limit ?? 20 });
+    const { pretes, ecartees } = await cibles({ domains: demandes, all: !demandes.length, limit: options.limit ?? 20 });
     titre('Vérification des accès');
     if (ecartees.length) info(`${orange(nombre(ecartees.length))} domaine(s) écarté(s) avant tout appel`);
     if (!pretes.length) { ko('aucun domaine vérifiable.'); return 1; }
 
     info(`${nombre(pretes.length)} domaine(s) à vérifier ${gris('(lecture seule)')}`);
     console.log();
-    const db = getDb();
     let bons = 0;
     for (const [i, cible] of pretes.entries()) {
       try {
         const z = await getZone(cible.zoneId, cible.creds);
-        db.prepare('UPDATE cf_zones SET status = ?, plan = ?, name_servers = ?, checked_at = ? WHERE domain = ?')
-          .run(z.status, z.plan, (z.nameServers ?? []).join(' '), Date.now(), cible.domain);
-        db.prepare('UPDATE cf_accounts SET verified_at = ?, last_error = \'\' WHERE account_id = ?').run(Date.now(), cible.accountId);
+        await prepare('UPDATE cf_zones SET status = ?, plan = ?, name_servers = ?, checked_at = ? WHERE domain = ?')
+          .run(borne(z.status, 30), borne(z.plan, 60), borne((z.nameServers ?? []).join(' '), 400), Date.now(), cible.domain);
+        await prepare('UPDATE cf_accounts SET verified_at = ?, last_error = \'\' WHERE account_id = ?').run(Date.now(), cible.accountId);
         ok(`${cible.domain.padEnd(34)} ${z.status.padEnd(10)} ${gris(z.plan)}`);
         bons += 1;
       } catch (err) {
@@ -278,15 +283,15 @@ const commandes = {
         try {
           const trouvee = await findZoneByName(cible.domain, cible.creds, { retries: 0 });
           if (trouvee?.id) {
-            db.prepare('UPDATE cf_zones SET zone_id = ?, status = ?, checked_at = ?, updated_at = ? WHERE domain = ?')
-              .run(trouvee.id, trouvee.status ?? '', Date.now(), Date.now(), cible.domain);
+            await prepare('UPDATE cf_zones SET zone_id = ?, status = ?, checked_at = ?, updated_at = ? WHERE domain = ?')
+              .run(trouvee.id, borne(trouvee.status, 30), Date.now(), Date.now(), cible.domain);
             ok(`${cible.domain.padEnd(34)} ${String(trouvee.status ?? '').padEnd(10)} ${gris('zone retrouvee et corrigee')}`);
             bons += 1;
             rattrape = true;
           }
         } catch { /* le rattrapage a echoue aussi : on dira l'erreur d'origine */ }
         if (!rattrape) {
-          db.prepare('UPDATE cf_accounts SET last_error = ? WHERE account_id = ?').run(redact(err.message).slice(0, 300), cible.accountId);
+          await prepare('UPDATE cf_accounts SET last_error = ? WHERE account_id = ?').run(redact(err.message).slice(0, 300), cible.accountId);
           ko(`${cible.domain.padEnd(34)} ${redact(err.message)}`);
         }
       }
@@ -300,7 +305,7 @@ const commandes = {
   async purge(positionnels, options) {
     const demandes = domainesDemandes(positionnels, options);
     if (!demandes.length && !options.all) { ko('indiquez des domaines, ou --all, ou --file <liste>'); return 1; }
-    const { pretes, ecartees } = cibles({ domains: demandes, all: Boolean(options.all), limit: options.limit ?? 0 });
+    const { pretes, ecartees } = await cibles({ domains: demandes, all: Boolean(options.all), limit: options.limit ?? 0 });
 
     const urls = options.url ? [].concat(options.url) : [];
     const quoi = urls.length ? `Purge de ${urls.length} adresse(s)` : 'Purge COMPLÈTE du cache';
@@ -319,7 +324,7 @@ const commandes = {
     const [mode, ...reste] = positionnels;
     if (!SSL_MODES.includes(String(mode))) { ko(`mode attendu parmi : ${SSL_MODES.join(', ')}`); return 1; }
     const demandes = domainesDemandes(reste, options);
-    const { pretes, ecartees } = cibles({ domains: demandes, all: Boolean(options.all), limit: options.limit ?? 0 });
+    const { pretes, ecartees } = await cibles({ domains: demandes, all: Boolean(options.all), limit: options.limit ?? 0 });
     if (!confirme(options, `Mode SSL/TLS → ${gras(mode)}`, pretes, ecartees)) return pretes.length ? 0 : 1;
     if (mode === 'off') { console.log(); note(orange('« off » laisse le trafic en clair entre le visiteur et Cloudflare.')); }
 
@@ -335,7 +340,7 @@ const commandes = {
     const [etat, ...reste] = positionnels;
     if (!['on', 'off'].includes(String(etat))) { ko('usage : npm run cf -- https on|off <domaines…>'); return 1; }
     const demandes = domainesDemandes(reste, options);
-    const { pretes, ecartees } = cibles({ domains: demandes, all: Boolean(options.all), limit: options.limit ?? 0 });
+    const { pretes, ecartees } = await cibles({ domains: demandes, all: Boolean(options.all), limit: options.limit ?? 0 });
     if (!confirme(options, `Redirection HTTP → HTTPS : ${gras(etat)}`, pretes, ecartees)) return pretes.length ? 0 : 1;
 
     console.log();
@@ -349,7 +354,7 @@ const commandes = {
   async settings(positionnels) {
     const [domaine] = positionnels;
     if (!domaine) { ko('usage : npm run cf -- settings <domaine>'); return 1; }
-    const { pretes, ecartees } = cibles({ domains: [domaine] });
+    const { pretes, ecartees } = await cibles({ domains: [domaine] });
     if (!pretes.length) { ko(`${domaine} : ${ecartees[0]?.reason ?? 'introuvable'}`); return 1; }
 
     const cible = pretes[0];
@@ -377,7 +382,7 @@ const commandes = {
   async dns(positionnels, options) {
     const [action, domaine, ...reste] = positionnels;
     if (!domaine) { ko('usage : npm run cf -- dns list|add|del <domaine> […]'); return 1; }
-    const { pretes, ecartees } = cibles({ domains: [domaine] });
+    const { pretes, ecartees } = await cibles({ domains: [domaine] });
     if (!pretes.length) { ko(`${domaine} : ${ecartees[0]?.reason ?? 'introuvable'}`); return 1; }
     const cible = pretes[0];
 
@@ -465,7 +470,7 @@ const [, , nomCommande = 'help', ...reste] = process.argv;
 const { options, positionnels } = lireArguments(reste);
 const commande = commandes[nomCommande] ?? commandes.help;
 
-openDatabase(config.dbFile);
+openMysql(config.mysql);
 let code = 0;
 try {
   code = await commande(positionnels, options);
@@ -476,6 +481,6 @@ try {
   if (process.env.DEBUG) console.error(err);
   code = 1;
 } finally {
-  closeDatabase();
+  await closeMysql();
 }
 process.exit(code);

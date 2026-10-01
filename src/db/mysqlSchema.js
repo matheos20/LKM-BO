@@ -180,6 +180,21 @@ export const MYSQL_MIGRATIONS = [
     report LONGTEXT NOT NULL COMMENT 'le détail de l''import, en JSON'
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Historique des imports : ce qui est entré, ce qui a été écarté';
   `,
+
+  // v6 — de la place pour un nom de domaine COMPLET
+  //
+  // La norme DNS autorise 253 caractères ; les colonnes en acceptaient 190. Le plus long
+  // domaine du parc en fait 47, mais ce n'est pas une raison : une valeur trop longue
+  // pour sa colonne est TRONQUÉE par MySQL hors mode strict, et un domaine tronqué
+  // désigne une autre zone que celle visée. Pour une colonne qui sert de clé, c'est une
+  // opération sur le mauvais site, sans rien pour le signaler.
+  //
+  // L'adresse suit : elle se déduit du domaine (« <domaine>@linkuma.co »), donc elle est
+  // forcément plus longue que lui.
+  `
+  ALTER TABLE cf_zones MODIFY domain VARCHAR(253) NOT NULL COMMENT 'nom de domaine complet, jusqu''à la limite DNS';
+  ALTER TABLE cf_accounts MODIFY email VARCHAR(320) NOT NULL DEFAULT '' COMMENT 'exigé par Cloudflare avec une clé globale ; déduit du domaine';
+  `,
 ];
 
 /**

@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { closeDatabase, getDb, openDatabase } from '../src/db/database.js';
+import { after, before, test } from 'node:test';
+import { exec, prepare } from '../src/db/mysql.js';
+import { creerBaseJetable } from './mysqlTestDb.js';
 import { parseCsv, splitCsvLine } from '../src/services/csv.js';
-import { analyzeCsv, cloudflareStats, importCsv, normalizeDomain, validateRow } from '../src/services/cloudflareImport.js';
+import { analyzeCsv, cloudflareStats, deriveEmail, deriveMissingEmails, importCsv, normalizeDomain, validateRow } from '../src/services/cloudflareImport.js';
 
 const CLE = 'a'.repeat(37); // une clé globale : 37 hexadécimaux
 const JETON = 'T'.repeat(40); // un jeton d'API : 40 alphanumériques
@@ -122,19 +120,21 @@ test('un en-tête sans les colonnes indispensables est refusé net', () => {
 
 // ───────── L'écriture en base ─────────
 
-const avecBase = (fn) => {
-  const dossier = mkdtempSync(join(tmpdir(), 'lkm-cf-'));
-  openDatabase(join(dossier, 'essai.db'));
-  try {
-    fn();
-  } finally {
-    closeDatabase();
-    rmSync(dossier, { recursive: true, force: true });
-  }
-};
+const base = creerBaseJetable('cloudflare');
+before(() => base.ouvrir({ seedRoles: false }));
+after(() => base.fermer());
 
-test('l’import crée les comptes et les zones, et se raconte', () => {
-  avecBase(() => {
+/**
+ * Repart de tables Cloudflare VIDES.
+ *
+ * L'ordre compte : cf_zones pointe vers cf_accounts, et vider le parent avant l'enfant
+ * ferait echouer la contrainte.
+ */
+const avecBase = (fn) => base.vider('cf_zones', 'cf_accounts', 'cf_imports').then(fn);
+
+test('l’import crée les comptes et les zones, et se raconte', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
     const csv = [
       EN_TETE,
       ligne('un.com', ID('a'), CLE, ID('1')),
@@ -143,12 +143,12 @@ test('l’import crée les comptes et les zones, et se raconte', () => {
       ligne('NULL', ID('c'), CLE, ID('3')),
     ].join('\n');
 
-    const r = importCsv(csv, { source: 'essai.csv' });
+    const r = await importCsv(csv, { source: 'essai.csv' });
     assert.equal(r.accountsAdded, 2, 'deux comptes distincts');
     assert.equal(r.zonesAdded, 3);
     assert.equal(r.skipped, 1);
 
-    const s = cloudflareStats();
+    const s = await cloudflareStats();
     assert.equal(s.accounts, 2);
     assert.equal(s.zones, 3);
     assert.equal(s.zonesWithId, 2, 'celle sans identifiant est comptée à part');
@@ -157,45 +157,199 @@ test('l’import crée les comptes et les zones, et se raconte', () => {
   });
 });
 
-test('réimporter le même fichier ne duplique rien', () => {
-  avecBase(() => {
+test('réimporter le même fichier ne duplique rien', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
     const csv = [EN_TETE, ligne('un.com', ID('a'), CLE, ID('1'))].join('\n');
-    importCsv(csv, { source: 'a' });
-    const second = importCsv(csv, { source: 'b' });
+    await importCsv(csv, { source: 'a' });
+    const second = await importCsv(csv, { source: 'b' });
     assert.equal(second.accountsAdded, 0);
     assert.equal(second.zonesAdded, 0);
-    assert.equal(cloudflareStats().zones, 1);
+    assert.equal((await cloudflareStats()).zones, 1);
   });
 });
 
-test('un import ne pietine pas un e-mail saisi a la main', () => {
+test('un import ne pietine pas un e-mail saisi a la main', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
   // L'export ne porte aucun e-mail, et sans e-mail une cle globale ne sert a rien.
   // Celui que l'agent complete a la main doit donc survivre au prochain import.
-  avecBase(() => {
+  await avecBase(async () => {
     const csv = [EN_TETE, ligne('un.com', ID('a'), CLE, ID('1'))].join('\n');
-    importCsv(csv, { source: 'a' });
+    await importCsv(csv, { source: 'a' });
 
-    getDb().prepare("UPDATE cf_accounts SET email = 'agent@linkuma.com' WHERE account_id = ?").run(ID('a'));
-    importCsv(csv, { source: 'b' });
+    await prepare("UPDATE cf_accounts SET email = 'agent@linkuma.com' WHERE account_id = ?").run(ID('a'));
+    await importCsv(csv, { source: 'b' });
 
-    assert.equal(getDb().prepare('SELECT email FROM cf_accounts WHERE account_id = ?').get(ID('a')).email, 'agent@linkuma.com');
-    assert.equal(cloudflareStats().accountsWithEmail, 1);
+    assert.equal((await prepare('SELECT email FROM cf_accounts WHERE account_id = ?').get(ID('a'))).email, 'agent@linkuma.com');
+    assert.equal((await cloudflareStats()).accountsWithEmail, 1);
   });
 });
 
-test('une zone qui gagne son identifiant est mise à jour', () => {
-  avecBase(() => {
-    importCsv([EN_TETE, ligne('un.com', ID('a'), CLE, 'NULL')].join('\n'), { source: 'a' });
-    assert.equal(cloudflareStats().zonesWithId, 0);
-    const r = importCsv([EN_TETE, ligne('un.com', ID('a'), CLE, ID('9'))].join('\n'), { source: 'b' });
+test('une zone qui gagne son identifiant est mise à jour', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
+    await importCsv([EN_TETE, ligne('un.com', ID('a'), CLE, 'NULL')].join('\n'), { source: 'a' });
+    assert.equal((await cloudflareStats()).zonesWithId, 0);
+    const r = await importCsv([EN_TETE, ligne('un.com', ID('a'), CLE, ID('9'))].join('\n'), { source: 'b' });
     assert.equal(r.zonesUpdated, 1);
-    assert.equal(cloudflareStats().zonesWithId, 1);
+    assert.equal((await cloudflareStats()).zonesWithId, 1);
   });
 });
 
-test('un fichier sans les bonnes colonnes est refusé avant d’écrire', () => {
-  avecBase(() => {
-    assert.throws(() => importCsv('a,b\n1,2', { source: 'x' }), /colonnes absentes/);
-    assert.equal(cloudflareStats().zones, 0, 'rien ne doit avoir été écrit');
+test('un fichier sans les bonnes colonnes est refusé avant d’écrire', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
+    await assert.rejects(() => importCsv('a,b\n1,2', { source: 'x' }), /colonnes absentes/);
+    assert.equal((await cloudflareStats()).zones, 0, 'rien ne doit avoir été écrit');
+  });
+});
+
+// ───── Ce que MySQL a changé ─────
+
+test('un import qui échoue ne laisse RIEN derrière lui', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
+    await importCsv([EN_TETE, ligne('deja.com', ID('a'), CLE, ID('1'))].join('\n'), { source: 'premier' });
+
+    // AUCUN CONTENU DE CSV NE PEUT FAIRE ÉCHOUER UNE ÉCRITURE, et c'est voulu : la
+    // validation refuse déjà un domaine au-delà de la limite DNS, et les identifiants
+    // comme les clés ont une forme de longueur fixe. Pour éprouver l'annulation il faut
+    // donc provoquer la panne autrement : on rétrécit la colonne le temps du contrôle.
+    //
+    // Ce que l'on vérifie ici n'est pas la taille d'une colonne, mais le tout-ou-rien :
+    // un import à moitié écrit laisserait des domaines rattachés à des comptes absents,
+    // et personne ne saurait où il s'est arrêté.
+    await exec('ALTER TABLE cf_zones MODIFY domain VARCHAR(12) NOT NULL');
+    try {
+      const csv = [
+        EN_TETE,
+        ligne('court.com', ID('b'), CLE, ID('2')),
+        ligne('un-domaine-bien-trop-long.com', ID('c'), CLE, ID('3')),
+      ].join('\n');
+      await assert.rejects(() => importCsv(csv, { source: 'rate' }), /too long/i);
+    } finally {
+      await exec('ALTER TABLE cf_zones MODIFY domain VARCHAR(253) NOT NULL');
+    }
+
+    const etat = await cloudflareStats();
+    assert.equal(etat.zones, 1, 'la zone courte du second import ne doit pas rester');
+    assert.equal(etat.accounts, 1, 'ni les comptes qu’il apportait');
+    assert.equal(etat.lastImport.source, 'premier', 'ni la trace d’un import qui a échoué');
+  });
+});
+
+test('un nom de domaine entier tient en base, sans être coupé', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
+    // La norme DNS autorise 253 caractères. Un domaine tronqué désignerait une AUTRE
+    // zone : purger son cache ou changer son SSL toucherait le mauvais site.
+    const etiquette = (c) => c.repeat(60);
+    const long = `${etiquette('a')}.${etiquette('b')}.${etiquette('c')}.${etiquette('d')}.fr`;
+    assert.equal(long.length, 246, 'le domaine d’essai doit être proche de la limite DNS');
+    assert.equal(normalizeDomain(long), long, 'et rester valide');
+
+    await importCsv([EN_TETE, ligne(long, ID('a'), CLE, ID('1'))].join('\n'), { source: 'long' });
+    const enBase = await prepare('SELECT domain FROM cf_zones WHERE zone_id = ?').get(ID('1'));
+    assert.equal(enBase.domain, long, 'le domaine revient complet');
+  });
+});
+
+test('l’adresse se déduit du domaine, et ne piétine que le vide', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
+    const csv = [
+      EN_TETE,
+      // Un compte avec deux domaines : l'adresse prend le premier par ordre alphabétique.
+      ligne('b-second.com', ID('a'), CLE, ID('1')),
+      ligne('a-premier.com', ID('a'), CLE, ID('2')),
+      ligne('autre.com', ID('b'), CLE, ID('3')),
+      // Un compte à jeton n'a pas besoin d'adresse : Cloudflare ne la demande pas.
+      ligne('jeton.com', ID('c'), JETON, ID('4')),
+    ].join('\n');
+    await importCsv(csv, { source: 'essai' });
+
+    const apercu = await deriveMissingEmails('linkuma.co', { dryRun: true });
+    assert.equal(apercu.candidates, 2, 'les deux comptes à clé globale, pas celui à jeton');
+    assert.equal(apercu.updated, 0, 'un aperçu n’écrit rien');
+    assert.equal((await cloudflareStats()).accountsWithEmail, 0);
+
+    const r = await deriveMissingEmails('linkuma.co');
+    assert.equal(r.updated, 2);
+    assert.equal(
+      (await prepare('SELECT email FROM cf_accounts WHERE account_id = ?').get(ID('a'))).email,
+      'a-premier.com@linkuma.co',
+      'le premier domaine par ordre alphabétique',
+    );
+    assert.equal((await prepare('SELECT email FROM cf_accounts WHERE account_id = ?').get(ID('c'))).email, '', 'le compte à jeton reste sans adresse');
+
+    // Repasser ne doit plus rien trouver : une adresse en place n'est jamais remplacée.
+    assert.equal((await deriveMissingEmails('linkuma.co', { dryRun: true })).candidates, 0);
+  });
+});
+
+test('l’adresse déduite d’un domaine très long tient aussi en base', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
+    // L'adresse est plus longue que le domaine : sa colonne doit suivre.
+    const long = `${'a'.repeat(60)}.${'b'.repeat(60)}.${'c'.repeat(60)}.${'d'.repeat(60)}.fr`;
+    await importCsv([EN_TETE, ligne(long, ID('a'), CLE, ID('1'))].join('\n'), { source: 'long' });
+    await deriveMissingEmails('linkuma.co');
+    const l = await prepare('SELECT email FROM cf_accounts WHERE account_id = ?').get(ID('a'));
+    assert.equal(l.email, deriveEmail(long, 'linkuma.co'));
+    assert.equal(l.email.length, long.length + 11, 'rien n’a été coupé');
+  });
+});
+
+test('un gros import ne fait pas un aller-retour par ligne', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
+    // L'export du parc compte 40 781 lignes. Avec une requête par ligne, l'import
+    // prendrait des minutes : c'est tout l'objet de la réécriture par paquets. On ne
+    // mesure pas un temps — il dépend de la machine — mais le fait que deux mille
+    // lignes entrent, exactes, d'un seul geste.
+    const lignes = [EN_TETE];
+    for (let i = 0; i < 2000; i += 1) lignes.push(ligne(`d${i}.com`, ID('a'), CLE, ''));
+    const r = await importCsv(lignes.join('\n'), { source: 'masse' });
+    assert.equal(r.valid, 2000);
+    assert.equal(r.zonesAdded, 2000);
+    assert.equal(r.accountsAdded, 1, 'un seul compte pour les deux mille domaines');
+    assert.equal((await cloudflareStats()).zones, 2000);
+
+    // Réimporter à l'identique ne doit rien écrire : c'est ce qui prouve que la
+    // comparaison en mémoire voit bien l'existant.
+    const second = await importCsv(lignes.join('\n'), { source: 'masse bis' });
+    assert.equal(second.zonesAdded, 0);
+    assert.equal(second.zonesUpdated, 0);
+    assert.equal(second.accountsUpdated, 0);
+  });
+});
+
+test('un export ne défait pas ce que l’API a confirmé', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await avecBase(async () => {
+    // L'export du parc portait encore l'ancienne zone d'un domaine que « cf verify »
+    // avait déjà corrigé auprès de Cloudflare. Chaque import défaisait la correction,
+    // et l'opération suivante repartait vers la MAUVAISE ZONE : purger le cache d'un
+    // autre site, changer le SSL d'un autre site, sans que rien ne le signale.
+    await importCsv([EN_TETE, ligne('zone-perimee.com', ID('a'), CLE, ID('1'))].join('\n'), { source: 'export' });
+
+    // « cf verify » retrouve la vraie zone et pose checked_at.
+    await prepare('UPDATE cf_zones SET zone_id = ?, checked_at = ? WHERE domain = ?').run(ID('9'), Date.now(), 'zone-perimee.com');
+
+    // Le même export, rejoué : il porte toujours sa valeur périmée.
+    const r = await importCsv([EN_TETE, ligne('zone-perimee.com', ID('a'), CLE, ID('1'))].join('\n'), { source: 'export bis' });
+    assert.equal(r.zonesUpdated, 0, 'rien à mettre à jour : la valeur en place est la bonne');
+    assert.equal(
+      (await prepare('SELECT zone_id FROM cf_zones WHERE domain = ?').get('zone-perimee.com')).zone_id,
+      ID('9'),
+      'la zone vérifiée doit survivre à l’import',
+    );
+
+    // En revanche, une zone JAMAIS vérifiée se laisse corriger par l'export : c'est la
+    // seule source dont on dispose pour elle.
+    await importCsv([EN_TETE, ligne('jamais-verifiee.com', ID('a'), CLE, 'NULL')].join('\n'), { source: 'a' });
+    const maj = await importCsv([EN_TETE, ligne('jamais-verifiee.com', ID('a'), CLE, ID('7'))].join('\n'), { source: 'b' });
+    assert.equal(maj.zonesUpdated, 1);
+    assert.equal((await prepare('SELECT zone_id FROM cf_zones WHERE domain = ?').get('jamais-verifiee.com')).zone_id, ID('7'));
   });
 });

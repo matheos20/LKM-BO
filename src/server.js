@@ -5,7 +5,6 @@ import helmet from 'helmet';
 import { ROOT, assertStartupConfig, config, loadServers } from './config.js';
 import { AppError } from './errors.js';
 import { loadLocales, watchLocales } from './i18n.js';
-import { closeDatabase, openDatabase } from './db/database.js';
 import { closeMysql, exec as mysqlExec, openMysql, prepare as mysqlPrepare } from './db/mysql.js';
 import { migrateMysql, seedSystemRolesMysql } from './db/mysqlSchema.js';
 import { PERMISSION_KEYS, SYSTEM_ROLES } from './auth/permissions.js';
@@ -42,10 +41,9 @@ try {
   assertStartupConfig();
   loadLocales();
   servers = loadServers();
-  // SQLite ne sert plus qu'à Cloudflare : comptes, zones et enregistrements DNS.
-  openDatabase(config.dbFile);
-  // MySQL porte les comptes, les roles, les sessions, le journal, le dictionnaire
-  // et les brouillons de sites.
+  // MySQL porte TOUTES les données de l'application. SQLite n'est plus lu ni écrit par
+  // aucune couche ; le fichier reste ouvert le temps de la dernière étape, qui retirera
+  // la dépendance et fera passer la sauvegarde à mysqldump.
   openMysql(config.mysql);
   await migrateMysql({ prepare: mysqlPrepare, exec: mysqlExec });
   await seedSystemRolesMysql(null, { SYSTEM_ROLES, PERMISSION_KEYS });
@@ -140,8 +138,7 @@ const server = app.listen(config.port, config.host, () => {
 function shutdown() {
   console.log('\nArrêt : fermeture des sessions SSH…');
   ssh.closeAll();
-  closeDatabase();
-  // Le groupe de connexions MySQL se ferme aussi : sinon le processus s'attarde.
+  // Le groupe de connexions MySQL se ferme : sinon le processus s'attarde.
   closeMysql().catch(() => {});
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
