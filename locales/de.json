@@ -1327,6 +1327,16 @@
     "bulk_done_title": "Leerung abgeschlossen",
     "bulk_done": "Fertig: Der Cache von {count} Domain(s) wurde geleert.",
     "bulk_partial": "Fertig: {done} Domain(s) bearbeitet, {failed} fehlgeschlagen.",
-    "purge_after_hint": "Die ersten Besuche sind etwas langsamer, bis der Cache wieder aufgebaut ist."
+    "purge_after_hint": "Die ersten Besuche sind etwas langsamer, bis der Cache wieder aufgebaut ist.",
+    "lookup_button": "Liste suchen",
+    "lookup_submit": "Suchen",
+    "lookup_title": "Mehrere Domains suchen",
+    "lookup_body": "Fügen Sie Ihre Liste ein: nur diese Domains werden angezeigt.",
+    "lookup_result": "{found} von {requested} Domain(s) gefunden",
+    "lookup_missing": "{count} nicht gefunden",
+    "lookup_show_missing": "Welche?",
+    "lookup_missing_title": "Nicht gefundene Domains",
+    "lookup_missing_body": "{count} Domain(s) Ihrer Liste sind nicht in der Anwendung.",
+    "lookup_clear": "Zurück zur vollen Liste"
   }
 }

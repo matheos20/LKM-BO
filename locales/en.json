@@ -1327,6 +1327,16 @@
     "bulk_done_title": "Purge complete",
     "bulk_done": "Done: the cache of {count} domain(s) was purged.",
     "bulk_partial": "Done: {done} domain(s) processed, {failed} failed.",
-    "purge_after_hint": "The first visits will be a little slower while the cache rebuilds."
+    "purge_after_hint": "The first visits will be a little slower while the cache rebuilds.",
+    "lookup_button": "Search a list",
+    "lookup_submit": "Search",
+    "lookup_title": "Search several domains",
+    "lookup_body": "Paste your list: only these domains will be shown, and you can then act on the whole set.",
+    "lookup_result": "{found} domain(s) found out of {requested} searched",
+    "lookup_missing": "{count} not found",
+    "lookup_show_missing": "Which ones?",
+    "lookup_missing_title": "Domains not found",
+    "lookup_missing_body": "{count} domain(s) from your list are not in the application. They received no command.",
+    "lookup_clear": "Back to the full list"
   }
 }

@@ -120,6 +120,62 @@ export class CloudflareService {
     };
   }
 
+  /**
+   * Retrouve une LISTE de domaines d'un coup.
+   *
+   * L'agent a ses listes ailleurs — un tableur, un courriel, une autre console — et
+   * chercher cinquante domaines un par un dans un champ de recherche n'a pas de sens.
+   * Il les colle, et il obtient ceux qui existent, plus ceux qui manquent à l'appel :
+   * un domaine absent de la réponse doit se voir, sinon on croit avoir tout traité.
+   *
+   * La requête est découpée en paquets : SQLite limite le nombre de paramètres, et une
+   * liste collée peut en compter des milliers.
+   */
+  lookup(domains) {
+    const { entries, invalid } = parseDomainInput(Array.isArray(domains) ? domains.join('\n') : String(domains ?? ''));
+    const demandes = entries.map((e) => e.domain);
+    if (!demandes.length) return { zones: [], missing: [], invalid, requested: 0 };
+
+    const db = getDb();
+    const trouvees = new Map();
+    const PAQUET = 400;
+    for (let i = 0; i < demandes.length; i += PAQUET) {
+      const lot = demandes.slice(i, i + PAQUET);
+      const trous = lot.map(() => '?').join(',');
+      const lignes = db.prepare(
+        `SELECT z.domain, z.zone_id, z.status, z.plan, z.ssl_mode, z.always_https, z.checked_at,
+                a.account_id, a.email, a.api_token, a.global_api_key, a.last_error
+         FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref
+         WHERE z.domain IN (${trous})`,
+      ).all(...lot);
+      for (const l of lignes) trouvees.set(l.domain, l);
+    }
+
+    // L'ordre de la saisie est conservé : l'agent retrouve sa liste telle qu'il l'a
+    // collée, et peut la comparer ligne à ligne.
+    const zones = [];
+    const missing = [];
+    for (const d of demandes) {
+      const l = trouvees.get(d);
+      if (!l) { missing.push(d); continue; }
+      zones.push({
+        domain: l.domain,
+        zoneId: l.zone_id || null,
+        accountId: l.account_id,
+        email: l.email || null,
+        auth: l.api_token ? 'token' : l.global_api_key ? 'key' : 'none',
+        ready: Boolean(l.zone_id && (l.api_token || l.email)),
+        status: l.status || null,
+        plan: l.plan || null,
+        sslMode: l.ssl_mode || null,
+        alwaysHttps: l.always_https == null ? null : Boolean(l.always_https),
+        checkedAt: l.checked_at ?? null,
+        lastError: l.last_error ? redact(l.last_error) : null,
+      });
+    }
+    return { zones, missing, invalid, requested: demandes.length + invalid.length };
+  }
+
   stats() {
     const db = getDb();
     const un = (sql) => db.prepare(sql).get() ?? {};

@@ -1327,6 +1327,16 @@
     "bulk_done_title": "Purge terminée",
     "bulk_done": "Terminé : le cache de {count} domaine(s) a été vidé.",
     "bulk_partial": "Terminé : {done} domaine(s) traité(s), {failed} en échec.",
-    "purge_after_hint": "Les premières visites seront un peu plus lentes, le temps que le cache se reconstitue."
+    "purge_after_hint": "Les premières visites seront un peu plus lentes, le temps que le cache se reconstitue.",
+    "lookup_button": "Chercher une liste",
+    "lookup_submit": "Chercher",
+    "lookup_title": "Chercher plusieurs domaines",
+    "lookup_body": "Collez votre liste : seuls ces domaines seront affichés, et vous pourrez ensuite agir sur l’ensemble.",
+    "lookup_result": "{found} domaine(s) trouvé(s) sur {requested} recherché(s)",
+    "lookup_missing": "{count} introuvable(s)",
+    "lookup_show_missing": "Lesquels ?",
+    "lookup_missing_title": "Domaines introuvables",
+    "lookup_missing_body": "{count} domaine(s) de votre liste ne sont pas dans l’application. Ils n’ont donc reçu aucune commande.",
+    "lookup_clear": "Revenir à la liste complète"
   }
 }

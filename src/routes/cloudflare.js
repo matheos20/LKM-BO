@@ -47,6 +47,14 @@ export function cloudflareRouter({ cloudflare, audit }) {
   r.get('/stats', canRead, (_req, res) => res.json(cloudflare.stats()));
 
   /**
+   * Retrouve une liste de domaines d'un coup.
+   *
+   * En POST, et non en paramètre d'adresse : une liste collée peut compter des milliers
+   * de lignes, bien au-delà de ce qu'une adresse accepte. Lecture seule malgré le verbe.
+   */
+  r.post('/lookup', canRead, (req, res) => res.json(cloudflare.lookup(req.body?.domains ?? req.body?.text ?? '')));
+
+  /**
    * Les acces d'un domaine, cle comprise.
    *
    * Droit d'ECRITURE exige, et demande journalisee : une cle globale ouvre le compte

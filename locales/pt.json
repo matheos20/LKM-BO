@@ -1327,6 +1327,16 @@
     "bulk_done_title": "Limpeza terminada",
     "bulk_done": "Terminado: a cache de {count} domínio(s) foi limpa.",
     "bulk_partial": "Terminado: {done} domínio(s) tratado(s), {failed} com erro.",
-    "purge_after_hint": "As primeiras visitas serão um pouco mais lentas enquanto a cache se reconstrói."
+    "purge_after_hint": "As primeiras visitas serão um pouco mais lentas enquanto a cache se reconstrói.",
+    "lookup_button": "Procurar uma lista",
+    "lookup_submit": "Procurar",
+    "lookup_title": "Procurar vários domínios",
+    "lookup_body": "Cole a sua lista: só estes domínios serão mostrados.",
+    "lookup_result": "{found} domínio(s) encontrado(s) de {requested}",
+    "lookup_missing": "{count} não encontrado(s)",
+    "lookup_show_missing": "Quais?",
+    "lookup_missing_title": "Domínios não encontrados",
+    "lookup_missing_body": "{count} domínio(s) da sua lista não estão na aplicação.",
+    "lookup_clear": "Voltar à lista completa"
   }
 }

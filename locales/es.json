@@ -1327,6 +1327,16 @@
     "bulk_done_title": "Purga terminada",
     "bulk_done": "Terminado: la caché de {count} dominio(s) se ha vaciado.",
     "bulk_partial": "Terminado: {done} dominio(s) tratado(s), {failed} con error.",
-    "purge_after_hint": "Las primeras visitas serán algo más lentas mientras la caché se reconstruye."
+    "purge_after_hint": "Las primeras visitas serán algo más lentas mientras la caché se reconstruye.",
+    "lookup_button": "Buscar una lista",
+    "lookup_submit": "Buscar",
+    "lookup_title": "Buscar varios dominios",
+    "lookup_body": "Pegue su lista: solo se mostrarán estos dominios.",
+    "lookup_result": "{found} dominio(s) encontrado(s) de {requested}",
+    "lookup_missing": "{count} no encontrado(s)",
+    "lookup_show_missing": "¿Cuáles?",
+    "lookup_missing_title": "Dominios no encontrados",
+    "lookup_missing_body": "{count} dominio(s) de su lista no están en la aplicación.",
+    "lookup_clear": "Volver a la lista completa"
   }
 }

@@ -30,6 +30,9 @@ const state = {
   filter: '',
   selected: new Set(),
   stats: null,
+  // Le resultat d une recherche par liste : tant qu il existe, il REMPLACE la liste
+  // paginee. Sinon l agent croirait voir le parc entier alors qu il voit sa selection.
+  lookup: null,
   permissions: [],
   onClose: null,
   busy: null,
@@ -66,7 +69,7 @@ export function closeCloudflare() {
 }
 
 export async function openCloudflare({ permissions = [], onClose = null } = {}) {
-  Object.assign(state, { open: true, permissions, onClose, page: 1, search: '', filter: '', selected: new Set() });
+  Object.assign(state, { open: true, permissions, onClose, page: 1, search: '', filter: '', selected: new Set(), lookup: null });
   $('#domains-view').hidden = true;
   $('#files-view').hidden = true;
   $('#admin-view').hidden = true;
@@ -182,22 +185,129 @@ function barreRecherche() {
   champ.addEventListener('input', () => {
     clearTimeout(minuteur);
     // On ne part pas au serveur à chaque frappe : l'agent tape un nom de domaine entier.
-    minuteur = setTimeout(() => { state.search = champ.value.trim(); state.page = 1; load(); }, 300);
+    minuteur = setTimeout(() => { state.search = champ.value.trim(); state.page = 1; state.lookup = null; load(); }, 300);
   });
 
   const filtre = (valeur, libelle) => {
     const actif = state.filter === valeur;
     const b = h('button', { type: 'button', class: `btn ${actif ? 'btn-primary' : 'btn-outline'} px-3 py-1.5 text-xs` }, libelle);
-    b.addEventListener('click', () => { state.filter = actif ? '' : valeur; state.page = 1; load(); });
+    b.addEventListener('click', () => { state.filter = actif ? '' : valeur; state.page = 1; state.lookup = null; load(); });
     return b;
   };
+
+  const multi = h('button', { type: 'button', class: 'btn btn-outline px-3 py-1.5 text-xs' }, icon('list', 'size-3.5'), t('cf.lookup_button'));
+  multi.addEventListener('click', rechercheMultiple);
 
   return h(
     'div',
     { class: 'flex flex-wrap items-center gap-2' },
     h('div', { class: 'min-w-56 flex-1' }, champ),
+    multi,
     filtre('ready', t('cf.filter_ready')),
     filtre('blocked', t('cf.filter_blocked')),
+  );
+}
+
+/**
+ * Chercher une LISTE de domaines d'un coup.
+ *
+ * Taper cinquante noms un par un dans le champ de recherche n'a pas de sens : l'agent a
+ * sa liste ailleurs, il la colle. Ce qui en ressort remplace la liste à l'écran, et les
+ * domaines introuvables sont NOMMÉS — un domaine absent qu'on ne voit pas, c'est un
+ * domaine qu'on croit avoir traité.
+ */
+function rechercheMultiple() {
+  const zone = h('textarea', {
+    class: 'input min-h-40 font-mono text-xs',
+    placeholder: '201eat.com\nautre-domaine.fr',
+    spellcheck: 'false',
+  });
+  const compteur = h('p', { class: 'text-[11px] text-ink-400' }, t('cf.paste_count', { count: 0 }));
+  zone.addEventListener('input', () => {
+    const n = zone.value.split(/[\r\n,\t;]+/).filter((l) => l.trim() && !l.trim().startsWith('#')).length;
+    compteur.textContent = t('cf.paste_count', { count: fmtNum(n) });
+  });
+
+  const erreur = h('div', { class: 'mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700', hidden: true, role: 'alert' });
+  const valider = h('button', { type: 'submit', class: 'btn btn-primary' }, icon('search', 'size-4'), t('cf.lookup_submit'));
+
+  openModal(
+    h(
+      'form',
+      {
+        onsubmit: async (e) => {
+          e.preventDefault();
+          const texte = zone.value.trim();
+          if (!texte) { formError(new Error(t('cf.paste_empty')), erreur); return; }
+          valider.disabled = true;
+          valider.textContent = t('action.working');
+          try {
+            const out = await api('/api/cloudflare/lookup', { method: 'POST', body: { text: texte } });
+            closeModal();
+            state.lookup = { zones: out.zones, missing: out.missing, requested: out.requested };
+            state.selected.clear();
+            state.search = '';
+            state.filter = '';
+            render();
+          } catch (err) {
+            formError(err, erreur);
+            valider.disabled = false;
+            valider.textContent = t('cf.lookup_submit');
+          }
+        },
+      },
+      modalHeader(t('cf.lookup_title'), 'bg-accent-50 text-accent-700', 'search'),
+      h(
+        'div',
+        { class: 'space-y-3' },
+        h('p', { class: 'text-sm text-ink-500' }, t('cf.lookup_body')),
+        h('div', { class: 'grid gap-1' }, h('label', { class: 'label' }, t('cf.paste_label')), zone, compteur),
+      ),
+      erreur,
+      h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), valider),
+    ),
+    'max-w-2xl',
+  );
+}
+
+/** Le bandeau d'une recherche par liste : ce qu'on a trouvé, ce qui manque. */
+function bandeauLookup() {
+  if (!state.lookup) return null;
+  const { zones, missing, requested } = state.lookup;
+
+  const effacer = h('button', { type: 'button', class: 'btn btn-outline px-3 py-1 text-xs' }, icon('close', 'size-3.5'), t('cf.lookup_clear'));
+  effacer.addEventListener('click', () => { state.lookup = null; state.selected.clear(); load(); });
+
+  const voirManquants = missing.length
+    ? h('button', { type: 'button', class: 'btn btn-ghost px-2 py-1 text-xs text-red-700' }, t('cf.lookup_show_missing'))
+    : null;
+  voirManquants?.addEventListener('click', () => {
+    openModal(
+      h(
+        'div',
+        { class: 'card w-full p-0' },
+        modalHeader(t('cf.lookup_missing_title'), 'bg-red-50 text-red-600', 'alert'),
+        h(
+          'div',
+          { class: 'space-y-3 px-6 py-5' },
+          h('p', { class: 'text-sm text-ink-500' }, t('cf.lookup_missing_body', { count: fmtNum(missing.length) })),
+          h('div', { class: 'max-h-80 overflow-auto rounded-lg border border-ink-200' }, ...missing.map((d) => h('p', { class: 'border-b border-ink-50 px-3 py-1.5 font-mono text-xs text-ink-600 last:border-b-0' }, d))),
+        ),
+        h('div', { class: 'flex justify-end border-t border-ink-100 px-6 py-4' }, h('button', { type: 'button', class: 'btn btn-outline', onclick: closeModal }, t('action.close'))),
+      ),
+      'max-w-lg',
+    );
+  });
+
+  return h(
+    'div',
+    { class: 'flex flex-wrap items-center gap-2 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3' },
+    icon('search', 'size-4 text-ink-400'),
+    h('p', { class: 'text-sm text-ink-600' }, t('cf.lookup_result', { found: fmtNum(zones.length), requested: fmtNum(requested) })),
+    missing.length ? pastille('bg-red-100 text-red-700', t('cf.lookup_missing', { count: fmtNum(missing.length) })) : null,
+    voirManquants,
+    h('span', { class: 'flex-1' }),
+    effacer,
   );
 }
 
@@ -285,7 +395,8 @@ function ligne(z) {
 }
 
 function pagination() {
-  if (state.pages <= 1) return null;
+  // Une recherche par liste rend tout son resultat d un coup : rien a paginer.
+  if (state.lookup || state.pages <= 1) return null;
   const aller = (p) => { state.page = p; state.selected.clear(); load(); };
   const b = (libelle, p, actif) => {
     const x = h('button', { type: 'button', class: `btn ${actif ? 'btn-primary' : 'btn-outline'} px-3 py-1 text-xs`, disabled: p < 1 || p > state.pages || state.loading }, libelle);
@@ -301,6 +412,13 @@ function pagination() {
   );
 }
 
+/**
+ * Les domaines a afficher : ceux d une recherche par liste s ils existent, sinon la
+ * page courante. Un seul endroit decide, pour qu aucune partie de l ecran ne montre
+ * autre chose que ce que montre le tableau.
+ */
+const affichees = () => state.lookup?.zones ?? state.zones;
+
 function tableau() {
   if (state.loading) {
     return h(
@@ -310,7 +428,7 @@ function tableau() {
       t('cf.loading'),
     );
   }
-  if (!state.zones.length) {
+  if (!affichees().length) {
     return h(
       'div',
       { class: 'px-6 py-16 text-center' },
@@ -319,7 +437,7 @@ function tableau() {
     );
   }
 
-  const prets = state.zones.filter((z) => z.ready);
+  const prets = affichees().filter((z) => z.ready);
   const toutChoisi = prets.length > 0 && prets.every((z) => state.selected.has(z.domain));
   const tout = h('input', { type: 'checkbox', class: 'size-4 rounded border-ink-300 accent-accent', 'aria-label': t('cf.select_all') });
   tout.checked = toutChoisi;
@@ -352,7 +470,7 @@ function tableau() {
           th('col.actions', 'px-5 text-right'),
         ),
       ),
-      h('tbody', {}, state.zones.map(ligne)),
+      h('tbody', {}, affichees().map(ligne)),
     ),
   );
 }
@@ -380,6 +498,7 @@ function render() {
       enteteStats(),
       bandeauBlocage(),
       barreRecherche(),
+      bandeauLookup(),
       barreSelection(),
       h('section', { class: 'card overflow-hidden' }, tableau(), pagination()),
     ),
