@@ -215,7 +215,20 @@ Un téléversement **n'écrase jamais** une entrée existante : renommez ou supp
 
 ## 5. Utilisateurs, rôles et permissions (RBAC)
 
-Les comptes vivent dans une base **SQLite** (`data/lkm-bo.db`) gérée par le module natif de Node : aucune dépendance, aucune compilation, migrations appliquées au démarrage.
+Les comptes vivent dans **MySQL / MariaDB** (base `lkm_bo`), comme tout le reste : rôles, permissions, sessions, journal d'audit, brouillons de sites, comptes et zones Cloudflare. Les migrations sont appliquées au démarrage, et chaque table comme chaque colonne porte un commentaire — la base se lit directement dans phpMyAdmin.
+
+Les réglages par défaut visent l'installation XAMPP locale (`127.0.0.1:3306`, utilisateur `root`) et se changent dans `.env` : `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`.
+
+### Sauvegarde
+
+```bash
+npm run backup                     # écrit une sauvegarde (mysqldump)
+npm run backup -- list             # ce qui existe
+npm run backup -- restore <nom>    # montre ce qui se passerait
+npm run backup -- restore <nom> --yes
+```
+
+Une sauvegarde de la base complète pèse environ 10 Mo et prend moins d'une seconde. Les fichiers vont dans `backups/`, ignoré par git : **ils portent les clés API de 38 000 domaines**. `BACKUP_SECRET` les chiffre, ce qui n'a de sens que si un fichier quitte la machine. Une restauration prend d'abord une sauvegarde de l'état courant, et refuse un fichier incomplet.
 
 ### Premier démarrage
 
@@ -624,8 +637,12 @@ src/
   ssh/shell.js              validation des domaines + quoting anti-injection
   auth/permissions.js       catalogue des permissions et rôles d'origine
   auth/authService.js       authentification, verrouillage, amorçage du 1er compte
-  db/database.js            SQLite natif + migrations (seul fichier lié au moteur)
+  db/mysql.js               accès MySQL : groupe de connexions, requêtes, transactions
+  db/mysqlSchema.js         schéma et migrations (seul fichier lié au moteur)
   db/repositories.js        comptes et rôles, règles métier
+  db/audit.js               journal : qui a fait quoi, quand, avec quel résultat
+  db/phrases.js             dictionnaire d'expressions ajouté par les agents
+  services/dbBackup.js      sauvegarde par mysqldump, rotation, chiffrement
   db/sessionStore.js        sessions en base, révocables à chaud
   db/drafts.js              brouillons de design et de contenu
   services/siteCatalog.js   familles de blocs, présets, validation

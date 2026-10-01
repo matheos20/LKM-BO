@@ -64,7 +64,18 @@ export const config = {
     database: env.MYSQL_DATABASE || 'lkm_bo',
     connectionLimit: int(env.MYSQL_POOL, 10),
   },
-  dbFile: file(env.DB_FILE, 'data/lkm-bo.db'),
+  // Sauvegarde de la base. Elle passe par mysqldump : sous XAMPP, l'outil n'est pas dans
+  // le chemin du systeme, et on le cherche aux endroits habituels. MYSQLDUMP_PATH sert a
+  // le designer quand il est ailleurs.
+  backup: {
+    dir: file(env.BACKUP_DIR, 'backups'),
+    keep: int(env.BACKUP_KEEP, 14),
+    // Sans cle, la sauvegarde reste en clair : elle ne protege alors que d'une perte, pas
+    // d'une lecture par quelqu'un qui obtiendrait le fichier.
+    secret: env.BACKUP_SECRET ?? '',
+    mysqldump: env.MYSQLDUMP_PATH || '',
+    mysqlClient: env.MYSQL_CLIENT_PATH || '',
+  },
   passwordMinLength: int(env.PASSWORD_MIN_LENGTH, 12),
   loginMaxAttempts: int(env.LOGIN_MAX_ATTEMPTS, 10),
   loginRateLimit: int(env.LOGIN_RATE_LIMIT, 20),

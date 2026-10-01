@@ -12,11 +12,19 @@
  * L'ordre des tables suit les clés étrangères : un rôle avant ses permissions, un
  * compte Cloudflare avant ses zones. Les identifiants d'origine sont conservés, pour
  * que les liens entre tables restent valides sans avoir à les retraduire.
+ *
+ * CE SCRIPT OUVRE SQLITE LUI-MÊME, et c'est voulu. L'application n'en dépend plus du
+ * tout : garder un module partagé pour ce seul outil obligerait à maintenir une couche
+ * d'accès à une base que plus rien ne lit. En lecture seule, et sans migration : on
+ * prend le fichier tel qu'il est.
+ *
+ *   npm run migrate:mysql -- --from=chemin/vers/autre.db
  */
-import { closeDatabase, getDb, openDatabase } from '../src/db/database.js';
+import { DatabaseSync } from 'node:sqlite';
 import { closeMysql, exec, insertMany, mysqlInfo, openMysql, prepare } from '../src/db/mysql.js';
 import { migrateMysql } from '../src/db/mysqlSchema.js';
 import { config } from '../src/config.js';
+import { existsSync } from 'node:fs';
 
 const COULEUR = process.stdout.isTTY && !process.env.NO_COLOR;
 const c = (code, s) => (COULEUR ? `\u001b[${code}m${s}\u001b[0m` : String(s));
@@ -65,9 +73,14 @@ const options = Object.fromEntries(argv.filter((a) => a.startsWith('--')).map((a
 console.log(`\n${gras('Transfert de SQLite vers MySQL')}`);
 console.log(gris('─'.repeat(52)));
 
-openDatabase(config.dbFile);
-const source = getDb();
-console.log(`  source : ${config.dbFile}`);
+const fichierSource = typeof options.from === 'string' ? options.from : 'data/lkm-bo.db';
+if (!existsSync(fichierSource)) {
+  console.log(`\n  ${rouge('✗')} base SQLite introuvable : ${fichierSource}`);
+  console.log(gris('  Indiquez son chemin avec --from=... si elle est ailleurs.\n'));
+  process.exit(1);
+}
+const source = new DatabaseSync(fichierSource, { readOnly: true });
+console.log(`  source : ${fichierSource} ${gris('(lecture seule)')}`);
 
 openMysql(config.mysql);
 const info = mysqlInfo();
@@ -94,14 +107,14 @@ const occupees = plan.filter((t) => t.dejaLa);
 if (occupees.length && !options.force) {
   console.log(`\n  ${orange('La cible n’est pas vide.')} Ajoutez ${gras('--force')} pour la vider d’abord,`);
   console.log(`  ou videz-la vous-même. Rien n’a été transféré.`);
-  closeDatabase();
+  source.close();
   await closeMysql();
   process.exit(1);
 }
 
 if (!options.yes) {
   console.log(`\n  ${orange('Rien n’a été écrit.')} Ajoutez ${gras('--yes')} pour transférer.`);
-  closeDatabase();
+  source.close();
   await closeMysql();
   process.exit(0);
 }
@@ -148,8 +161,8 @@ for (const t of plan) {
 if (!ecarts) console.log(`  ${vert('✓')} toutes les tables ont le même nombre de lignes des deux côtés`);
 
 console.log(`\n  ${nombre(transferees)} ligne(s) transférée(s) en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
-console.log(gris(`  La base SQLite n’a pas été modifiée : ${config.dbFile}`));
+console.log(gris(`  La base SQLite n’a pas été modifiée : ${fichierSource}`));
 
-closeDatabase();
+source.close();
 await closeMysql();
 process.exit(ecarts ? 1 : 0);

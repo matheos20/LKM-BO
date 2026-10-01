@@ -16,3 +16,7 @@ dataCF.csv
 
 # Documents de presentation : utiles, mais ce ne sont pas des sources.
 *.pdf
+
+# Les sauvegardes de la base : elles portent TOUTES les donnees, cles Cloudflare
+# comprises. Elles ne doivent jamais partir dans un depot.
+backups/
