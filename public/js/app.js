@@ -336,13 +336,28 @@ async function connectAll() {
   await loadDomains();
 }
 
+/**
+ * Referme les ecrans plein ecran, sauf celui qu'on s'apprete a ouvrir.
+ *
+ * Ce geste etait recopie dans chaque gestionnaire de navigation, et chaque copie
+ * oubliait un ecran different : ouvrir << Actions >> laissait Cloudflare affiche en
+ * dessous. Un seul endroit decide desormais, et ajouter un ecran demain ne laissera
+ * pas de trou.
+ */
+const ECRANS = {
+  files: closeFiles,
+  admin: closeAdmin,
+  design: closeDesign,
+  actions: closeActions,
+  cloudflare: closeCloudflare,
+};
+const fermerEcrans = (sauf = null) => {
+  for (const [nom, fermer] of Object.entries(ECRANS)) if (nom !== sauf) fermer();
+};
+
 /** Sélection d'un serveur : connexion SSH à la demande, puis chargement des domaines. */
 async function selectServer(id) {
-  closeFiles();
-  closeAdmin();
-  closeCloudflare();
-  closeDesign();
-  closeActions();
+  fermerEcrans();
   state.current = id;
   state.result = null;
   state.query.page = 1;
@@ -360,6 +375,8 @@ async function selectServer(id) {
 /** Bascule vers l'éditeur de design et de contenu du domaine. */
 function openDesignFor(serverId, domain, status) {
   closeDrawer();
+  // Accessible depuis la recherche globale, donc depuis n importe quel ecran.
+  fermerEcrans('design');
   openDesign({
     serverId,
     serverLabel: serverById(serverId)?.label ?? serverId,
@@ -434,6 +451,7 @@ async function toggleLockFor(site, action, bouton) {
 /** Ouvre l'éditeur de design directement sur l'article trouvé. */
 function openArticleFor(site, article) {
   closeDrawer();
+  fermerEcrans('design');
   openDesign({
     serverId: site.server,
     serverLabel: serverById(site.server)?.label ?? site.server,
@@ -452,6 +470,7 @@ function openArticleFor(site, article) {
 /** Bascule vers le gestionnaire de fichiers du domaine. */
 function openFilesFor(serverId, domain, status) {
   closeDrawer();
+  fermerEcrans('files');
   openFiles({
     serverId,
     serverLabel: serverById(serverId)?.label ?? serverId,
@@ -728,16 +747,11 @@ function wireEvents() {
   $('#btn-back').addEventListener('click', () => {
     // Fichiers ouverts DEPUIS l'écran Actions : on y retourne, analyse intacte.
     if (isActionsSuspended()) return closeFiles();
-    closeFiles();
-    closeAdmin();
-    closeDesign();
-    closeActions();
+    fermerEcrans();
   });
   $('#btn-account').addEventListener('click', () => state.user && accountDialog(state.user));
   $('#nav-admin').addEventListener('click', async () => {
-    closeFiles();
-    closeDesign();
-    closeActions();
+    fermerEcrans('admin');
     $('#nav-admin').setAttribute('aria-current', 'true');
     await openAdmin({
       servers: state.servers,
@@ -750,10 +764,7 @@ function wireEvents() {
     });
   });
   $('#nav-cloudflare').addEventListener('click', async () => {
-    closeFiles();
-    closeAdmin();
-    closeDesign();
-    closeActions();
+    fermerEcrans('cloudflare');
     toggleSidebar(false);
     $('#nav-cloudflare').setAttribute('aria-current', 'true');
     await openCloudflare({
@@ -767,9 +778,7 @@ function wireEvents() {
     });
   });
   $('#nav-actions').addEventListener('click', () => {
-    closeFiles();
-    closeAdmin();
-    closeDesign();
+    fermerEcrans('actions');
     toggleSidebar(false);
     openActions({
       serverId: state.current,
