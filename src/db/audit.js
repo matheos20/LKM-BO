@@ -1,32 +1,17 @@
-import { getDb } from './database.js';
+import { prepare } from './mysql.js';
 
 /**
  * Le journal d'audit, en base.
  *
  * Il double le fichier `logs/audit.log` plutôt que de le remplacer : le fichier reste
- * une trace brute, ajoutée ligne à ligne, qui survit à une remise à zéro de la base ;
- * la base, elle, est la seule forme qu'on puisse filtrer, chercher et paginer. Sur 703
- * lignes le fichier se lit encore ; sur un an d'exploitation du parc, non.
+ * la trace longue, la base sert à chercher et à filtrer.
  *
- * Deux choix à connaître avant de toucher à ce module :
- *
- *   - AUCUNE CLÉ ÉTRANGÈRE vers `users`. Un événement doit survivre à la suppression du
- *     compte qu'il nomme, sans quoi effacer un compte effacerait ses traces — ce qui
- *     viderait le journal de son intérêt. Le nom et le rôle sont donc RECOPIÉS au
- *     moment des faits, et non joints après coup : ils disent qui agissait alors, même
- *     si le compte a changé de rôle ou n'existe plus.
- *   - L'ÉCRITURE NE DOIT JAMAIS FAIRE ÉCHOUER L'ACTION. Journaliser est second ; si
- *     l'insertion échoue, on le signale dans la console et on laisse passer.
+ * L'écriture est asynchrone et NE LÈVE JAMAIS — comme auparavant. Journaliser ne doit
+ * ni ralentir une requête, ni la faire échouer : un agent ne doit pas voir sa
+ * publication refusée parce que le journal était indisponible. `recordEvent` rend
+ * quand même sa promesse, pour qui veut attendre l'écriture — un test, par exemple.
  */
 
-/**
- * La famille d'une action, d'où vient sa couleur : créer en vert, modifier en orange,
- * supprimer en rouge. Elle se déduit du nom de l'action plutôt que d'être déclarée à
- * côté, pour qu'une action ajoutée demain soit rangée sans qu'on y pense.
- *
- * L'ordre compte : « supprimer » passe avant tout le reste, parce qu'une action qui
- * supprime ne doit jamais se retrouver en vert par accident.
- */
 const FAMILLES = [
   ['delete', /(^|[._])(delete|remove|rm|destroy|revoke|purge)([._]|$)/],
   ['create', /(^|[._])(create|add|new|upload|mkdir|extract|compress|import)([._]|$)/],
@@ -45,28 +30,26 @@ export function familyOf(action) {
 const texte = (v, max = 400) => (v == null ? null : String(v).slice(0, max));
 
 /** Enregistre un événement. Ne lève jamais : journaliser ne doit rien casser. */
-export function recordEvent(entry) {
+export async function recordEvent(entry) {
   try {
-    getDb()
-      .prepare(
-        `INSERT INTO audit_events (at, user_id, username, display_name, role, action, family, server_id, domain, target, ok, error, ip)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        entry.at ?? Date.now(),
-        entry.userId ?? null,
-        texte(entry.username, 80) ?? '',
-        texte(entry.displayName, 120) ?? '',
-        texte(entry.role, 60) ?? '',
-        texte(entry.action, 80) ?? '',
-        familyOf(entry.action),
-        texte(entry.server, 60),
-        texte(entry.domain, 253),
-        texte(entry.target),
-        entry.ok === false ? 0 : 1,
-        texte(entry.error, 300),
-        texte(entry.ip, 60),
-      );
+    await prepare(
+      `INSERT INTO audit_events (at, user_id, username, display_name, role, action, family, server_id, domain, target, ok, error, ip)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      entry.at ?? Date.now(),
+      entry.userId ?? null,
+      texte(entry.username, 80) ?? '',
+      texte(entry.displayName, 120) ?? '',
+      texte(entry.role, 60) ?? '',
+      texte(entry.action, 80) ?? '',
+      familyOf(entry.action),
+      texte(entry.server, 60),
+      texte(entry.domain, 190),
+      texte(entry.target, 400),
+      entry.ok === false ? 0 : 1,
+      texte(entry.error, 300),
+      texte(entry.ip, 45),
+    );
   } catch (err) {
     console.error(`[audit] enregistrement impossible : ${err.message}`);
   }
@@ -74,7 +57,7 @@ export function recordEvent(entry) {
 
 const LIGNE = (row) => ({
   id: row.id,
-  at: row.at,
+  at: Number(row.at),
   user: row.username ? { id: row.user_id, username: row.username, displayName: row.display_name, role: row.role } : null,
   action: row.action,
   family: row.family,
@@ -89,12 +72,23 @@ const LIGNE = (row) => ({
 const MAX_PAGE = 200;
 
 /**
+ * Le caractère qui neutralise les jokers d'une recherche libre.
+ *
+ * Un point d'exclamation plutôt que l'antislash : en MySQL, l'antislash est DÉJÀ un
+ * échappement à l'intérieur d'une chaîne, et « ESCAPE '\' » ne s'écrit pas tel quel.
+ * Ce choix vaut dans les deux dialectes et se relit sans se demander combien
+ * d'antislashs il faut.
+ */
+const ECHAP = '!';
+const neutraliser = (q) => q.replace(/[!%_]/g, (c) => `${ECHAP}${c}`);
+
+/**
  * Interroge le journal. Tous les critères se combinent, et chacun est facultatif.
  *
  * La recherche libre balaie l'auteur, l'action, le domaine et la cible : l'agent tape
  * un nom de domaine ou un bout de nom d'utilisateur sans avoir à choisir la colonne.
  */
-export function queryEvents({ user, action, family, server, domain, ok, from, to, search, page = 1, perPage = 50 } = {}) {
+export async function queryEvents({ user, action, family, server, domain, ok, from, to, search, page = 1, perPage = 50 } = {}) {
   const ou = [];
   const args = [];
 
@@ -132,44 +126,51 @@ export function queryEvents({ user, action, family, server, domain, ok, from, to
   }
   const q = String(search ?? '').trim();
   if (q) {
-    ou.push('(username LIKE ? OR display_name LIKE ? OR action LIKE ? OR domain LIKE ? OR target LIKE ?)');
-    // Les jokers de LIKE sont neutralisés : un agent qui cherche « 100 % » ne doit pas
-    // obtenir tout le journal.
-    const motif = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    args.push(motif, motif, motif, motif, motif);
+    const champs = ['username', 'display_name', 'action', 'domain', 'target'];
+    ou.push(`(${champs.map((c) => `${c} LIKE ? ESCAPE '${ECHAP}'`).join(' OR ')})`);
+    // Les jokers sont neutralisés : un agent qui cherche « 100 % » ne doit pas obtenir
+    // tout le journal.
+    const motif = `%${neutraliser(q)}%`;
+    for (let i = 0; i < champs.length; i += 1) args.push(motif);
   }
 
-  const filtre = ou.length ? `WHERE ${ou.join(' AND ')}` : '';
-  const echappe = q ? " ESCAPE '\\'" : '';
-  const where = filtre.replace(/LIKE \?/g, `LIKE ?${echappe}`);
-
-  const db = getDb();
-  const { total } = db.prepare(`SELECT COUNT(*) AS total FROM audit_events ${where}`).get(...args);
+  const where = ou.length ? `WHERE ${ou.join(' AND ')}` : '';
+  const { total: brut } = await prepare(`SELECT COUNT(*) AS total FROM audit_events ${where}`).get(...args);
+  const total = Number(brut);
 
   const taille = Math.min(Math.max(1, Number(perPage) || 50), MAX_PAGE);
   const pages = Math.max(1, Math.ceil(total / taille));
   const courante = Math.min(Math.max(1, Number(page) || 1), pages);
 
-  const rows = db
-    .prepare(`SELECT * FROM audit_events ${where} ORDER BY at DESC, id DESC LIMIT ? OFFSET ?`)
-    .all(...args, taille, (courante - 1) * taille);
+  // LIMIT et OFFSET sont interpolés après avoir été ramenés à des entiers : MySQL
+  // refuse de les recevoir comme paramètres liés dans une requête préparée.
+  const limite = Number(taille);
+  const saut = Number((courante - 1) * taille);
+  const rows = await prepare(
+    `SELECT * FROM audit_events ${where} ORDER BY at DESC, id DESC LIMIT ${limite} OFFSET ${saut}`,
+  ).all(...args);
 
   return { events: rows.map(LIGNE), total, page: courante, pages, perPage: taille };
 }
 
 /** De quoi remplir les listes déroulantes : seulement ce qui figure vraiment au journal. */
-export function eventFacets() {
-  const db = getDb();
+export async function eventFacets() {
+  // Chaque colonne non groupée est agrégée : une installation réglée en
+  // ONLY_FULL_GROUP_BY — c'est le défaut de MySQL 5.7 et suivants — refuserait la
+  // requête autrement, et l'écran d'audit tomberait là où il marchait en local.
+  const [users, actions, span] = await Promise.all([
+    prepare(
+      `SELECT MAX(user_id) AS id, username, MAX(display_name) AS displayName, COUNT(*) AS count
+       FROM audit_events WHERE username <> '' GROUP BY username ORDER BY count DESC`,
+    ).all(),
+    prepare('SELECT action, MAX(family) AS family, COUNT(*) AS count FROM audit_events GROUP BY action ORDER BY count DESC').all(),
+    prepare('SELECT MIN(at) AS first, MAX(at) AS last FROM audit_events').get(),
+  ]);
+
   return {
-    users: db
-      .prepare(
-        `SELECT user_id AS id, username, MAX(display_name) AS displayName, COUNT(*) AS count
-         FROM audit_events WHERE username <> '' GROUP BY username ORDER BY count DESC`,
-      )
-      .all()
-      .map((r) => ({ id: r.id, username: r.username, displayName: r.displayName, count: r.count })),
-    actions: db.prepare('SELECT action, family, COUNT(*) AS count FROM audit_events GROUP BY action ORDER BY count DESC').all(),
-    span: db.prepare('SELECT MIN(at) AS first, MAX(at) AS last FROM audit_events').get(),
+    users: users.map((r) => ({ id: r.id, username: r.username, displayName: r.displayName, count: Number(r.count) })),
+    actions: actions.map((r) => ({ action: r.action, family: r.family, count: Number(r.count) })),
+    span: { first: span?.first == null ? null : Number(span.first), last: span?.last == null ? null : Number(span.last) },
   };
 }
 
@@ -180,12 +181,12 @@ export function eventFacets() {
  * par `AUDIT_RETENTION_DAYS` ; à 0, rien n'est effacé. Le fichier `audit.log`, lui,
  * n'est jamais touché : il reste la trace longue.
  */
-export function purgeOlderThan(days) {
+export async function purgeOlderThan(days) {
   const jours = Number(days);
   if (!Number.isFinite(jours) || jours <= 0) return 0;
   const limite = Date.now() - jours * 86400000;
-  const { changes } = getDb().prepare('DELETE FROM audit_events WHERE at < ?').run(limite);
+  const { changes } = await prepare('DELETE FROM audit_events WHERE at < ?').run(limite);
   return Number(changes) || 0;
 }
 
-export const countEvents = () => getDb().prepare('SELECT COUNT(*) AS n FROM audit_events').get().n;
+export const countEvents = async () => Number((await prepare('SELECT COUNT(*) AS n FROM audit_events').get()).n);

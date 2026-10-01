@@ -69,7 +69,7 @@ const audit = createAudit(config.auditLog);
 
 // Un journal qui grossit sans fin finit par ne plus être consulté : on efface au
 // démarrage ce qui dépasse la durée de conservation. Le fichier, lui, garde tout.
-const purges = purgeOlderThan(config.auditRetentionDays);
+const purges = await purgeOlderThan(config.auditRetentionDays);
 if (purges) console.log(`[audit] ${purges} événement(s) de plus de ${config.auditRetentionDays} jours effacés`);
 const SESSION_TTL = 8 * 3600 * 1000;
 

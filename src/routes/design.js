@@ -160,7 +160,8 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
     let derniere = null;
     try {
       // Les événements arrivent du plus récent au plus ancien : le premier est le bon.
-      for (const e of queryEvents({ domain, action: 'design.restore', ok: true, perPage: 200 }).events) {
+      const { events } = await queryEvents({ domain, action: 'design.restore', ok: true, perPage: 200 });
+      for (const e of events) {
         const qui = e.user?.displayName || e.user?.username || null;
         if (!derniere) derniere = { at: e.at, by: qui, target: e.target ?? null };
         if (e.target && !faites.has(e.target)) faites.set(e.target, { at: e.at, by: qui });
@@ -221,19 +222,19 @@ export function designCatalogRouter({ audit } = {}) {
     res.json({ families: SECTION_FAMILIES, presets: PRESETS, langs: SITE_LANGS });
   });
 
-  r.get('/phrases', requirePermission('design.read'), (_req, res) => {
-    res.json({ phrases: listPhrases() });
+  r.get('/phrases', requirePermission('design.read'), async (_req, res) => {
+    res.json({ phrases: await listPhrases() });
   });
 
-  r.post('/phrases', requirePermission('design.edit'), (req, res) => {
+  r.post('/phrases', requirePermission('design.edit'), async (req, res) => {
     const { source, lang, target } = req.body ?? {};
-    const phrase = savePhrase({ source, lang, target, userId: req.user?.id });
+    const phrase = await savePhrase({ source, lang, target, userId: req.user?.id });
     audit?.(req, { action: 'design.phrase', target: `${phrase.source} → ${phrase.target} (${phrase.lang})`, ok: true });
     res.status(201).json(phrase);
   });
 
-  r.delete('/phrases/:id', requirePermission('design.edit'), (req, res) => {
-    const removed = deletePhrase(req.params.id);
+  r.delete('/phrases/:id', requirePermission('design.edit'), async (req, res) => {
+    const removed = await deletePhrase(req.params.id);
     audit?.(req, { action: 'design.phrase_delete', target: String(req.params.id), ok: removed });
     res.json({ removed });
   });

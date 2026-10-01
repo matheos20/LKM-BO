@@ -1,4 +1,4 @@
-import { getDb } from './database.js';
+import { prepare } from './mysql.js';
 import { AppError } from '../errors.js';
 import { LANGS, normalizeLang } from '../services/langTools.js';
 
@@ -26,22 +26,23 @@ const row = (r) =>
     updatedAt: r.updated_at,
   };
 
-export function listPhrases({ lang = null } = {}) {
-  const db = getDb();
+export async function listPhrases({ lang = null } = {}) {
+  // La colonne est déjà rangée en utf8mb4_unicode_ci, qui ignore la casse : le
+  // « COLLATE NOCASE » de SQLite n'a pas d'équivalent à écrire ici.
   const rows = lang
-    ? db.prepare('SELECT * FROM lang_phrases WHERE lang = ? ORDER BY source COLLATE NOCASE').all(lang)
-    : db.prepare('SELECT * FROM lang_phrases ORDER BY source COLLATE NOCASE, lang').all();
+    ? await prepare('SELECT * FROM lang_phrases WHERE lang = ? ORDER BY source').all(lang)
+    : await prepare('SELECT * FROM lang_phrases ORDER BY source, lang').all();
   return rows.map(row);
 }
 
 /** Les mots des agents, rangés par langue : { UK: { 'Plan du site': 'Sitemap' } }. */
-export function phrasesByLang() {
+export async function phrasesByLang() {
   const out = {};
-  for (const p of listPhrases()) (out[p.lang] ??= {})[p.source] = p.target;
+  for (const p of await listPhrases()) (out[p.lang] ??= {})[p.source] = p.target;
   return out;
 }
 
-export function savePhrase({ source, lang, target, userId = null }) {
+export async function savePhrase({ source, lang, target, userId = null }) {
   const fr = String(source ?? '').trim();
   const to = String(target ?? '').trim();
   const code = normalizeLang(lang);
@@ -51,23 +52,25 @@ export function savePhrase({ source, lang, target, userId = null }) {
   if (!code || code === 'FR') throw new AppError('errors.translate_lang_unknown', { status: 400, vars: { lang: String(lang).slice(0, 12) } });
   if (fr === to) throw new AppError('errors.phrase_same', { status: 400 });
 
-  const db = getDb();
-  const { n } = db.prepare('SELECT COUNT(*) AS n FROM lang_phrases').get();
-  const existe = db.prepare('SELECT id FROM lang_phrases WHERE source = ? AND lang = ?').get(fr, code);
-  if (!existe && n >= MAX) throw new AppError('errors.phrase_too_many', { status: 400, vars: { max: MAX } });
+  const { n } = await prepare('SELECT COUNT(*) AS n FROM lang_phrases').get();
+  const existe = await prepare('SELECT id FROM lang_phrases WHERE source = ? AND lang = ?').get(fr, code);
+  if (!existe && Number(n) >= MAX) throw new AppError('errors.phrase_too_many', { status: 400, vars: { max: MAX } });
 
   const now = Date.now();
-  db.prepare(
+  // « ON DUPLICATE KEY UPDATE » remplace le « ON CONFLICT » de SQLite, et « VALUES(col) »
+  // y désigne la valeur qu'on tentait d'insérer.
+  await prepare(
     `INSERT INTO lang_phrases (source, lang, target, created_by, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT (source, lang) DO UPDATE SET target = excluded.target, updated_at = excluded.updated_at`,
+     ON DUPLICATE KEY UPDATE target = VALUES(target), updated_at = VALUES(updated_at)`,
   ).run(fr, code, to, userId, now, now);
 
-  return row(db.prepare('SELECT * FROM lang_phrases WHERE source = ? AND lang = ?').get(fr, code));
+  return row(await prepare('SELECT * FROM lang_phrases WHERE source = ? AND lang = ?').get(fr, code));
 }
 
-export function deletePhrase(id) {
-  return getDb().prepare('DELETE FROM lang_phrases WHERE id = ?').run(Number(id)).changes > 0;
+export async function deletePhrase(id) {
+  const r = await prepare('DELETE FROM lang_phrases WHERE id = ?').run(Number(id));
+  return r.changes > 0;
 }
 
 export { LANGS };

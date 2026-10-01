@@ -128,10 +128,12 @@ export class TranslationService {
    * Dictionnaires des gabarits, une fois pour toutes : ils ne dépendent pas du site.
    * Chaque langue cible y trouve la traduction exacte des expressions du parc.
    */
-  get templateDicts() {
+  // Une METHODE et non plus un accesseur : le dictionnaire des agents vient de la
+  // base, qui repond desormais de facon asynchrone, et un accesseur ne peut pas attendre.
+  async templateDicts() {
     // Recalculé à chaque analyse : un mot ajouté par un agent doit servir aussitôt,
     // sans redémarrer le back-office.
-    const ajouts = phrasesByLang();
+    const ajouts = await phrasesByLang();
     const tout = Object.fromEntries(
       LANGS.filter((l) => l !== 'FR').map((l) => [l, { ...templateDictionary(l), ...(ajouts[l] ?? {}) }]),
     );
@@ -158,7 +160,7 @@ export class TranslationService {
       {
         LKM_ROOT: server.wwwRoot,
         LKM_MODE: apply ? 'apply' : 'scan',
-        LKM_DICT: this.templateDicts,
+        LKM_DICT: await this.templateDicts(),
         LKM_B64: Buffer.from(JSON.stringify(list), 'utf8').toString('base64'),
         LKM_CHANGES: changes ? Buffer.from(JSON.stringify(changes), 'utf8').toString('base64') : '',
       },

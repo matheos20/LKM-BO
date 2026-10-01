@@ -1,22 +1,22 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { closeDatabase, openDatabase } from '../src/db/database.js';
+import { after, before, test } from 'node:test';
 import { countEvents, eventFacets, familyOf, purgeOlderThan, queryEvents, recordEvent } from '../src/db/audit.js';
+import { creerBaseJetable } from './mysqlTestDb.js';
 
-/** Une base jetable, migrée comme en production. */
-function surBaseNeuve(fn) {
-  const dossier = mkdtempSync(join(tmpdir(), 'lkm-audit-'));
-  closeDatabase();
-  try {
-    openDatabase(join(dossier, 'essai.db'));
-    return fn();
-  } finally {
-    closeDatabase();
-    rmSync(dossier, { recursive: true, force: true });
-  }
+const base = creerBaseJetable('audit');
+before(() => base.ouvrir({ seedRoles: false }));
+after(() => base.fermer());
+
+/**
+ * Repart d'un journal VIDE, puis execute le controle.
+ *
+ * Les suites partagent une base pour la duree du fichier : vider la table entre chaque
+ * controle coute moins cher que de creer une base a chaque fois, et donne le meme etat
+ * de depart.
+ */
+async function surJournalVide(fn) {
+  await base.vider('audit_events');
+  return fn();
 }
 
 const JOUR = 86400000;
@@ -59,10 +59,11 @@ test('journal : la couleur se déduit du nom de l’action', () => {
   assert.equal(familyOf(undefined), 'other');
 });
 
-test('journal : un événement garde le nom de son auteur, même effacé', () => {
-  surBaseNeuve(() => {
-    recordEvent({ userId: 42, username: 'agent1', displayName: 'Agent Un', role: 'Opérateur', action: 'categories.remove', domain: 'exemple.com', target: '2 rubrique(s)' });
-    const { events } = queryEvents();
+test('journal : un événement garde le nom de son auteur, même effacé', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await surJournalVide(async () => {
+    await recordEvent({ userId: 42, username: 'agent1', displayName: 'Agent Un', role: 'Opérateur', action: 'categories.remove', domain: 'exemple.com', target: '2 rubrique(s)' });
+    const { events } = await queryEvents();
     assert.equal(events.length, 1);
     const e = events[0];
     // Le nom et le rôle sont RECOPIÉS, jamais joints : ils disent qui agissait alors.
@@ -74,100 +75,105 @@ test('journal : un événement garde le nom de son auteur, même effacé', () =>
   });
 });
 
-test('journal : journaliser ne fait jamais échouer l’action', () => {
-  surBaseNeuve(() => {
+test('journal : journaliser ne fait jamais échouer l’action', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await surJournalVide(async () => {
     // Aucune de ces entrées n'est correcte ; aucune ne doit lever.
-    assert.doesNotThrow(() => recordEvent({}));
-    assert.doesNotThrow(() => recordEvent({ action: null, ok: false }));
-    assert.doesNotThrow(() => recordEvent({ action: 'x'.repeat(5000), target: 'y'.repeat(5000) }));
-    assert.equal(countEvents(), 3);
+    await assert.doesNotReject(() => recordEvent({}));
+    await assert.doesNotReject(() => recordEvent({ action: null, ok: false }));
+    await assert.doesNotReject(() => recordEvent({ action: 'x'.repeat(5000), target: 'y'.repeat(5000) }));
+    assert.equal(await countEvents(), 3);
     // Les champs trop longs sont coupés, pas refusés.
-    const { events } = queryEvents({ perPage: 1 });
+    const { events } = await queryEvents({ perPage: 1 });
     assert.ok(events[0].target.length <= 400);
   });
 });
 
-test('journal : chaque filtre se combine aux autres', () => {
-  surBaseNeuve(() => {
+test('journal : chaque filtre se combine aux autres', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await surJournalVide(async () => {
     const maintenant = Date.now();
-    recordEvent({ at: maintenant - 10 * JOUR, username: 'anna', action: 'file.delete', domain: 'a.com', server: 'vps-001' });
-    recordEvent({ at: maintenant - 2 * JOUR, username: 'anna', action: 'user.create', domain: null, server: 'vps-001' });
-    recordEvent({ at: maintenant - 1 * JOUR, username: 'bruno', action: 'file.delete', domain: 'b.com', server: 'vps-002', ok: false, error: 'refusé' });
-    recordEvent({ at: maintenant, username: 'bruno', action: 'login' });
+    await recordEvent({ at: maintenant - 10 * JOUR, username: 'anna', action: 'file.delete', domain: 'a.com', server: 'vps-001' });
+    await recordEvent({ at: maintenant - 2 * JOUR, username: 'anna', action: 'user.create', domain: null, server: 'vps-001' });
+    await recordEvent({ at: maintenant - 1 * JOUR, username: 'bruno', action: 'file.delete', domain: 'b.com', server: 'vps-002', ok: false, error: 'refusé' });
+    await recordEvent({ at: maintenant, username: 'bruno', action: 'login' });
 
-    assert.equal(queryEvents({ user: 'anna' }).total, 2);
-    assert.equal(queryEvents({ action: 'file.delete' }).total, 2);
-    assert.equal(queryEvents({ family: 'delete' }).total, 2);
-    assert.equal(queryEvents({ family: 'auth' }).total, 1);
-    assert.equal(queryEvents({ server: 'vps-001' }).total, 2);
-    assert.equal(queryEvents({ domain: 'b.com' }).total, 1);
-    assert.equal(queryEvents({ ok: false }).total, 1);
-    assert.equal(queryEvents({ ok: true }).total, 3);
+    assert.equal((await queryEvents({ user: 'anna' })).total, 2);
+    assert.equal((await queryEvents({ action: 'file.delete' })).total, 2);
+    assert.equal((await queryEvents({ family: 'delete' })).total, 2);
+    assert.equal((await queryEvents({ family: 'auth' })).total, 1);
+    assert.equal((await queryEvents({ server: 'vps-001' })).total, 2);
+    assert.equal((await queryEvents({ domain: 'b.com' })).total, 1);
+    assert.equal((await queryEvents({ ok: false })).total, 1);
+    assert.equal((await queryEvents({ ok: true })).total, 3);
 
     // Combinés : Bruno ET une suppression.
-    assert.equal(queryEvents({ user: 'bruno', family: 'delete' }).total, 1);
+    assert.equal((await queryEvents({ user: 'bruno', family: 'delete' })).total, 1);
     // Une combinaison sans résultat rend zéro, pas tout.
-    assert.equal(queryEvents({ user: 'anna', action: 'login' }).total, 0);
+    assert.equal((await queryEvents({ user: 'anna', action: 'login' })).total, 0);
 
     // Période : les trois derniers jours.
-    assert.equal(queryEvents({ from: maintenant - 3 * JOUR }).total, 3);
-    assert.equal(queryEvents({ from: maintenant - 3 * JOUR, to: maintenant - JOUR }).total, 2);
+    assert.equal((await queryEvents({ from: maintenant - 3 * JOUR })).total, 3);
+    assert.equal((await queryEvents({ from: maintenant - 3 * JOUR, to: maintenant - JOUR })).total, 2);
 
     // Le plus récent d'abord : un journal se lit par le haut.
     assert.deepEqual(
-      queryEvents().events.map((e) => e.action),
+      (await queryEvents()).events.map((e) => e.action),
       ['login', 'file.delete', 'user.create', 'file.delete'],
     );
   });
 });
 
-test('journal : la recherche libre balaie les colonnes utiles, sans ouvrir de joker', () => {
-  surBaseNeuve(() => {
-    recordEvent({ username: 'anna', displayName: 'Anna Dupont', action: 'file.save', domain: 'exemple.com', target: 'index.php' });
-    recordEvent({ username: 'bruno', displayName: 'Bruno Martin', action: 'categories.add', domain: 'autre.fr', target: 'Sport 100% neuf' });
+test('journal : la recherche libre balaie les colonnes utiles, sans ouvrir de joker', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await surJournalVide(async () => {
+    await recordEvent({ username: 'anna', displayName: 'Anna Dupont', action: 'file.save', domain: 'exemple.com', target: 'index.php' });
+    await recordEvent({ username: 'bruno', displayName: 'Bruno Martin', action: 'categories.add', domain: 'autre.fr', target: 'Sport 100% neuf' });
 
-    assert.equal(queryEvents({ search: 'anna' }).total, 1);
-    assert.equal(queryEvents({ search: 'Dupont' }).total, 1); // nom d'affichage
-    assert.equal(queryEvents({ search: 'exemple' }).total, 1); // domaine
-    assert.equal(queryEvents({ search: 'index.php' }).total, 1); // cible
-    assert.equal(queryEvents({ search: 'categories' }).total, 1); // action
+    assert.equal((await queryEvents({ search: 'anna' })).total, 1);
+    assert.equal((await queryEvents({ search: 'Dupont' })).total, 1); // nom d'affichage
+    assert.equal((await queryEvents({ search: 'exemple' })).total, 1); // domaine
+    assert.equal((await queryEvents({ search: 'index.php' })).total, 1); // cible
+    assert.equal((await queryEvents({ search: 'categories' })).total, 1); // action
 
     // Les jokers de LIKE sont neutralisés : « % » cherche un pourcentage, pas tout.
-    assert.equal(queryEvents({ search: '100%' }).total, 1);
-    assert.equal(queryEvents({ search: '%' }).total, 1);
-    assert.equal(queryEvents({ search: '_' }).total, 0);
+    assert.equal((await queryEvents({ search: '100%' })).total, 1);
+    assert.equal((await queryEvents({ search: '%' })).total, 1);
+    assert.equal((await queryEvents({ search: '_' })).total, 0);
   });
 });
 
-test('journal : la pagination tient le compte', () => {
-  surBaseNeuve(() => {
+test('journal : la pagination tient le compte', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await surJournalVide(async () => {
     const t0 = Date.now();
-    for (let i = 0; i < 25; i += 1) recordEvent({ at: t0 - i * 1000, username: 'anna', action: 'file.save', target: `f${i}` });
+    for (let i = 0; i < 25; i += 1) await recordEvent({ at: t0 - i * 1000, username: 'anna', action: 'file.save', target: `f${i}` });
 
-    const p1 = queryEvents({ perPage: 10, page: 1 });
+    const p1 = await queryEvents({ perPage: 10, page: 1 });
     assert.deepEqual([p1.total, p1.pages, p1.page, p1.events.length], [25, 3, 1, 10]);
     assert.equal(p1.events[0].target, 'f0'); // le plus récent
 
-    const p3 = queryEvents({ perPage: 10, page: 3 });
+    const p3 = await queryEvents({ perPage: 10, page: 3 });
     assert.equal(p3.events.length, 5);
     assert.equal(p3.events.at(-1).target, 'f24'); // le plus ancien
 
     // Une page hors bornes se replie sur la dernière, au lieu de rendre du vide.
-    assert.equal(queryEvents({ perPage: 10, page: 99 }).page, 3);
-    assert.equal(queryEvents({ perPage: 10, page: 0 }).page, 1);
+    assert.equal((await queryEvents({ perPage: 10, page: 99 })).page, 3);
+    assert.equal((await queryEvents({ perPage: 10, page: 0 })).page, 1);
     // La taille de page est bornée : on ne demande pas le journal entier d'un coup.
-    assert.equal(queryEvents({ perPage: 10000 }).perPage, 200);
+    assert.equal((await queryEvents({ perPage: 10000 })).perPage, 200);
   });
 });
 
-test('journal : les listes de filtres ne proposent que ce qui existe', () => {
-  surBaseNeuve(() => {
-    recordEvent({ username: 'anna', displayName: 'Anna Dupont', action: 'file.save' });
-    recordEvent({ username: 'anna', displayName: 'Anna Dupont', action: 'file.save' });
-    recordEvent({ username: 'bruno', displayName: 'Bruno Martin', action: 'login' });
-    recordEvent({ username: '', action: 'connect' }); // sans auteur
+test('journal : les listes de filtres ne proposent que ce qui existe', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await surJournalVide(async () => {
+    await recordEvent({ username: 'anna', displayName: 'Anna Dupont', action: 'file.save' });
+    await recordEvent({ username: 'anna', displayName: 'Anna Dupont', action: 'file.save' });
+    await recordEvent({ username: 'bruno', displayName: 'Bruno Martin', action: 'login' });
+    await recordEvent({ username: '', action: 'connect' }); // sans auteur
 
-    const f = eventFacets();
+    const f = await eventFacets();
     // Les plus actifs d'abord, et personne d'inventé.
     assert.deepEqual(
       f.users.map((u) => [u.username, u.count]),
@@ -181,20 +187,21 @@ test('journal : les listes de filtres ne proposent que ce qui existe', () => {
   });
 });
 
-test('journal : la purge ne touche que ce qui a dépassé la durée', () => {
-  surBaseNeuve(() => {
+test('journal : la purge ne touche que ce qui a dépassé la durée', async (t) => {
+  if (!base.prete) return t.skip(base.motif);
+  await surJournalVide(async () => {
     const maintenant = Date.now();
-    recordEvent({ at: maintenant - 400 * JOUR, action: 'login' });
-    recordEvent({ at: maintenant - 200 * JOUR, action: 'login' });
-    recordEvent({ at: maintenant - 10 * JOUR, action: 'login' });
+    await recordEvent({ at: maintenant - 400 * JOUR, action: 'login' });
+    await recordEvent({ at: maintenant - 200 * JOUR, action: 'login' });
+    await recordEvent({ at: maintenant - 10 * JOUR, action: 'login' });
 
-    assert.equal(purgeOlderThan(180), 2);
-    assert.equal(countEvents(), 1);
+    assert.equal(await purgeOlderThan(180), 2);
+    assert.equal(await countEvents(), 1);
 
     // À 0 — ou sans valeur — rien n'est effacé : la conservation sans limite se dit ainsi.
-    assert.equal(purgeOlderThan(0), 0);
-    assert.equal(purgeOlderThan(undefined), 0);
-    assert.equal(purgeOlderThan(-5), 0);
-    assert.equal(countEvents(), 1);
+    assert.equal(await purgeOlderThan(0), 0);
+    assert.equal(await purgeOlderThan(undefined), 0);
+    assert.equal(await purgeOlderThan(-5), 0);
+    assert.equal(await countEvents(), 1);
   });
 });

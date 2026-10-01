@@ -145,7 +145,7 @@ export function adminRouter({ audit, ssh }) {
   // vider depuis l'interface ne prouve plus rien. La purge se fait par ancienneté, au
   // démarrage, selon AUDIT_RETENTION_DAYS.
 
-  r.get('/audit', requirePermission('audit.read'), (req, res) => {
+  r.get('/audit', requirePermission('audit.read'), async (req, res) => {
     const q = req.query ?? {};
     const date = (v) => {
       const d = Date.parse(String(v ?? ''));
@@ -156,7 +156,7 @@ export function adminRouter({ audit, ssh }) {
     const fin = date(q.to);
 
     res.json(
-      queryEvents({
+      await queryEvents({
         user: q.user || undefined,
         action: q.action || undefined,
         family: q.family || undefined,
@@ -172,8 +172,8 @@ export function adminRouter({ audit, ssh }) {
     );
   });
 
-  r.get('/audit/facets', requirePermission('audit.read'), (_req, res) => {
-    res.json(eventFacets());
+  r.get('/audit/facets', requirePermission('audit.read'), async (_req, res) => {
+    res.json(await eventFacets());
   });
 
   return r;
