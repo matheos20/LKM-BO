@@ -525,38 +525,52 @@ function purgeCollee() {
 /** Le relevé d'une opération de masse : ce qui a marché, ce qui a échoué, et pourquoi. */
 function montrerReleve(kind, out) {
   const rates = [...(out.results ?? []).filter((r) => !r.ok), ...(out.skipped ?? []).map((s) => ({ domain: s.domain, error: t(s.reason, {}, s.reason) }))];
+  const tout = rates.length === 0;
 
-  if (!rates.length) {
-    toast(t('cf.bulk_ok', { count: fmtNum(out.succeeded) }), 'success');
-    return;
-  }
-
+  // LE RELEVÉ S'AFFICHE TOUJOURS, même quand tout a réussi.
+  //
+  // Une version précédente se contentait d'un message fugace en cas de succès complet.
+  // L'agent lançait une purge sur quarante domaines, voyait passer une ligne, et ne
+  // savait plus ensuite si elle était allée au bout. Une opération qu'on ne voit pas
+  // finir, on la relance — et on purge deux fois.
   openModal(
     h(
       'div',
       { class: 'card w-full p-0' },
-      modalHeader(t(`cf.confirm_${kind}`), 'bg-ink-50 text-ink-600', 'alert'),
+      modalHeader(
+        tout ? t('cf.bulk_done_title') : t(`cf.confirm_${kind}`),
+        tout ? 'bg-accent-50 text-accent-700' : 'bg-ink-50 text-ink-600',
+        tout ? 'check' : 'alert',
+      ),
       h(
         'div',
         { class: 'space-y-3 px-6 py-5' },
         h(
-          'div',
-          { class: 'flex flex-wrap gap-2' },
-          pastille('bg-accent-100 text-accent-700', t('cf.bulk_succeeded', { count: fmtNum(out.succeeded) })),
-          pastille('bg-red-100 text-red-700', t('cf.bulk_failed', { count: fmtNum(rates.length) })),
+          'p',
+          { class: `rounded-lg px-3 py-2 text-sm ${tout ? 'bg-accent-50 text-accent-700' : 'bg-ink-50 text-ink-600'}` },
+          tout ? t('cf.bulk_done', { count: fmtNum(out.succeeded) }) : t('cf.bulk_partial', { done: fmtNum(out.succeeded), failed: fmtNum(rates.length) }),
         ),
         h(
           'div',
-          { class: 'max-h-80 overflow-auto rounded-lg border border-ink-200' },
-          ...rates.map((r) => h(
-            'div',
-            { class: 'flex gap-3 border-b border-ink-50 px-3 py-2 last:border-b-0' },
-            h('span', { class: 'w-56 shrink-0 truncate font-mono text-xs text-ink-600', title: r.domain }, r.domain),
-            h('span', { class: 'min-w-0 flex-1 text-xs text-red-600' }, r.error),
-          )),
+          { class: 'flex flex-wrap gap-2' },
+          pastille('bg-accent-100 text-accent-700', t('cf.bulk_succeeded', { count: fmtNum(out.succeeded) })),
+          rates.length ? pastille('bg-red-100 text-red-700', t('cf.bulk_failed', { count: fmtNum(rates.length) })) : null,
         ),
+        rates.length
+          ? h(
+              'div',
+              { class: 'max-h-80 overflow-auto rounded-lg border border-ink-200' },
+              ...rates.map((r) => h(
+                'div',
+                { class: 'flex gap-3 border-b border-ink-50 px-3 py-2 last:border-b-0' },
+                h('span', { class: 'w-56 shrink-0 truncate font-mono text-xs text-ink-600', title: r.domain }, r.domain),
+                h('span', { class: 'min-w-0 flex-1 text-xs text-red-600' }, r.error),
+              )),
+            )
+          : null,
+        tout && kind === 'purge' ? h('p', { class: 'text-[11px] text-ink-400' }, t('cf.purge_after_hint')) : null,
       ),
-      h('div', { class: 'flex justify-end border-t border-ink-100 px-6 py-4' }, h('button', { type: 'button', class: 'btn btn-outline', onclick: closeModal }, t('action.close'))),
+      h('div', { class: 'flex justify-end border-t border-ink-100 px-6 py-4' }, h('button', { type: 'button', class: 'btn btn-primary', onclick: closeModal }, t('action.close'))),
     ),
     'max-w-2xl',
   );
@@ -630,17 +644,15 @@ function rendreZone(detail) {
     return b;
   };
 
-  // ── L'état de la zone ──
-  corps.append(
-    h(
-      'div',
-      { class: 'flex flex-wrap items-center gap-2' },
-      pastille(ETAT_TONS[zone.status] ?? 'bg-ink-100 text-ink-600', t(`cf.zone_${zone.status}`, {}, zone.status)),
-      pastille('bg-ink-100 text-ink-600', zone.plan || '—'),
-      zone.paused ? pastille('bg-amber-100 text-amber-800', t('cf.zone_paused')) : null,
-      h('span', { class: 'flex-1' }),
-      h('span', { class: 'text-[11px] text-ink-400' }, (zone.nameServers ?? []).join(' · ')),
-    ),
+  // ── L'état de la zone, toujours visible ──
+  const entete = h(
+    'div',
+    { class: 'flex flex-wrap items-center gap-2 px-6 pb-3' },
+    pastille(ETAT_TONS[zone.status] ?? 'bg-ink-100 text-ink-600', t(`cf.zone_${zone.status}`, {}, zone.status)),
+    pastille('bg-ink-100 text-ink-600', zone.plan || '—'),
+    zone.paused ? pastille('bg-amber-100 text-amber-800', t('cf.zone_paused')) : null,
+    h('span', { class: 'flex-1' }),
+    h('span', { class: 'truncate text-[11px] text-ink-400', title: (zone.nameServers ?? []).join(' · ') }, (zone.nameServers ?? []).join(' · ')),
   );
 
   // ── Les réglages ──
@@ -676,9 +688,8 @@ function rendreZone(detail) {
     ),
     t('cf.minify_hint'),
   ));
-  corps.append(bloc);
-
   // ── La purge ──
+  let blocCache = null;
   if (can('cloudflare.purge')) {
     const adresse = h('input', { type: 'url', class: 'input', placeholder: `https://${domain}/page` });
     const purgerUne = h('button', { type: 'button', class: 'btn btn-outline px-3 py-1.5 text-xs' }, icon('refresh', 'size-3.5'), t('cf.purge_url'));
@@ -695,28 +706,58 @@ function rendreZone(detail) {
     purgerUne.addEventListener('click', () => (adresse.value.trim() ? lancer(purgerUne, { files: [adresse.value.trim()] }) : toast(t('cf.purge_url_needed'), 'info')));
     purgerTout.addEventListener('click', () => lancer(purgerTout, { everything: true }));
 
-    corps.append(
-      h(
-        'div',
-        { class: 'rounded-xl border border-ink-100 p-4' },
-        h('p', { class: 'text-sm font-medium text-ink-700' }, t('cf.cache')),
-        h('p', { class: 'mt-0.5 text-[11px] text-ink-400' }, t('cf.purge_hint')),
-        h('div', { class: 'mt-3 flex flex-wrap items-center gap-2' }, h('div', { class: 'min-w-48 flex-1' }, adresse), purgerUne, purgerTout),
-      ),
+    blocCache = h(
+      'div',
+      { class: 'rounded-xl border border-ink-100 p-4' },
+      h('p', { class: 'text-sm font-medium text-ink-700' }, t('cf.cache')),
+      h('p', { class: 'mt-0.5 text-[11px] text-ink-400' }, t('cf.purge_hint')),
+      h('div', { class: 'mt-3 flex flex-wrap items-center gap-2' }, h('div', { class: 'min-w-48 flex-1' }, adresse), purgerUne, purgerTout),
     );
   }
 
-  // ── Les acces ──
-  corps.append(blocAcces(domain, zone));
+  /**
+   * DES ONGLETS, et non un empilement.
+   *
+   * Tout mis bout à bout, la fenêtre faisait deux écrans et demi : l'agent devait
+   * dérouler longuement pour atteindre le DNS, et perdait de vue ce qu'il cherchait.
+   * Quatre volets, un seul à la fois, et l'état de la zone reste visible au-dessus.
+   *
+   * Les contenus sont construits UNE fois et seulement montrés ou cachés : la clé
+   * révélée, une adresse à demi saisie ou un formulaire ouvert survivent au changement
+   * d'onglet.
+   */
+  const volets = [
+    { cle: 'settings', libelle: t('cf.tab_settings'), ico: 'wrench', contenu: bloc },
+    blocCache ? { cle: 'cache', libelle: t('cf.cache'), ico: 'refresh', contenu: blocCache } : null,
+    { cle: 'dns', libelle: t('cf.dns'), ico: 'list', contenu: blocDns(domain, dns) },
+    { cle: 'access', libelle: t('cf.credentials'), ico: 'lock', contenu: blocAcces(domain, zone) },
+  ].filter(Boolean);
 
-  // ── Le DNS ──
-  corps.append(blocDns(domain, dns));
+  const barre = h('div', { class: 'flex flex-wrap gap-1 border-b border-ink-100 px-6' });
+  const montrer = (cle) => {
+    for (const v of volets) v.contenu.hidden = v.cle !== cle;
+    for (const v of volets) v.bouton.setAttribute('aria-selected', String(v.cle === cle));
+    for (const v of volets) {
+      v.bouton.className = `-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${
+        v.cle === cle ? 'border-accent text-ink' : 'border-transparent text-ink-400 hover:text-ink-600'
+      }`;
+    }
+  };
+  for (const v of volets) {
+    v.bouton = h('button', { type: 'button', role: 'tab' }, icon(v.ico, 'size-3.5 mr-1.5 inline-block align-[-2px]'), v.libelle);
+    v.bouton.addEventListener('click', () => montrer(v.cle));
+    barre.append(v.bouton);
+    corps.append(v.contenu);
+  }
+  montrer(volets[0].cle);
 
   openModal(
     h(
       'div',
       { class: 'card w-full p-0' },
-      modalHeader(domain, 'bg-accent-50 text-accent-700', 'globe'),
+      h('div', { class: 'px-6 pt-6' }, modalHeader(domain, 'bg-accent-50 text-accent-700', 'globe')),
+      entete,
+      barre,
       corps,
       h('div', { class: 'flex justify-end border-t border-ink-100 px-6 py-4' }, h('button', { type: 'button', class: 'btn btn-outline', onclick: closeModal }, t('action.close'))),
     ),

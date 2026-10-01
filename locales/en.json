@@ -1322,6 +1322,11 @@
     "paste_urls": "Specific URLs (optional)",
     "paste_urls_hint": "Leave empty to purge everything. Otherwise separate URLs with a space.",
     "paste_format": "A domain unknown to the application may carry its access: domain.com;account id;key",
-    "purge_warning_single": "The cache of the listed domains will be purged: they restart from scratch, with a load spike and a few slower minutes."
+    "purge_warning_single": "The cache of the listed domains will be purged: they restart from scratch, with a load spike and a few slower minutes.",
+    "tab_settings": "Settings",
+    "bulk_done_title": "Purge complete",
+    "bulk_done": "Done: the cache of {count} domain(s) was purged.",
+    "bulk_partial": "Done: {done} domain(s) processed, {failed} failed.",
+    "purge_after_hint": "The first visits will be a little slower while the cache rebuilds."
   }
 }

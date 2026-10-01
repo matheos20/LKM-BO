@@ -1322,6 +1322,11 @@
     "paste_urls": "Specific URLs (optional)",
     "paste_urls_hint": "Leave empty to purge everything. Otherwise separate URLs with a space.",
     "paste_format": "A domain unknown to the application may carry its access: domain.com;account id;key",
-    "purge_warning_single": "The cache of the listed domains will be purged: they restart from scratch, with a load spike and a few slower minutes."
+    "purge_warning_single": "The cache of the listed domains will be purged: they restart from scratch, with a load spike and a few slower minutes.",
+    "tab_settings": "Definições",
+    "bulk_done_title": "Limpeza terminada",
+    "bulk_done": "Terminado: a cache de {count} domínio(s) foi limpa.",
+    "bulk_partial": "Terminado: {done} domínio(s) tratado(s), {failed} com erro.",
+    "purge_after_hint": "As primeiras visitas serão um pouco mais lentas enquanto a cache se reconstrói."
   }
 }

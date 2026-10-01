@@ -1322,6 +1322,11 @@
     "paste_urls": "Adresses précises (facultatif)",
     "paste_urls_hint": "Laissez vide pour vider tout le cache. Sinon, séparez les adresses par une espace.",
     "paste_format": "Un domaine inconnu de l’application peut porter ses accès : domaine.com;identifiant de compte;clé",
-    "purge_warning_single": "Le cache des domaines indiqués sera vidé : ils repartiront de zéro, avec une pointe de charge et quelques minutes plus lentes."
+    "purge_warning_single": "Le cache des domaines indiqués sera vidé : ils repartiront de zéro, avec une pointe de charge et quelques minutes plus lentes.",
+    "tab_settings": "Réglages",
+    "bulk_done_title": "Purge terminée",
+    "bulk_done": "Terminé : le cache de {count} domaine(s) a été vidé.",
+    "bulk_partial": "Terminé : {done} domaine(s) traité(s), {failed} en échec.",
+    "purge_after_hint": "Les premières visites seront un peu plus lentes, le temps que le cache se reconstitue."
   }
 }
