@@ -90,6 +90,8 @@
     "link": "Disco data"
   },
   "action": {
+    "save": "Guardar",
+    "delete": "Eliminar",
     "on": "Activado",
     "off": "Desactivado",
     "apply": "Aplicar",
@@ -102,7 +104,6 @@
     "unlock": "Desbloquear",
     "fix_perms": "Reparar permisos",
     "create": "Crear",
-    "delete": "Eliminar",
     "cancel": "Cancelar",
     "close": "Cerrar",
     "working": "Procesando…",
@@ -1100,7 +1101,8 @@
         "dns_delete": "DNS record deleted",
         "bulk_purge": "Cache purged (many domains)",
         "bulk_ssl": "SSL mode changed (many domains)",
-        "bulk_https": "HTTPS redirect (many domains)"
+        "bulk_https": "HTTPS redirect (many domains)",
+        "reveal_key": "API key revealed"
       }
     }
   },
@@ -1283,6 +1285,43 @@
     "dns_name_placeholder": "name (e.g. www)",
     "dns_content_placeholder": "value (e.g. 1.2.3.4)",
     "dns_created": "Record created.",
-    "dns_deleted": "Record deleted."
+    "dns_deleted": "Record deleted.",
+    "col_refs": "References",
+    "col_account": "Account",
+    "col_zone": "Zone",
+    "click_to_copy": "click to copy",
+    "copied": "{what} copied.",
+    "copy_failed": "Could not copy.",
+    "credentials": "Cloudflare access",
+    "credentials_hint": "What lets the application drive this zone.",
+    "credential_email": "Account e-mail",
+    "credential_key": "API key",
+    "reveal": "Show",
+    "hide": "Hide",
+    "reveal_hint": "This key opens the whole account. Showing it is recorded in the audit log.",
+    "dns_col_name": "Name",
+    "dns_col_type": "Type",
+    "dns_col_content": "Content",
+    "dns_col_proxy": "Proxy",
+    "dns_col_ttl": "TTL",
+    "dns_ttl_auto": "Auto",
+    "dns_add": "Add record",
+    "dns_edit": "Edit",
+    "dns_add_title": "New DNS record",
+    "dns_edit_title": "Edit record",
+    "dns_updated": "Record updated.",
+    "dns_priority": "Priority",
+    "dns_proxy_hint": "Route through Cloudflare (cache and protection). A, AAAA and CNAME only.",
+    "dns_delete_title": "Delete this record?",
+    "dns_delete_warning": "The {type} record “{name}” pointing to {content} will be deleted at Cloudflare. The site may become unreachable if this record serves it.",
+    "paste_button": "Purge several caches",
+    "paste_title": "Purge the cache of several domains",
+    "paste_label": "One domain per line",
+    "paste_count": "{count} domain(s) entered",
+    "paste_empty": "Enter at least one domain.",
+    "paste_urls": "Specific URLs (optional)",
+    "paste_urls_hint": "Leave empty to purge everything. Otherwise separate URLs with a space.",
+    "paste_format": "A domain unknown to the application may carry its access: domain.com;account id;key",
+    "purge_warning_single": "The cache of the listed domains will be purged: they restart from scratch, with a load spike and a few slower minutes."
   }
 }

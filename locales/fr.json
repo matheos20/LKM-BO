@@ -90,6 +90,8 @@
     "link": "Disque data"
   },
   "action": {
+    "save": "Enregistrer",
+    "delete": "Supprimer",
     "on": "Activé",
     "off": "Désactivé",
     "apply": "Appliquer",
@@ -102,7 +104,6 @@
     "unlock": "Déverrouiller",
     "fix_perms": "Réparer les droits",
     "create": "Créer",
-    "delete": "Supprimer",
     "cancel": "Annuler",
     "close": "Fermer",
     "working": "En cours…",
@@ -1100,7 +1101,8 @@
         "dns_delete": "Enregistrement DNS supprimé",
         "bulk_purge": "Cache vidé (plusieurs domaines)",
         "bulk_ssl": "Mode SSL changé (plusieurs domaines)",
-        "bulk_https": "Redirection HTTPS (plusieurs domaines)"
+        "bulk_https": "Redirection HTTPS (plusieurs domaines)",
+        "reveal_key": "Clé d’API affichée"
       }
     }
   },
@@ -1283,6 +1285,43 @@
     "dns_name_placeholder": "nom (ex. www)",
     "dns_content_placeholder": "valeur (ex. 1.2.3.4)",
     "dns_created": "Enregistrement créé.",
-    "dns_deleted": "Enregistrement supprimé."
+    "dns_deleted": "Enregistrement supprimé.",
+    "col_refs": "Références",
+    "col_account": "Compte",
+    "col_zone": "Zone",
+    "click_to_copy": "cliquer pour copier",
+    "copied": "{what} copié.",
+    "copy_failed": "Copie impossible.",
+    "credentials": "Accès Cloudflare",
+    "credentials_hint": "Ce qui permet à l’application de piloter cette zone.",
+    "credential_email": "Adresse du compte",
+    "credential_key": "Clé d’API",
+    "reveal": "Afficher",
+    "hide": "Masquer",
+    "reveal_hint": "Cette clé ouvre le compte entier. Son affichage est enregistré au journal.",
+    "dns_col_name": "Nom",
+    "dns_col_type": "Type",
+    "dns_col_content": "Contenu",
+    "dns_col_proxy": "Relais",
+    "dns_col_ttl": "Durée de vie",
+    "dns_ttl_auto": "Automatique",
+    "dns_add": "Ajouter un enregistrement",
+    "dns_edit": "Modifier",
+    "dns_add_title": "Nouvel enregistrement DNS",
+    "dns_edit_title": "Modifier l’enregistrement",
+    "dns_updated": "Enregistrement modifié.",
+    "dns_priority": "Priorité",
+    "dns_proxy_hint": "Passer par Cloudflare (cache et protection). Possible pour A, AAAA et CNAME seulement.",
+    "dns_delete_title": "Supprimer cet enregistrement ?",
+    "dns_delete_warning": "L’enregistrement {type} « {name} » qui pointe vers {content} sera supprimé chez Cloudflare. Le site peut devenir injoignable si cet enregistrement le dessert.",
+    "paste_button": "Vider plusieurs caches",
+    "paste_title": "Vider le cache de plusieurs domaines",
+    "paste_label": "Un domaine par ligne",
+    "paste_count": "{count} domaine(s) saisi(s)",
+    "paste_empty": "Indiquez au moins un domaine.",
+    "paste_urls": "Adresses précises (facultatif)",
+    "paste_urls_hint": "Laissez vide pour vider tout le cache. Sinon, séparez les adresses par une espace.",
+    "paste_format": "Un domaine inconnu de l’application peut porter ses accès : domaine.com;identifiant de compte;clé",
+    "purge_warning_single": "Le cache des domaines indiqués sera vidé : ils repartiront de zéro, avec une pointe de charge et quelques minutes plus lentes."
   }
 }

@@ -101,6 +101,38 @@ const rafraichirStats = async () => {
 
 const pastille = (classe, ...contenu) => h('span', { class: `badge ${classe}` }, ...contenu);
 
+/**
+ * Un identifiant, tronqué mais copiable d'un clic.
+ *
+ * Ni le compte ni la zone ne sont des secrets : ce sont des références que l'agent
+ * recopie dans d'autres outils, et les lire en entier à l'écran n'apporte rien. On les
+ * raccourcit donc, en gardant le texte complet sous la souris et dans le presse-papier.
+ */
+function reference(libelle, valeur) {
+  if (!valeur) return h('p', { class: 'text-[10px] text-ink-300' }, `${libelle} —`);
+  const b = h(
+    'button',
+    {
+      type: 'button',
+      class: 'block max-w-44 truncate text-left font-mono text-[10px] text-ink-500 transition hover:text-accent-700',
+      title: `${libelle} : ${valeur} — ${t('cf.click_to_copy')}`,
+    },
+    `${libelle} ${valeur.slice(0, 10)}…`,
+  );
+  b.addEventListener('click', () => copier(valeur, libelle));
+  return b;
+}
+
+/** Copie dans le presse-papier, et le dit. */
+async function copier(texte, quoi) {
+  try {
+    await navigator.clipboard.writeText(texte);
+    toast(t('cf.copied', { what: quoi }), 'success');
+  } catch {
+    toast(t('cf.copy_failed'), 'error');
+  }
+}
+
 const tuile = (valeur, libelle, tonValeur = 'text-ink') =>
   h(
     'div',
@@ -226,6 +258,12 @@ function ligne(z) {
         ? h('span', { class: 'text-xs text-ink-300' }, '—')
         : pastille(z.alwaysHttps ? 'bg-accent-100 text-accent-700' : 'bg-ink-100 text-ink-500', z.alwaysHttps ? t('action.on') : t('action.off')),
     ),
+    h(
+      'td',
+      { class: 'px-4 py-2.5 whitespace-nowrap' },
+      reference(t('cf.col_account'), z.accountId),
+      reference(t('cf.col_zone'), z.zoneId),
+    ),
     h('td', { class: 'px-4 py-2.5 whitespace-nowrap text-xs text-ink-400' }, z.checkedAt ? fmtDate(z.checkedAt) : h('span', { class: 'text-ink-300' }, t('cf.never_checked'))),
     h(
       'td',
@@ -309,6 +347,7 @@ function tableau() {
           th('cf.col_status'),
           th('cf.col_ssl'),
           th('cf.col_https'),
+          th('cf.col_refs'),
           th('cf.col_checked'),
           th('col.actions', 'px-5 text-right'),
         ),
@@ -333,6 +372,9 @@ function render() {
           h('h1', { class: 'text-xl font-semibold text-ink' }, t('cf.title')),
           h('p', { class: 'mt-0.5 text-sm text-ink-400' }, t('cf.subtitle')),
         ),
+        can('cloudflare.purge')
+          ? h('button', { type: 'button', class: 'btn btn-outline px-3 py-1.5 text-xs', onclick: purgeCollee }, icon('list', 'size-3.5'), t('cf.paste_button'))
+          : null,
         h('button', { type: 'button', class: 'btn btn-outline px-3 py-1.5 text-xs', disabled: state.loading, onclick: () => { state.stats = null; load(); } }, icon('refresh', `size-3.5 ${state.loading ? 'animate-spin' : ''}`), t('files.refresh')),
       ),
       enteteStats(),
@@ -407,6 +449,77 @@ function confirmerMasse(kind) {
     ),
   );
   openModal(form, 'max-w-lg');
+}
+
+/**
+ * Purger le cache d'une liste de domaines COLLÉE.
+ *
+ * Cocher trente-huit mille lignes une par une n'a pas de sens : l'agent a sa liste
+ * ailleurs — un tableur, un courriel, une autre console — et veut la coller telle
+ * quelle. Une ligne peut porter ses propres accès, pour un domaine que la base ne
+ * connaît pas encore.
+ */
+function purgeCollee() {
+  const zone = h('textarea', {
+    class: 'input min-h-40 font-mono text-xs',
+    placeholder: 'exemple.com\nautre-exemple.fr',
+    spellcheck: 'false',
+  });
+  const compteur = h('p', { class: 'text-[11px] text-ink-400' }, t('cf.paste_count', { count: 0 }));
+  zone.addEventListener('input', () => {
+    const n = zone.value.split(/[\r\n,\t]+/).filter((l) => l.trim() && !l.trim().startsWith('#')).length;
+    compteur.textContent = t('cf.paste_count', { count: fmtNum(n) });
+  });
+
+  const adresses = h('input', { type: 'text', class: 'input font-mono text-xs', placeholder: 'https://exemple.com/page  (vide = tout le cache)' });
+
+  const erreur = h('div', { class: 'mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700', hidden: true, role: 'alert' });
+  const valider = h('button', { type: 'submit', class: 'btn btn-danger' }, icon('trash', 'size-4'), t('cf.purge'));
+
+  const form = h(
+    'form',
+    {
+      onsubmit: async (e) => {
+        e.preventDefault();
+        const texte = zone.value.trim();
+        if (!texte) { formError(new Error(t('cf.paste_empty')), erreur); return; }
+        valider.disabled = true;
+        valider.textContent = t('action.working');
+        const urls = adresses.value.split(/\s+/).map((u) => u.trim()).filter(Boolean);
+        try {
+          const out = await api('/api/cloudflare/purge', {
+            method: 'POST',
+            body: { text: texte, everything: urls.length === 0, files: urls },
+          });
+          closeModal();
+          montrerReleve('purge', out);
+          await load();
+        } catch (err) {
+          formError(err, erreur);
+          valider.disabled = false;
+          valider.textContent = t('cf.purge');
+        }
+      },
+    },
+    modalHeader(t('cf.paste_title'), 'bg-red-50 text-red-600', 'trash'),
+    h(
+      'div',
+      { class: 'space-y-3' },
+      h('p', { class: 'rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900' }, t('cf.purge_warning_single')),
+      h('div', { class: 'grid gap-1' }, h('label', { class: 'label' }, t('cf.paste_label')), zone, compteur),
+      h(
+        'div',
+        { class: 'grid gap-1' },
+        h('label', { class: 'label' }, t('cf.paste_urls')),
+        adresses,
+        h('p', { class: 'text-[11px] text-ink-400' }, t('cf.paste_urls_hint')),
+      ),
+      h('p', { class: 'text-[11px] text-ink-400' }, t('cf.paste_format')),
+    ),
+    erreur,
+    h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), valider),
+  );
+  openModal(form, 'max-w-2xl');
 }
 
 /** Le relevé d'une opération de masse : ce qui a marché, ce qui a échoué, et pourquoi. */
@@ -593,6 +706,9 @@ function rendreZone(detail) {
     );
   }
 
+  // ── Les acces ──
+  corps.append(blocAcces(domain, zone));
+
   // ── Le DNS ──
   corps.append(blocDns(domain, dns));
 
@@ -608,75 +724,273 @@ function rendreZone(detail) {
   );
 }
 
-/** La liste DNS, et de quoi ajouter ou retirer un enregistrement. */
-function blocDns(domain, records) {
-  const liste = h('div', { class: 'mt-3 max-h-64 overflow-auto rounded-lg border border-ink-200' });
-  const peindre = (rs) => {
-    liste.replaceChildren(
-      ...(rs.length
-        ? rs.map((r) => {
-            const supprimer = h('button', { type: 'button', class: 'icon-btn hover:bg-red-50 hover:text-red-600', title: t('action.delete'), disabled: !can('cloudflare.write') }, icon('trash', 'size-3.5'));
-            supprimer.addEventListener('click', async () => {
-              supprimer.disabled = true;
-              try {
-                await api(`/api/cloudflare/zones/${enc(domain)}/dns/${enc(r.id)}`, { method: 'DELETE' });
-                toast(t('cf.dns_deleted'), 'success');
-                peindre(rs.filter((x) => x.id !== r.id));
-              } catch (err) { toastError(err); supprimer.disabled = false; }
-            });
-            return h(
-              'div',
-              { class: 'flex items-center gap-3 border-b border-ink-50 px-3 py-2 last:border-b-0' },
-              h('span', { class: 'w-14 shrink-0 font-mono text-[11px] font-semibold text-ink-600' }, r.type),
-              h('span', { class: 'w-56 shrink-0 truncate text-xs text-ink-700', title: r.name }, r.name),
-              h('span', { class: 'min-w-0 flex-1 truncate font-mono text-[11px] text-ink-500', title: r.content }, r.content),
-              r.proxied ? pastille('bg-accent-100 text-accent-700', t('cf.dns_proxied')) : h('span', { class: 'text-[11px] text-ink-300' }, t('cf.dns_direct')),
-              supprimer,
-            );
-          })
-        : [h('p', { class: 'px-3 py-6 text-center text-xs text-ink-400' }, t('cf.dns_empty'))]),
+/**
+ * Les accès du domaine : identifiants de compte et de zone, adresse, et clé.
+ *
+ * La clé globale n'est PAS affichée d'emblée. Elle ouvre le compte Cloudflare en
+ * entier — Cloudflare la masque lui-même derrière un bouton, pour cette raison. Ici
+ * elle se demande, et la demande part au journal d'audit : on saura toujours qui l'a
+ * révélée, pour quel domaine, et quand.
+ *
+ * Les identifiants de compte et de zone, eux, s'affichent directement : ce sont des
+ * références, pas des secrets.
+ */
+function blocAcces(domain, zone) {
+  const champ = (libelle, valeur, { mono = true } = {}) => {
+    const texte = h('span', { class: `block min-w-0 flex-1 truncate ${mono ? 'font-mono' : ''} text-xs text-ink-600`, title: valeur ?? '' }, valeur || '—');
+    const copie = h('button', { type: 'button', class: 'icon-btn', title: t('cf.click_to_copy'), 'aria-label': t('cf.click_to_copy'), disabled: !valeur }, icon('file', 'size-3.5'));
+    copie.addEventListener('click', () => copier(valeur, libelle));
+    return h(
+      'div',
+      { class: 'flex items-center gap-2 border-b border-ink-50 py-2 last:border-b-0' },
+      h('span', { class: 'w-40 shrink-0 text-[11px] text-ink-400' }, libelle),
+      texte,
+      copie,
     );
   };
-  peindre(records ?? []);
 
-  const type = h('select', { class: 'input w-28' }, ...['A', 'AAAA', 'CNAME', 'TXT', 'MX'].map((x) => h('option', { value: x }, x)));
-  const nom = h('input', { type: 'text', class: 'input', placeholder: t('cf.dns_name_placeholder') });
-  const valeur = h('input', { type: 'text', class: 'input', placeholder: t('cf.dns_content_placeholder') });
-  const relais = h('input', { type: 'checkbox', class: 'size-4 rounded border-ink-300 accent-accent', 'aria-label': t('cf.dns_proxied') });
-  const ajouter = h('button', { type: 'button', class: 'btn btn-primary px-3 py-1.5 text-xs', disabled: !can('cloudflare.write') }, icon('plus', 'size-3.5'), t('action.add'));
+  const ligneCle = h('div', { class: 'flex items-center gap-2 border-b border-ink-50 py-2 last:border-b-0' });
+  const peindreCle = (valeur = null) => {
+    const montre = h('span', { class: 'block min-w-0 flex-1 truncate font-mono text-xs text-ink-600' }, valeur ?? '••••••••••••••••••••••••••••••••');
+    const enfants = [h('span', { class: 'w-40 shrink-0 text-[11px] text-ink-400' }, t('cf.credential_key')), montre];
 
-  ajouter.addEventListener('click', async () => {
-    ajouter.disabled = true;
-    try {
-      const cree = await api(`/api/cloudflare/zones/${enc(domain)}/dns`, {
-        method: 'POST',
-        body: { type: type.value, name: nom.value.trim(), content: valeur.value.trim(), proxied: relais.checked },
+    if (valeur) {
+      const copie = h('button', { type: 'button', class: 'icon-btn', title: t('cf.click_to_copy'), 'aria-label': t('cf.click_to_copy') }, icon('file', 'size-3.5'));
+      copie.addEventListener('click', () => copier(valeur, t('cf.credential_key')));
+      const cacher = h('button', { type: 'button', class: 'btn btn-ghost px-2 py-1 text-[11px]' }, t('cf.hide'));
+      cacher.addEventListener('click', () => peindreCle(null));
+      enfants.push(copie, cacher);
+    } else {
+      const reveler = h('button', { type: 'button', class: 'btn btn-outline px-2.5 py-1 text-[11px]', disabled: !can('cloudflare.write'), title: can('cloudflare.write') ? t('cf.reveal_hint') : t('reason.permission_denied') }, icon('eye', 'size-3'), t('cf.reveal'));
+      reveler.addEventListener('click', async () => {
+        reveler.disabled = true;
+        try {
+          const acces = await api(`/api/cloudflare/zones/${enc(domain)}/credentials`);
+          peindreCle(acces.apiToken || acces.globalApiKey || '—');
+        } catch (err) {
+          toastError(err);
+          reveler.disabled = false;
+        }
       });
-      toast(t('cf.dns_created'), 'success');
-      nom.value = '';
-      valeur.value = '';
-      const frais = await api(`/api/cloudflare/zones/${enc(domain)}`);
-      peindre(frais.dns ?? [cree]);
-    } catch (err) { toastError(err); }
-    ajouter.disabled = false;
-  });
+      enfants.push(reveler);
+    }
+    ligneCle.replaceChildren(...enfants);
+  };
+  peindreCle(null);
 
   return h(
     'div',
     { class: 'rounded-xl border border-ink-100 p-4' },
-    h('p', { class: 'text-sm font-medium text-ink-700' }, t('cf.dns')),
-    h('p', { class: 'mt-0.5 text-[11px] text-ink-400' }, t('cf.dns_hint')),
-    liste,
-    can('cloudflare.write')
-      ? h(
-          'div',
-          { class: 'mt-3 flex flex-wrap items-center gap-2' },
-          type,
-          h('div', { class: 'min-w-36 flex-1' }, nom),
-          h('div', { class: 'min-w-36 flex-1' }, valeur),
-          h('label', { class: 'flex items-center gap-1.5 text-[11px] text-ink-600' }, relais, t('cf.dns_proxied')),
-          ajouter,
-        )
-      : null,
+    h('p', { class: 'text-sm font-medium text-ink-700' }, t('cf.credentials')),
+    h('p', { class: 'mt-0.5 text-[11px] text-ink-400' }, t('cf.credentials_hint')),
+    h(
+      'div',
+      { class: 'mt-2' },
+      champ(t('cf.col_account'), zone.accountId),
+      champ(t('cf.col_zone'), zone.id),
+      champ(t('cf.credential_email'), zone.email ?? `${domain}@linkuma.co`, { mono: false }),
+      ligneCle,
+    ),
+  );
+}
+
+/**
+ * Les enregistrements DNS, présentés comme chez Cloudflare.
+ *
+ * L'agent travaille avec les deux écrans côte à côte : les mêmes colonnes, dans le même
+ * ordre, lui évitent de retraduire ce qu'il voit. D'où « Nom, Type, Contenu, Relais,
+ * TTL », et un bouton « Modifier » par ligne plutôt qu'une suppression sèche — se
+ * tromper d'une adresse IP et devoir tout retaper est le genre de détail qui use.
+ */
+function blocDns(domain, records) {
+  const etat = { records: [...(records ?? [])] };
+  const corps = h('div', {});
+
+  const tableau = () => {
+    if (!etat.records.length) return h('p', { class: 'px-3 py-6 text-center text-xs text-ink-400' }, t('cf.dns_empty'));
+
+    const th = (libelle, extra = '') => h('th', { class: `px-3 py-2 font-semibold ${extra}` }, libelle);
+    return h(
+      'div',
+      { class: 'overflow-x-auto' },
+      h(
+        'table',
+        { class: 'w-full text-left' },
+        h(
+          'thead',
+          { class: 'bg-ink-50/60 text-[11px] tracking-wide text-ink-500 uppercase' },
+          h('tr', {}, th(t('cf.dns_col_name')), th(t('cf.dns_col_type')), th(t('cf.dns_col_content')), th(t('cf.dns_col_proxy')), th(t('cf.dns_col_ttl')), th(t('col.actions'), 'text-right')),
+        ),
+        h('tbody', {}, ...etat.records.map(ligneDns)),
+      ),
+    );
+  };
+
+  const ligneDns = (r) => {
+    const modifier = h(
+      'button',
+      { type: 'button', class: 'btn btn-outline px-2.5 py-1 text-[11px]', disabled: !can('cloudflare.write'), title: t('cf.dns_edit') },
+      icon('pencil', 'size-3'),
+      t('cf.dns_edit'),
+    );
+    modifier.addEventListener('click', () => editeurDns(r));
+
+    const supprimer = h('button', { type: 'button', class: 'icon-btn hover:bg-red-50 hover:text-red-600', title: t('action.delete'), 'aria-label': t('action.delete'), disabled: !can('cloudflare.write') }, icon('trash', 'size-3.5'));
+    supprimer.addEventListener('click', () => confirmerSuppressionDns(r));
+
+    return h(
+      'tr',
+      { class: 'border-t border-ink-100 align-middle hover:bg-ink-50/40' },
+      h('td', { class: 'px-3 py-2' }, h('span', { class: 'block max-w-56 truncate text-xs text-ink-700', title: r.name }, r.name)),
+      h('td', { class: 'px-3 py-2' }, h('span', { class: 'font-mono text-[11px] font-semibold text-ink-600' }, r.type)),
+      h('td', { class: 'px-3 py-2' }, h('span', { class: 'block max-w-72 truncate font-mono text-[11px] text-ink-500', title: r.content }, r.content)),
+      h(
+        'td',
+        { class: 'px-3 py-2 whitespace-nowrap' },
+        r.proxied
+          ? h('span', { class: 'badge bg-amber-100 text-amber-800' }, icon('globe', 'size-3'), t('cf.dns_proxied'))
+          : h('span', { class: 'text-[11px] text-ink-400' }, t('cf.dns_direct')),
+      ),
+      h('td', { class: 'px-3 py-2 whitespace-nowrap text-[11px] text-ink-500' }, r.ttl === 1 ? t('cf.dns_ttl_auto') : t('cf.cache_seconds', { n: fmtNum(r.ttl) })),
+      h('td', { class: 'px-3 py-2' }, h('div', { class: 'flex justify-end gap-1' }, modifier, supprimer)),
+    );
+  };
+
+  const recharger = async () => {
+    try {
+      const frais = await api(`/api/cloudflare/zones/${enc(domain)}`);
+      etat.records = frais.dns ?? [];
+      corps.replaceChildren(tableau());
+    } catch (err) { toastError(err); }
+  };
+
+  /**
+   * Le formulaire d'un enregistrement, pour en créer un ou en modifier un.
+   * Les mêmes champs dans les deux cas : l'agent n'a qu'une seule chose à apprendre.
+   */
+  const editeurDns = (existant = null) => {
+    const type = h('select', { class: 'input' }, ...['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'NS', 'CAA'].map((x) => h('option', { value: x }, x)));
+    const nom = h('input', { type: 'text', class: 'input', placeholder: t('cf.dns_name_placeholder') });
+    const valeur = h('input', { type: 'text', class: 'input', placeholder: t('cf.dns_content_placeholder') });
+    const ttl = h('select', { class: 'input' }, h('option', { value: '1' }, t('cf.dns_ttl_auto')), ...['60', '300', '1800', '3600', '86400'].map((v) => h('option', { value: v }, t('cf.cache_seconds', { n: fmtNum(Number(v)) }))));
+    const priorite = h('input', { type: 'number', class: 'input', min: '0', max: '65535', placeholder: '10' });
+    const relais = h('input', { type: 'checkbox', class: 'size-4 rounded border-ink-300 accent-accent', 'aria-label': t('cf.dns_proxied') });
+
+    if (existant) {
+      type.value = existant.type;
+      nom.value = existant.name;
+      valeur.value = existant.content;
+      ttl.value = String(existant.ttl ?? 1);
+      relais.checked = Boolean(existant.proxied);
+      if (existant.priority != null) priorite.value = String(existant.priority);
+    }
+
+    // Seuls A, AAAA et CNAME peuvent passer par Cloudflare ; la priorité ne concerne
+    // que MX. Griser ce qui ne s'applique pas vaut mieux que de le laisser tromper.
+    const ligneMx = h('div', { class: 'grid gap-1' }, h('label', { class: 'label' }, t('cf.dns_priority')), priorite);
+    const refletType = () => {
+      const relayable = ['A', 'AAAA', 'CNAME'].includes(type.value);
+      relais.disabled = !relayable;
+      if (!relayable) relais.checked = false;
+      ligneMx.hidden = type.value !== 'MX';
+    };
+    type.addEventListener('change', refletType);
+    refletType();
+
+    const erreur = h('div', { class: 'mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700', hidden: true, role: 'alert' });
+    const valider = h('button', { type: 'submit', class: 'btn btn-primary' }, existant ? t('action.save') : t('action.add'));
+
+    const form = h(
+      'form',
+      {
+        onsubmit: async (e) => {
+          e.preventDefault();
+          valider.disabled = true;
+          valider.textContent = t('action.working');
+          const corpsRecord = {
+            type: type.value,
+            name: nom.value.trim(),
+            content: valeur.value.trim(),
+            ttl: Number(ttl.value),
+            proxied: relais.checked,
+            ...(type.value === 'MX' ? { priority: Number(priorite.value || 10) } : {}),
+          };
+          try {
+            if (existant) await api(`/api/cloudflare/zones/${enc(domain)}/dns/${enc(existant.id)}`, { method: 'PUT', body: corpsRecord });
+            else await api(`/api/cloudflare/zones/${enc(domain)}/dns`, { method: 'POST', body: corpsRecord });
+            closeModal();
+            toast(existant ? t('cf.dns_updated') : t('cf.dns_created'), 'success');
+            await recharger();
+          } catch (err) {
+            formError(err, erreur);
+            valider.disabled = false;
+            valider.textContent = existant ? t('action.save') : t('action.add');
+          }
+        },
+      },
+      modalHeader(existant ? t('cf.dns_edit_title') : t('cf.dns_add_title'), 'bg-accent-50 text-accent-700', 'list'),
+      h(
+        'div',
+        { class: 'grid gap-3 sm:grid-cols-2' },
+        h('div', { class: 'grid gap-1' }, h('label', { class: 'label' }, t('cf.dns_col_type')), type),
+        h('div', { class: 'grid gap-1' }, h('label', { class: 'label' }, t('cf.dns_col_ttl')), ttl),
+        h('div', { class: 'grid gap-1 sm:col-span-2' }, h('label', { class: 'label' }, t('cf.dns_col_name')), nom),
+        h('div', { class: 'grid gap-1 sm:col-span-2' }, h('label', { class: 'label' }, t('cf.dns_col_content')), valeur),
+        ligneMx,
+        h('label', { class: 'flex items-center gap-2 text-sm text-ink-600 sm:col-span-2' }, relais, h('span', {}, t('cf.dns_proxy_hint'))),
+      ),
+      erreur,
+      h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), valider),
+    );
+    openModal(form, 'max-w-xl');
+  };
+
+  const confirmerSuppressionDns = (r) => {
+    const erreur = h('div', { class: 'mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700', hidden: true, role: 'alert' });
+    const valider = h('button', { type: 'submit', class: 'btn btn-danger' }, t('action.delete'));
+    openModal(
+      h(
+        'form',
+        {
+          onsubmit: async (e) => {
+            e.preventDefault();
+            valider.disabled = true;
+            try {
+              await api(`/api/cloudflare/zones/${enc(domain)}/dns/${enc(r.id)}`, { method: 'DELETE' });
+              closeModal();
+              toast(t('cf.dns_deleted'), 'success');
+              await recharger();
+            } catch (err) { formError(err, erreur); valider.disabled = false; }
+          },
+        },
+        modalHeader(t('cf.dns_delete_title'), 'bg-red-50 text-red-600', 'trash'),
+        h('p', { class: 'rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600' }, t('cf.dns_delete_warning', { type: r.type, name: r.name, content: r.content.slice(0, 60) })),
+        erreur,
+        h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), valider),
+      ),
+      'max-w-lg',
+    );
+  };
+
+  corps.replaceChildren(tableau());
+
+  const ajouter = h('button', { type: 'button', class: 'btn btn-primary px-3 py-1.5 text-xs', disabled: !can('cloudflare.write') }, icon('plus', 'size-3.5'), t('cf.dns_add'));
+  ajouter.addEventListener('click', () => editeurDns(null));
+
+  return h(
+    'div',
+    { class: 'rounded-xl border border-ink-100 p-4' },
+    h(
+      'div',
+      { class: 'flex flex-wrap items-center gap-2' },
+      h(
+        'div',
+        { class: 'min-w-0 flex-1' },
+        h('p', { class: 'text-sm font-medium text-ink-700' }, t('cf.dns')),
+        h('p', { class: 'mt-0.5 text-[11px] text-ink-400' }, t('cf.dns_hint')),
+      ),
+      ajouter,
+    ),
+    h('div', { class: 'mt-3 max-h-72 overflow-auto rounded-lg border border-ink-200' }, corps),
   );
 }

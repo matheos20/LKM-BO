@@ -272,3 +272,53 @@ export function cloudflareStats() {
     lastImport: db.prepare('SELECT at, source, rows_read, accounts_added, zones_added, skipped FROM cf_imports ORDER BY at DESC LIMIT 1').get() ?? null,
   };
 }
+
+/**
+ * Lit une saisie libre de domaines, telle que l'agent la colle.
+ *
+ * Un domaine par ligne. Une ligne peut porter ses propres accès, séparés par des
+ * points-virgules, pour un domaine que la base ne connaît pas encore :
+ *
+ *     exemple.com
+ *     exemple.com;<account_id>;<clé globale>
+ *     exemple.com;<account_id>;<clé globale>;<zone_id>
+ *
+ * Les virgules et les tabulations séparent aussi bien que les retours à la ligne : on
+ * accepte ce qui vient d'un tableur comme ce qui vient d'une liste.
+ *
+ * @returns {{ entries: {domain, accountId, key, zoneId}[], invalid: {line, raw, reason}[] }}
+ */
+export function parseDomainInput(text) {
+  const entries = [];
+  const invalid = [];
+  const vues = new Set();
+  const lignes = String(text ?? '').split(/[\r\n,\t]+/);
+
+  lignes.forEach((brut, i) => {
+    const ligne = brut.trim();
+    if (!ligne || ligne.startsWith('#')) return;
+
+    const parts = ligne.split(';').map((p) => p.trim());
+    const domain = normalizeDomain(parts[0]);
+    if (!domain) {
+      invalid.push({ line: i + 1, raw: parts[0].slice(0, 80), reason: 'errors.cf_domain_invalid' });
+      return;
+    }
+    // Un doublon n'est pas une erreur : on l'ignore, et l'agent n'a rien à corriger.
+    if (vues.has(domain)) return;
+    vues.add(domain);
+
+    const accountId = vide(parts[1]);
+    const secret = vide(parts[2]);
+    const zoneId = vide(parts[3]);
+    entries.push({
+      domain,
+      accountId: ID_RE.test(accountId) ? accountId : '',
+      key: GLOBAL_KEY_RE.test(secret) ? secret : '',
+      token: !GLOBAL_KEY_RE.test(secret) && TOKEN_RE.test(secret) ? secret : '',
+      zoneId: ID_RE.test(zoneId) ? zoneId : '',
+    });
+  });
+
+  return { entries, invalid };
+}

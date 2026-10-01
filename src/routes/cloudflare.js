@@ -46,6 +46,30 @@ export function cloudflareRouter({ cloudflare, audit }) {
 
   r.get('/stats', canRead, (_req, res) => res.json(cloudflare.stats()));
 
+  /**
+   * Les acces d'un domaine, cle comprise.
+   *
+   * Droit d'ECRITURE exige, et demande journalisee : une cle globale ouvre le compte
+   * entier. Cloudflare masque la sienne derriere un bouton pour la meme raison.
+   */
+  r.get('/zones/:domain/credentials', canWrite, (req, res) => {
+    audit(req, { action: 'cloudflare.reveal_key', domain: req.params.domain, target: 'credentials', ok: true });
+    res.json(cloudflare.credentials(req.params.domain));
+  });
+
+  /**
+   * Purge à partir d'une saisie libre : un domaine par ligne.
+   *
+   * Une ligne peut porter ses propres accès, séparés par des points-virgules, pour un
+   * domaine que la base ne connaît pas encore. Ces accès-là ne sont pas enregistrés :
+   * une purge est un geste de passage, l'import reste la porte d'entrée.
+   */
+  r.post('/purge', canPurge, async (req, res) => {
+    const { text = '', everything = true, files = [] } = req.body ?? {};
+    const lignes = String(text).split('\n').filter((l) => l.trim()).length;
+    res.json(await audited(req, 'cloudflare.bulk_purge', `saisie · ${lignes} ligne(s)`, () => cloudflare.purgeFromInput(text, { everything, files })));
+  });
+
   r.get('/zones/:domain', canRead, async (req, res) => {
     res.json(await cloudflare.detail(req.params.domain));
   });

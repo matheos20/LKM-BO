@@ -8,6 +8,7 @@
  */
 import { config } from '../config.js';
 import { getDb } from '../db/database.js';
+import { parseDomainInput } from './cloudflareImport.js';
 import { AppError } from '../errors.js';
 import { redact } from './cloudflareClient.js';
 import {
@@ -99,7 +100,9 @@ export class CloudflareService {
       page: numero,
       perPage: taille,
       pages: Math.max(1, Math.ceil(total / taille)),
-      // AUCUN SECRET NE SORT D'ICI : on dit seulement s'il y en a un, et de quelle sorte.
+      // AUCUNE CLÉ NE SORT D'ICI : on dit seulement s'il y en a une, et de quelle sorte.
+      // Les identifiants de compte et de zone, eux, ne sont pas des secrets — ce sont
+      // des références que l'agent recopie dans d'autres outils.
       zones: lignes.map((l) => ({
         domain: l.domain,
         zoneId: l.zone_id || null,
@@ -186,7 +189,68 @@ export class CloudflareService {
     return deleteDnsRecord(c.zoneId, recordId, c.creds);
   }
 
+  /**
+   * Les accès d'un domaine, CLÉ COMPRISE.
+   *
+   * Cloudflare masque lui-même sa clé globale derrière un bouton : elle ouvre le compte
+   * entier, et la voir doit être un geste conscient. Cette méthode n'est donc appelée
+   * que par une route qui exige le droit d'écriture et qui journalise la demande — on
+   * saura toujours qui a révélé quelle clé, et quand.
+   */
+  credentials(domain) {
+    const nom = String(domain ?? '').trim().toLowerCase();
+    const l = getDb().prepare(
+      `SELECT z.domain, z.zone_id, a.account_id, a.email, a.global_api_key, a.api_token
+       FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref WHERE z.domain = ?`,
+    ).get(nom);
+    if (!l) throw new AppError('errors.cf_unknown_domain', { status: 404, vars: { domain: nom } });
+    return {
+      domain: l.domain,
+      accountId: l.account_id,
+      zoneId: l.zone_id || null,
+      email: l.email || null,
+      globalApiKey: l.global_api_key || null,
+      apiToken: l.api_token || null,
+    };
+  }
+
   // ─────────────────────── Opérations de masse ───────────────────────
+
+  /**
+   * Purge le cache de plusieurs domaines, saisis librement.
+   *
+   * Une ligne peut porter ses propres accès : c'est ce qui permet de purger un domaine
+   * que la base ne connaît pas encore, sans l'importer d'abord. Quand la ligne n'en
+   * porte pas, on prend ceux de la base.
+   *
+   * Les accès fournis à la volée ne sont PAS enregistrés : une purge est un geste de
+   * passage, pas une déclaration de domaine. L'import reste la porte d'entrée.
+   */
+  async purgeFromInput(text, { everything = true, files = [] } = {}) {
+    const { entries, invalid } = parseDomainInput(text);
+    const cibles = [];
+    const skipped = invalid.map((i) => ({ domain: i.raw, reason: i.reason, ok: false }));
+
+    for (const e of entries) {
+      // Les accès collés avec le domaine l'emportent : l'agent sait ce qu'il fait.
+      if (e.accountId && (e.key || e.token) && e.zoneId) {
+        cibles.push({ domain: e.domain, zoneId: e.zoneId, creds: e.token ? { apiToken: e.token } : { globalApiKey: e.key, email: `${e.domain}@${config.cloudflare.emailDomain}` } });
+        continue;
+      }
+      try {
+        const c = await this.#cibleSure(e.domain);
+        cibles.push(c);
+      } catch (err) {
+        skipped.push({ domain: e.domain, reason: err.key ?? 'errors.cf_no_access', ok: false });
+      }
+    }
+
+    const out = cibles.length
+      ? await purgeMany(cibles, everything ? { everything: true } : { files }, { concurrency: config.cloudflare.concurrency })
+      : { total: 0, succeeded: 0, failed: 0, results: [] };
+
+    return { ...out, skipped, requested: entries.length + invalid.length };
+  }
 
   /**
    * Une opération sur plusieurs domaines.
