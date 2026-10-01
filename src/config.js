@@ -44,6 +44,16 @@ export const config = {
     maxBatch: int(env.FILES_MAX_BATCH, 200),
     maxUploadBytes: int(env.FILES_MAX_UPLOAD_BYTES, 200 * 1024 * 1024),
   },
+  cloudflare: {
+    // Les comptes Cloudflare du parc portent une adresse déduite du domaine :
+    // « 201eat.com@linkuma.co ». Vérifié sur l'API le 01/10/2026, quatre domaines sur
+    // quatre. Cette convention appartient au parc, pas à Cloudflare : elle se règle
+    // donc ici, et la dérivation ne se fait que sur les comptes SANS adresse connue.
+    emailDomain: env.CF_EMAIL_DOMAIN || 'linkuma.co',
+    // Appels simultanés par défaut. Cloudflare autorise 1 200 appels par tranche de
+    // cinq minutes et par compte ; la prudence coûte moins cher qu'un 429 en rafale.
+    concurrency: int(env.CF_CONCURRENCY, 6),
+  },
   dbFile: file(env.DB_FILE, 'data/lkm-bo.db'),
   passwordMinLength: int(env.PASSWORD_MIN_LENGTH, 12),
   loginMaxAttempts: int(env.LOGIN_MAX_ATTEMPTS, 10),

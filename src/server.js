@@ -17,6 +17,7 @@ import { TranslationService } from './services/translationService.js';
 import { CategoryService } from './services/categoryService.js';
 import { RedirectService } from './services/redirectService.js';
 import { SearchService } from './services/searchService.js';
+import { CloudflareService } from './services/cloudflareService.js';
 import { createAudit } from './services/audit.js';
 import { purgeOlderThan } from './db/audit.js';
 import { attachUser, csrfGuard, errorHandler, langMiddleware, requireAuth } from './middleware/index.js';
@@ -31,6 +32,7 @@ import { translationRouter } from './routes/translation.js';
 import { categoriesRouter } from './routes/categories.js';
 import { redirectsRouter } from './routes/redirects.js';
 import { searchRouter } from './routes/search.js';
+import { cloudflareRouter } from './routes/cloudflare.js';
 
 let servers;
 try {
@@ -53,6 +55,8 @@ const translation = new TranslationService(ssh, sites, config.translate);
 const categories = new CategoryService(ssh, sites);
 const redirects = new RedirectService(ssh, sites);
 const search = new SearchService(ssh, domains, sites);
+// Cloudflare : la base porte les comptes et les zones ; aucun acces SSH n'intervient ici.
+const cloudflare = new CloudflareService();
 const audit = createAudit(config.auditLog);
 
 // Un journal qui grossit sans fin finit par ne plus être consulté : on efface au
@@ -111,6 +115,7 @@ app.use('/api/servers/:id/translation', translationRouter({ ssh, translation, au
 app.use('/api/servers/:id/categories', categoriesRouter({ ssh, categories, audit }));
 app.use('/api/servers/:id/redirects', redirectsRouter({ ssh, redirects, audit }));
 app.use('/api/search', searchRouter({ ssh, search }));
+app.use('/api/cloudflare', cloudflareRouter({ cloudflare, audit }));
 app.use('/api/servers/:id/domains/:domain/files', filesRouter({ ssh, files, audit, uploadLimit: config.files.maxUploadBytes }));
 app.use('/api/servers', serversRouter({ ssh, domains, audit }));
 app.use('/api/domains', domainsRouter({ ssh, domains }));

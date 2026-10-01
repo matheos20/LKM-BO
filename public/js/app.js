@@ -5,6 +5,7 @@ import { askSearch, clearSearch, initSearch, searchPanel, setSearchStatus } from
 import { accountDialog, closeAdmin, isAdminOpen, openAdmin, rerenderAdmin } from './admin.js';
 import { closeDesign, isDesignOpen, openDesign, rerenderDesign } from './design.js';
 import { closeActions, isActionsOpen, isActionsSuspended, openActions, rerenderActions } from './actions.js';
+import { closeCloudflare, openCloudflare } from './cloudflare.js';
 import { $, closeModal, enc, fmtDate, fmtNum, fmtSize, formError, h, icon, modalHeader, openModal, store, toast, toastError } from './ui.js';
 
 // ───────────────────────── État ─────────────────────────
@@ -60,6 +61,7 @@ function renderSidebar() {
   // Les traitements de masse acceptent aussi une liste de domaines venue de
   // plusieurs serveurs : l'entrée reste donc accessible depuis « tous les serveurs ».
   $('#nav-actions').hidden = !can('design.read');
+  $('#nav-cloudflare').hidden = !can('cloudflare.read');
   $('#nav-actions').setAttribute('aria-current', String(isActionsOpen()));
   $('#all-count').textContent = `${connectedServers().length}/${state.servers.length}`;
 }
@@ -338,6 +340,7 @@ async function connectAll() {
 async function selectServer(id) {
   closeFiles();
   closeAdmin();
+  closeCloudflare();
   closeDesign();
   closeActions();
   state.current = id;
@@ -741,6 +744,23 @@ function wireEvents() {
       permissions: state.user?.permissions ?? [],
       onClose: () => {
         $('#nav-admin').setAttribute('aria-current', 'false');
+        renderHeader();
+        renderNotice();
+      },
+    });
+  });
+  $('#nav-cloudflare').addEventListener('click', async () => {
+    closeFiles();
+    closeAdmin();
+    closeDesign();
+    closeActions();
+    toggleSidebar(false);
+    $('#nav-cloudflare').setAttribute('aria-current', 'true');
+    await openCloudflare({
+      permissions: state.user?.permissions ?? [],
+      onClose: () => {
+        $('#nav-cloudflare').setAttribute('aria-current', 'false');
+        $('#domains-view').hidden = false;
         renderHeader();
         renderNotice();
       },

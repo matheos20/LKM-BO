@@ -7,7 +7,7 @@
  * Les libellés sont traduits via les clés « perm.<clé> » et « perm_group.<groupe> ».
  */
 
-export const PERMISSION_GROUPS = ['servers', 'domains', 'design', 'files', 'admin'];
+export const PERMISSION_GROUPS = ['servers', 'domains', 'design', 'files', 'cloudflare', 'admin'];
 
 export const PERMISSIONS = [
   { key: 'servers.connect', group: 'servers' },
@@ -24,6 +24,12 @@ export const PERMISSIONS = [
   { key: 'files.read', group: 'files' },
   { key: 'files.write', group: 'files' },
   { key: 'files.delete', group: 'files' },
+  // Cloudflare : lire l'etat d'une zone n'engage rien ; changer un reglage touche un
+  // site en production, et purger un cache le fait repartir de zero. Trois droits
+  // distincts, pour qu'un agent puisse consulter sans pouvoir agir.
+  { key: 'cloudflare.read', group: 'cloudflare' },
+  { key: 'cloudflare.write', group: 'cloudflare' },
+  { key: 'cloudflare.purge', group: 'cloudflare' },
   { key: 'users.manage', group: 'admin' },
   // Lire le journal, c'est voir ce que font les autres : un droit de supervision,
   // distinct de la gestion des comptes, qu'on peut accorder sans donner les clés.
@@ -43,16 +49,17 @@ export const SYSTEM_ROLES = [
       'servers.connect', 'domains.read', 'domains.lock', 'domains.fix_perms',
       'design.read', 'design.edit', 'design.publish',
       'files.read', 'files.write', 'files.delete',
+      'cloudflare.read', 'cloudflare.purge',
     ],
   },
   {
     key: 'editor',
     name: 'Éditeur',
-    permissions: ['servers.connect', 'domains.read', 'design.read', 'design.edit', 'design.publish', 'files.read', 'files.write'],
+    permissions: ['servers.connect', 'domains.read', 'design.read', 'design.edit', 'design.publish', 'files.read', 'files.write', 'cloudflare.read'],
   },
   // Rédacteur : prépare et prévisualise, mais ne met jamais en ligne.
   { key: 'contributor', name: 'Rédacteur', permissions: ['servers.connect', 'domains.read', 'design.read', 'design.edit', 'files.read'] },
-  { key: 'viewer', name: 'Lecteur', permissions: ['servers.connect', 'domains.read', 'design.read', 'files.read'] },
+  { key: 'viewer', name: 'Lecteur', permissions: ['servers.connect', 'domains.read', 'design.read', 'files.read', 'cloudflare.read'] },
 ];
 
 /** Le rôle « admin » ne peut pas être vidé de ses droits : il reste la porte de sortie. */

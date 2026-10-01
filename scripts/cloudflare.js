@@ -18,11 +18,11 @@ import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { config } from '../src/config.js';
 import { closeDatabase, getDb, openDatabase } from '../src/db/database.js';
-import { analyzeCsv, cloudflareStats, importCsv } from '../src/services/cloudflareImport.js';
+import { analyzeCsv, cloudflareStats, deriveMissingEmails, importCsv } from '../src/services/cloudflareImport.js';
 import { redact } from '../src/services/cloudflareClient.js';
 import {
-  SECURITY_LEVELS, SSL_MODES, createDnsRecord, deleteDnsRecord, getSettings, getZone,
-  listDnsRecords, purgeMany, setAlwaysUseHttpsMany, setSslModeMany,
+  SECURITY_LEVELS, SSL_MODES, createDnsRecord, deleteDnsRecord, findZoneByName, getSettings,
+  getZone, listDnsRecords, purgeMany, setAlwaysUseHttpsMany, setSslModeMany,
 } from '../src/services/cloudflareOps.js';
 
 // ───────────────────────── Mise en forme ─────────────────────────
@@ -218,27 +218,37 @@ const commandes = {
     return 0;
   },
 
-  async email(positionnels) {
+  async email(positionnels, options) {
     const [compte, adresse] = positionnels;
-    titre('Adresse du compte Cloudflare');
+    titre('Adresse des comptes Cloudflare');
+
+    // La dérivation : l'adresse se déduit du domaine, « 201eat.com@linkuma.co ».
+    if (options.derive || compte === '--derive') {
+      const emailDomain = typeof options.derive === 'string' ? options.derive : config.cloudflare.emailDomain;
+      const apercu = deriveMissingEmails(emailDomain, { dryRun: true });
+      info(`${gras(nombre(apercu.candidates))} compte(s) sans adresse, à compléter en « <domaine>@${emailDomain} »`);
+      for (const c of apercu.samples) note(`• ${c.domain} → ${c.email}`);
+      if (!apercu.candidates) { ok('aucun compte à compléter.'); return 0; }
+      if (!options.yes) { console.log(); info(`${orange('Rien n’a été modifié.')} Ajoutez ${gras('--yes')}.`); return 0; }
+      const r = deriveMissingEmails(emailDomain);
+      ok(`${nombre(r.updated)} compte(s) complété(s)`);
+      note('Vérifiez maintenant les accès : npm run cf -- verify --limit 20');
+      return 0;
+    }
+
     if (!compte || !adresse) {
-      ko('usage : npm run cf -- email <account_id|domaine|--all> <adresse>');
+      ko('usage : npm run cf -- email <account_id|domaine> <adresse>');
+      note('   ou : npm run cf -- email --derive --yes   (déduit l’adresse du domaine)');
       note('Une clé globale ne fonctionne qu’avec l’e-mail du titulaire du compte.');
       return 1;
     }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(adresse)) { ko(`adresse invalide : ${adresse}`); return 1; }
 
     const db = getDb();
-    let n;
-    if (compte === '--all') {
-      n = db.prepare('UPDATE cf_accounts SET email = ?, updated_at = ? WHERE email = \'\'').run(adresse, Date.now()).changes;
-      ok(`${nombre(n)} compte(s) sans e-mail complété(s)`);
-    } else {
-      const ligne = db.prepare('SELECT a.id FROM cf_accounts a LEFT JOIN cf_zones z ON z.account_ref = a.id WHERE a.account_id = ? OR z.domain = ? LIMIT 1').get(compte, compte.toLowerCase());
-      if (!ligne) { ko(`ni compte ni domaine connu : ${compte}`); return 1; }
-      n = db.prepare('UPDATE cf_accounts SET email = ?, updated_at = ? WHERE id = ?').run(adresse, Date.now(), ligne.id).changes;
-      ok(`${n} compte mis à jour`);
-    }
+    const ligne = db.prepare('SELECT a.id FROM cf_accounts a LEFT JOIN cf_zones z ON z.account_ref = a.id WHERE a.account_id = ? OR z.domain = ? LIMIT 1').get(compte, compte.toLowerCase());
+    if (!ligne) { ko(`ni compte ni domaine connu : ${compte}`); return 1; }
+    db.prepare('UPDATE cf_accounts SET email = ?, updated_at = ? WHERE id = ?').run(adresse, Date.now(), ligne.id);
+    ok(`compte mis à jour : ${adresse}`);
     return 0;
   },
 
@@ -262,8 +272,23 @@ const commandes = {
         ok(`${cible.domain.padEnd(34)} ${z.status.padEnd(10)} ${gris(z.plan)}`);
         bons += 1;
       } catch (err) {
-        db.prepare('UPDATE cf_accounts SET last_error = ? WHERE account_id = ?').run(redact(err.message).slice(0, 300), cible.accountId);
-        ko(`${cible.domain.padEnd(34)} ${redact(err.message)}`);
+        // Un identifiant de zone perime se rattrape : l'API sait retrouver la zone par
+        // son nom. On ne renonce donc qu'apres avoir essaye ce chemin.
+        let rattrape = false;
+        try {
+          const trouvee = await findZoneByName(cible.domain, cible.creds, { retries: 0 });
+          if (trouvee?.id) {
+            db.prepare('UPDATE cf_zones SET zone_id = ?, status = ?, checked_at = ?, updated_at = ? WHERE domain = ?')
+              .run(trouvee.id, trouvee.status ?? '', Date.now(), Date.now(), cible.domain);
+            ok(`${cible.domain.padEnd(34)} ${String(trouvee.status ?? '').padEnd(10)} ${gris('zone retrouvee et corrigee')}`);
+            bons += 1;
+            rattrape = true;
+          }
+        } catch { /* le rattrapage a echoue aussi : on dira l'erreur d'origine */ }
+        if (!rattrape) {
+          db.prepare('UPDATE cf_accounts SET last_error = ? WHERE account_id = ?').run(redact(err.message).slice(0, 300), cible.accountId);
+          ko(`${cible.domain.padEnd(34)} ${redact(err.message)}`);
+        }
       }
       if (!process.stdout.isTTY) void i;
     }
@@ -402,7 +427,8 @@ ${gras('Module Cloudflare — LKM-BO')}
 ${gras('Données')}
   import [fichier]          lit un export CSV ${gris('(dataCF.csv par défaut)')} et le résume
   stats                     ce que la base contient aujourd'hui
-  email <compte> <adresse>  renseigne l'e-mail d'un compte ${gris('(--all pour tous ceux qui n’en ont pas)')}
+  email --derive            déduit l'adresse du domaine ${gris('(<domaine>@linkuma.co)')}
+  email <compte> <adresse>  renseigne l'adresse d'un seul compte
   verify [domaines…]        vérifie les accès ${gris('(lecture seule, 20 domaines par défaut)')}
 
 ${gras('Opérations')}

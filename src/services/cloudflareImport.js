@@ -208,6 +208,57 @@ export function importCsv(text, { source = '', onProgress = null } = {}) {
   return { ...report, ...compte, at: now };
 }
 
+/**
+ * L'adresse du compte Cloudflare d'un domaine.
+ *
+ * Les comptes du parc portent une adresse déduite du nom de domaine complet :
+ * « 201eat.com@linkuma.co ». Vérifié auprès de l'API le 01/10/2026 sur quatre domaines
+ * pris au hasard, quatre fois sur quatre.
+ *
+ * Sans elle, rien ne fonctionne : une clé globale présentée sans e-mail reçoit un
+ * « 9106 Missing X-Auth-Email header », et c'est ce qui bloquait tout le module.
+ */
+export const deriveEmail = (domain, emailDomain = 'linkuma.co') => {
+  const d = normalizeDomain(domain);
+  return d && emailDomain ? `${d}@${emailDomain}` : '';
+};
+
+/**
+ * Complète les comptes sans adresse, en la déduisant de leur domaine.
+ *
+ * Ne touche QUE les comptes dont l'adresse est vide : une adresse saisie à la main, ou
+ * venue d'un export, n'est jamais remplacée par une déduction. Un compte qui porte
+ * plusieurs domaines prend le premier par ordre alphabétique — à charge pour la
+ * vérification de dire si l'accès passe.
+ */
+export function deriveMissingEmails(emailDomain = 'linkuma.co', { dryRun = false } = {}) {
+  const db = getDb();
+  const aCompleter = db.prepare(
+    `SELECT a.id, a.account_id, MIN(z.domain) AS domain
+     FROM cf_accounts a JOIN cf_zones z ON z.account_ref = a.id
+     WHERE a.email = '' AND a.api_token = '' AND a.global_api_key <> ''
+     GROUP BY a.id`,
+  ).all();
+
+  const prevus = aCompleter
+    .map((c) => ({ id: c.id, accountId: c.account_id, domain: c.domain, email: deriveEmail(c.domain, emailDomain) }))
+    .filter((c) => c.email);
+
+  if (dryRun) return { candidates: prevus.length, updated: 0, samples: prevus.slice(0, 5) };
+
+  const now = Date.now();
+  const maj = db.prepare('UPDATE cf_accounts SET email = ?, updated_at = ? WHERE id = ?');
+  db.exec('BEGIN');
+  try {
+    for (const c of prevus) maj.run(c.email, now, c.id);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+  return { candidates: prevus.length, updated: prevus.length, samples: prevus.slice(0, 5) };
+}
+
 /** Ce que la base contient aujourd'hui, pour l'afficher sans tout relire. */
 export function cloudflareStats() {
   const db = getDb();
