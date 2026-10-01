@@ -16,7 +16,8 @@
     "set-password": "node scripts/set-password.js",
     "check": "node scripts/check-ssh.js",
     "test": "node --test \"tests/**/*.test.js\"",
-    "user": "node scripts/user.js"
+    "user": "node scripts/user.js",
+    "cf": "node scripts/cloudflare.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

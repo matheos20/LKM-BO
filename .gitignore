@@ -8,3 +8,8 @@ public/css/app.css
 
 # Relevé des accès du parc : IP, ports et comptes SSH réels — ne doit jamais être publié
 info.md
+
+# Export Cloudflare : contient des CLÉS API GLOBALES, qui donnent un accès total
+# aux comptes. Ne doit jamais être publié, ni quitter cette machine.
+dataCF.csv
+*.csv

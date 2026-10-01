@@ -128,6 +128,67 @@ const MIGRATIONS = [
   CREATE INDEX idx_audit_action ON audit_events(action, at DESC);
   CREATE INDEX idx_audit_domain ON audit_events(domain, at DESC);
   `,
+
+  // v5 — Cloudflare : les comptes qui portent les accès, les zones qui portent les
+  // domaines.
+  //
+  // Deux tables plutôt qu'une, parce qu'un compte peut porter plusieurs zones — on en
+  // mesure jusqu'à 91 dans l'export — et qu'un identifiant répété quarante mille fois
+  // dans une seule table est une invitation aux incohérences.
+  //
+  // Sur les secrets : l'export ne contient que des clés GLOBALES, qui donnent un accès
+  // total au compte. Cloudflare exige de les présenter avec l'e-mail du titulaire, que
+  // l'export ne fournit pas — d'où la colonne `email`, à compléter. La colonne
+  // `api_token` permet l'autre voie, meilleure : un jeton de portée limitée, qui se
+  // révoque sans toucher au reste. Les deux sont acceptés ; le jeton l'emporte.
+  `
+  CREATE TABLE cf_accounts (
+    id INTEGER PRIMARY KEY,
+    account_id TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    global_api_key TEXT NOT NULL DEFAULT '',
+    api_token TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    -- Dernière vérification réussie des accès, et ce que l'API a répondu sinon.
+    verified_at INTEGER,
+    last_error TEXT
+  );
+  CREATE INDEX idx_cf_accounts_email ON cf_accounts(email);
+
+  CREATE TABLE cf_zones (
+    id INTEGER PRIMARY KEY,
+    domain TEXT NOT NULL UNIQUE,
+    zone_id TEXT NOT NULL DEFAULT '',
+    account_ref INTEGER NOT NULL REFERENCES cf_accounts(id) ON DELETE CASCADE,
+    -- Ce que l'API nous apprend de la zone, rafraîchi à la lecture.
+    status TEXT NOT NULL DEFAULT '',
+    plan TEXT NOT NULL DEFAULT '',
+    name_servers TEXT NOT NULL DEFAULT '',
+    ssl_mode TEXT NOT NULL DEFAULT '',
+    always_https INTEGER,
+    checked_at INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_cf_zones_account ON cf_zones(account_ref);
+  CREATE INDEX idx_cf_zones_zone ON cf_zones(zone_id);
+
+  -- Le journal des imports : combien de lignes lues, retenues, écartées et pourquoi.
+  -- Un import qui ne se raconte pas ne se vérifie pas.
+  CREATE TABLE cf_imports (
+    id INTEGER PRIMARY KEY,
+    at INTEGER NOT NULL,
+    source TEXT NOT NULL DEFAULT '',
+    rows_read INTEGER NOT NULL DEFAULT 0,
+    accounts_added INTEGER NOT NULL DEFAULT 0,
+    zones_added INTEGER NOT NULL DEFAULT 0,
+    zones_updated INTEGER NOT NULL DEFAULT 0,
+    skipped INTEGER NOT NULL DEFAULT 0,
+    report TEXT NOT NULL DEFAULT ''
+  );
+  `,
 ];
 
 let db = null;

@@ -22,7 +22,7 @@ function fichiers(dossier, prefixe = '') {
 // « queryEvents » y était appelé sans figurer aux imports de src/routes/design.js, et un
 // « catch » vide avalait la ReferenceError. La marque « remise en place » n'apparaissait
 // donc jamais dans la liste des sauvegardes, et rien, nulle part, ne le disait.
-for (const coin of ['public/js', 'src']) {
+for (const coin of ['public/js', 'src', 'scripts']) {
   test(`aucun module de ${coin} n’appelle une fonction ni déclarée ni importée`, () => {
     const fautifs = [];
     for (const [nom, chemin] of fichiers(join(RACINE, coin))) {
