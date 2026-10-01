@@ -21,11 +21,11 @@ export function csrfGuard(req, _res, next) {
  * Un compte désactivé, supprimé, ou dont le rôle a changé perd donc ses droits
  * immédiatement, sans attendre l'expiration de sa session.
  */
-export function attachUser(req, _res, next) {
+export async function attachUser(req, _res, next) {
   const id = req.session?.userId;
   if (!id) return next();
   try {
-    const user = getUser(id);
+    const user = await getUser(id);
     if (!user.isActive) {
       req.session.destroy(() => {});
       return next();

@@ -208,3 +208,31 @@ export async function migrateMysql(db) {
   }
   return { from: courante, to: MYSQL_MIGRATIONS.length, applied: faites };
 }
+
+/**
+ * Remet les rôles d'origine en accord avec le catalogue du code.
+ *
+ * Appelé à chaque démarrage : une permission ajoutée au code apparaît aussitôt dans les
+ * rôles fournis, et une permission supprimée disparaît de TOUS les rôles, personnalisés
+ * compris. Sans cette purge, un rôle continuerait de porter un droit qui ne veut plus
+ * rien dire, et le contrôle d'accès deviendrait illisible.
+ */
+export async function seedSystemRolesMysql(db, { SYSTEM_ROLES, PERMISSION_KEYS }) {
+  const { transaction } = await import('./mysql.js');
+  void db;
+  await transaction(async (tx) => {
+    for (const role of SYSTEM_ROLES) {
+      await tx.prepare(
+        'INSERT INTO roles (`key`, name, is_system) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE name = VALUES(name), is_system = 1',
+      ).run(role.key, role.name);
+      const { id } = await tx.prepare('SELECT id FROM roles WHERE `key` = ?').get(role.key);
+      await tx.prepare('DELETE FROM role_permissions WHERE role_id = ?').run(id);
+      for (const permission of role.permissions) {
+        await tx.prepare('INSERT IGNORE INTO role_permissions (role_id, permission) VALUES (?, ?)').run(id, permission);
+      }
+    }
+    // Les permissions disparues du catalogue s'en vont, où qu'elles soient.
+    const trous = PERMISSION_KEYS.map(() => '?').join(', ');
+    await tx.prepare(`DELETE FROM role_permissions WHERE permission NOT IN (${trous})`).run(...PERMISSION_KEYS);
+  });
+}

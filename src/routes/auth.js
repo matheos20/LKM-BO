@@ -35,7 +35,7 @@ export function authRouter({ audit }) {
     const { username, password } = req.body ?? {};
     let user;
     try {
-      user = authenticate(username, password);
+      user = await authenticate(username, password);
     } catch (err) {
       audit(req, { action: 'login', ok: false, user: String(username ?? '').slice(0, 40), error: err.key });
       throw err;
@@ -62,13 +62,13 @@ export function authRouter({ audit }) {
   });
 
   /** Changement de son propre mot de passe : les autres sessions du compte sont fermées. */
-  r.post('/password', (req, res) => {
+  r.post('/password', async (req, res) => {
     if (!req.user) throw new AppError('errors.auth_required', { status: 401 });
     const { current, password } = req.body ?? {};
-    const full = findUserByUsername(req.user.username);
+    const full = await findUserByUsername(req.user.username);
     if (!verifyPassword(current, full.passwordHash)) throw new AppError('errors.password_wrong', { status: 403 });
-    setUserPassword(req.user.id, password);
-    revokeUserSessions(req.user.id, { exceptSid: req.sessionID });
+    await setUserPassword(req.user.id, password);
+    await revokeUserSessions(req.user.id, { exceptSid: req.sessionID });
     audit(req, { action: 'password.self', ok: true, user: req.user.username });
     res.json({ ok: true });
   });

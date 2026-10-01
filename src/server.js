@@ -6,7 +6,10 @@ import { ROOT, assertStartupConfig, config, loadServers } from './config.js';
 import { AppError } from './errors.js';
 import { loadLocales, watchLocales } from './i18n.js';
 import { closeDatabase, openDatabase } from './db/database.js';
-import { SqliteSessionStore } from './db/sessionStore.js';
+import { closeMysql, exec as mysqlExec, openMysql, prepare as mysqlPrepare } from './db/mysql.js';
+import { migrateMysql, seedSystemRolesMysql } from './db/mysqlSchema.js';
+import { PERMISSION_KEYS, SYSTEM_ROLES } from './auth/permissions.js';
+import { MysqlSessionStore } from './db/sessionStore.js';
 import { bootstrapAdmin } from './auth/authService.js';
 import { KnownHosts } from './ssh/knownHosts.js';
 import { SshManager } from './ssh/SshManager.js';
@@ -39,8 +42,13 @@ try {
   assertStartupConfig();
   loadLocales();
   servers = loadServers();
+  // SQLite sert encore les couches non converties : audit, brouillons, Cloudflare.
   openDatabase(config.dbFile);
-  bootstrapAdmin();
+  // MySQL porte desormais les comptes, les roles et les sessions.
+  openMysql(config.mysql);
+  await migrateMysql({ prepare: mysqlPrepare, exec: mysqlExec });
+  await seedSystemRolesMysql(null, { SYSTEM_ROLES, PERMISSION_KEYS });
+  await bootstrapAdmin();
 } catch (err) {
   console.error(`\n✖ ${err.message}\n`);
   process.exit(1);
@@ -93,7 +101,7 @@ app.use(express.json({ limit: '1mb' }));
 app.use(
   session({
     name: 'lkm.sid',
-    store: new SqliteSessionStore({ ttlMs: SESSION_TTL }),
+    store: new MysqlSessionStore({ ttlMs: SESSION_TTL }),
     secret: config.sessionSecret,
     resave: false,
     saveUninitialized: false,
@@ -132,6 +140,8 @@ function shutdown() {
   console.log('\nArrêt : fermeture des sessions SSH…');
   ssh.closeAll();
   closeDatabase();
+  // Le groupe de connexions MySQL se ferme aussi : sinon le processus s'attarde.
+  closeMysql().catch(() => {});
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
 }

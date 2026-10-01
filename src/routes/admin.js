@@ -54,9 +54,9 @@ export function adminRouter({ audit, ssh }) {
     return list;
   };
 
-  const audited = (req, action, target, fn) => {
+  const audited = async (req, action, target, fn) => {
     try {
-      const out = fn();
+      const out = await fn();
       audit(req, { action, target, ok: true });
       return out;
     } catch (err) {
@@ -66,27 +66,27 @@ export function adminRouter({ audit, ssh }) {
   };
 
   // ── Catalogue et rôles
-  r.get('/permissions', (_req, res) => res.json({ permissions: PERMISSIONS, groups: PERMISSION_GROUPS }));
-  r.get('/roles', (_req, res) => res.json({ roles: listRoles() }));
+  r.get('/permissions', async (_req, res) => res.json({ permissions: PERMISSIONS, groups: PERMISSION_GROUPS }));
+  r.get('/roles', async (_req, res) => res.json({ roles: await listRoles() }));
 
-  r.post('/roles', (req, res) => {
+  r.post('/roles', async (req, res) => {
     const { key, name, permissions } = req.body ?? {};
-    res.status(201).json(audited(req, 'role.create', key, () => createRole({ key, name, permissions })));
+    res.status(201).json(await audited(req, 'role.create', key, () => createRole({ key, name, permissions })));
   });
 
-  r.patch('/roles/:id', (req, res) => {
+  r.patch('/roles/:id', async (req, res) => {
     const { name, permissions } = req.body ?? {};
-    res.json(audited(req, 'role.update', req.params.id, () => updateRole(id(req), { name, permissions })));
+    res.json(await audited(req, 'role.update', req.params.id, () => updateRole(id(req), { name, permissions })));
   });
 
-  r.delete('/roles/:id', (req, res) => {
-    res.json(audited(req, 'role.delete', req.params.id, () => deleteRole(id(req))));
+  r.delete('/roles/:id', async (req, res) => {
+    res.json(await audited(req, 'role.delete', req.params.id, () => deleteRole(id(req))));
   });
 
   // ── Comptes
-  r.get('/users', (_req, res) => res.json({ users: listUsers() }));
+  r.get('/users', async (_req, res) => res.json({ users: await listUsers() }));
 
-  r.post('/users', (req, res) => {
+  r.post('/users', async (req, res) => {
     const { username, displayName, email, password, roleId, scopeAllServers, servers, mustChangePassword } = req.body ?? {};
     const out = audited(req, 'user.create', username, () =>
       createUser({
@@ -103,7 +103,7 @@ export function adminRouter({ audit, ssh }) {
     res.status(201).json(out);
   });
 
-  r.patch('/users/:id', (req, res) => {
+  r.patch('/users/:id', async (req, res) => {
     const target = id(req);
     const patch = req.body ?? {};
     // On ne se retire pas soi-même l'accès par inadvertance.
@@ -111,31 +111,31 @@ export function adminRouter({ audit, ssh }) {
     if (target === req.user.id && patch.roleId !== undefined && patch.roleId !== req.user.role.id) {
       throw new AppError('errors.user_self_role', { status: 409 });
     }
-    const before = getUser(target);
+    const before = await getUser(target);
     const updated = audited(req, 'user.update', before.username, () =>
       updateUser(target, { ...patch, servers: checkServers(patch.servers) }),
     );
     // Droits modifiés : les sessions ouvertes doivent refléter le changement sans délai.
     const changed = updated.role.id !== before.role.id || updated.isActive !== before.isActive || updated.scopeAllServers !== before.scopeAllServers;
-    if (changed) revokeUserSessions(target);
+    if (changed) await revokeUserSessions(target);
     res.json(updated);
   });
 
-  r.post('/users/:id/password', (req, res) => {
+  r.post('/users/:id/password', async (req, res) => {
     const target = id(req);
-    const user = getUser(target);
+    const user = await getUser(target);
     const out = audited(req, 'user.password', user.username, () =>
       setUserPassword(target, req.body?.password, { mustChange: req.body?.mustChangePassword !== false }),
     );
-    revokeUserSessions(target);
+    await revokeUserSessions(target);
     res.json(out);
   });
 
-  r.delete('/users/:id', (req, res) => {
+  r.delete('/users/:id', async (req, res) => {
     const target = id(req);
     if (target === req.user.id) throw new AppError('errors.user_self_delete', { status: 409 });
-    const out = audited(req, 'user.delete', getUser(target).username, () => deleteUser(target));
-    revokeUserSessions(target);
+    const out = await audited(req, 'user.delete', (await getUser(target)).username, () => deleteUser(target));
+    await revokeUserSessions(target);
     res.json(out);
   });
 
