@@ -54,6 +54,16 @@ export const config = {
     // cinq minutes et par compte ; la prudence coûte moins cher qu'un 429 en rafale.
     concurrency: int(env.CF_CONCURRENCY, 6),
   },
+  // MySQL / MariaDB : la base de l'application. Les reglages par defaut visent
+  // l'installation XAMPP locale, ou la base se consulte dans phpMyAdmin.
+  mysql: {
+    host: env.MYSQL_HOST || '127.0.0.1',
+    port: int(env.MYSQL_PORT, 3306),
+    user: env.MYSQL_USER || 'root',
+    password: env.MYSQL_PASSWORD ?? '',
+    database: env.MYSQL_DATABASE || 'lkm_bo',
+    connectionLimit: int(env.MYSQL_POOL, 10),
+  },
   dbFile: file(env.DB_FILE, 'data/lkm-bo.db'),
   passwordMinLength: int(env.PASSWORD_MIN_LENGTH, 12),
   loginMaxAttempts: int(env.LOGIN_MAX_ATTEMPTS, 10),

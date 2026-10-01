@@ -17,7 +17,8 @@
     "check": "node scripts/check-ssh.js",
     "test": "node --test \"tests/**/*.test.js\"",
     "user": "node scripts/user.js",
-    "cf": "node scripts/cloudflare.js"
+    "cf": "node scripts/cloudflare.js",
+    "migrate:mysql": "node scripts/migrate-to-mysql.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -26,6 +27,7 @@
     "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
     "helmet": "^8.3.0",
+    "mysql2": "^3.24.5",
     "ssh2": "^1.17.0",
     "zod": "^4.6.5"
   },
