@@ -386,7 +386,7 @@ export class SiteService {
   /** Vue complète pour l'éditeur : état publié, brouillon éventuel, catalogue du site. */
   async editorState(serverId, domain) {
     const site = await this.readSite(serverId, domain);
-    const draft = getDraft(serverId, domain, 'site', '');
+    const draft = await getDraft(serverId, domain, 'site', '');
     return {
       server: serverId,
       domain,
@@ -466,7 +466,7 @@ export class SiteService {
     if (article.content === null || article.offsets?.metaStart === null) {
       throw new AppError('errors.design_article_unsupported', { status: 400, vars: { file: String(rel).slice(0, 120) } });
     }
-    const draft = getDraft(serverId, domain, 'article', rel);
+    const draft = await getDraft(serverId, domain, 'article', rel);
     return {
       ...article,
       raw: undefined,
@@ -482,7 +482,7 @@ export class SiteService {
       config: validateConfig({ ...site.config, ...config }, { available: site.sections }),
       style: validateStyle({ ...site.style, ...style }),
     };
-    const draft = saveDraft({ server: serverId, domain, data, baseHash: site.configMeta?.md5 ?? '', userId });
+    const draft = await saveDraft({ server: serverId, domain, data, baseHash: site.configMeta?.md5 ?? '', userId });
     return { updatedAt: draft.updatedAt, ...data };
   }
 
@@ -492,12 +492,12 @@ export class SiteService {
       meta: validateArticleMeta({ ...article.meta, ...meta }),
       content: validateArticleContent(content ?? article.content),
     };
-    const draft = saveDraft({ server: serverId, domain, kind: 'article', target: rel, data, baseHash: article.md5, userId });
+    const draft = await saveDraft({ server: serverId, domain, kind: 'article', target: rel, data, baseHash: article.md5, userId });
     return { updatedAt: draft.updatedAt, ...data };
   }
 
-  discardDraft(serverId, domain, kind = 'site', target = '') {
-    return { removed: deleteDraft(serverId, domain, kind, target) > 0 };
+  async discardDraft(serverId, domain, kind = 'site', target = '') {
+    return { removed: (await deleteDraft(serverId, domain, kind, target)) > 0 };
   }
 
   // ───────────────────────── Prévisualisation ─────────────────────────
@@ -513,7 +513,7 @@ export class SiteService {
   async preview(serverId, domain, { article: articleRel = null, userId = null } = {}) {
     const { server, docroot } = this.context(serverId, domain);
     const site = await this.readSite(serverId, domain);
-    const draft = getDraft(serverId, domain, 'site', '');
+    const draft = await getDraft(serverId, domain, 'site', '');
     const config = draft ? validateConfig({ ...site.config, ...draft.data.config }, { available: site.sections }) : site.config;
     const style = draft ? validateStyle({ ...site.style, ...draft.data.style }) : site.style;
     const token = crypto.randomBytes(16).toString('hex');
@@ -532,7 +532,7 @@ export class SiteService {
       if (articleRel) {
         const article = await this.#articleRaw(serverId, domain, articleRel);
         if (article.missing) throw new AppError('errors.file_not_found', { status: 404 });
-        const draftArticle = getDraft(serverId, domain, 'article', articleRel);
+        const draftArticle = await getDraft(serverId, domain, 'article', articleRel);
         // Le fichier reste un tampon d'octets de bout en bout : les positions de PHP sont des octets.
         pageSource = spliceArticle(Buffer.from(article.raw, 'base64'), article.offsets, {
           metaBlock: buildArticleMetaBlock(draftArticle ? mergeArticleMeta(article.meta, draftArticle.data.meta) : article.meta),
@@ -560,7 +560,7 @@ export class SiteService {
         expires: Date.now() + PREVIEW_TTL_MS,
       });
       this.#sweepPreviews();
-      if (draft) setDraftPreview(draft.id, id);
+      if (draft) await setDraftPreview(draft.id, id);
       return { id, page: articleRel ?? 'homepage', expiresInMinutes: PREVIEW_TTL_MS / 60000 };
     } finally {
       // Le dossier de travail ne sert qu'au rendu : on l'efface immédiatement.
@@ -726,7 +726,7 @@ export class SiteService {
    */
   async publish(serverId, domain, userId) {
     this.context(serverId, domain);
-    const draft = getDraft(serverId, domain, 'site', '');
+    const draft = await getDraft(serverId, domain, 'site', '');
     if (!draft) throw new AppError('errors.design_no_draft', { status: 400 });
 
     const site = await this.readSite(serverId, domain);
@@ -741,7 +741,7 @@ export class SiteService {
     const styleB64 = sameStyle(site.style, style) ? '' : b64(buildStyleCss(style));
     const { stamp, after, changed } = await this.#commitConfig(serverId, domain, { site, config, styleB64 });
 
-    deleteDraft(serverId, domain, 'site', '');
+    await deleteDraft(serverId, domain, 'site', '');
     // Les prévisualisations du domaine deviennent caduques : elles montrent un état publié.
     for (const [id, entry] of this.previews) if (entry.domain === domain) this.previews.delete(id);
     return { stamp, config: after.config, style: after.style, changed };
@@ -750,7 +750,7 @@ export class SiteService {
   /** Publie un article : mêmes garanties (sauvegarde, syntaxe, écriture sur place). */
   async publishArticle(serverId, domain, rel, userId) {
     const { server, docroot } = this.context(serverId, domain);
-    const draft = getDraft(serverId, domain, 'article', rel);
+    const draft = await getDraft(serverId, domain, 'article', rel);
     if (!draft) throw new AppError('errors.design_no_draft', { status: 400 });
 
     const current = await this.#php(serverId, docroot, READ_ARTICLE, { LKM_B64: b64(rel) });
@@ -770,7 +770,7 @@ export class SiteService {
       throw new AppError('errors.design_verify_failed', { status: 500, vars: { domain } });
     }
 
-    deleteDraft(serverId, domain, 'article', rel);
+    await deleteDraft(serverId, domain, 'article', rel);
     return { stamp: res.stdout.trim(), file: rel, meta: after.meta };
   }
 
@@ -832,7 +832,7 @@ export class SiteService {
     // alors que tout s'est passé. Le ménage du brouillon ne doit donc rien faire
     // échouer — au pire il restera un brouillon orphelin, sans effet.
     try {
-      deleteDraft(serverId, domain, 'article', chemin);
+      await deleteDraft(serverId, domain, 'article', chemin);
     } catch (err) {
       console.error(`[design] brouillon non effacé après suppression de ${chemin} : ${err.message}`);
     }

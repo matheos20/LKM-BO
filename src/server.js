@@ -42,9 +42,10 @@ try {
   assertStartupConfig();
   loadLocales();
   servers = loadServers();
-  // SQLite sert encore les couches non converties : audit, brouillons, Cloudflare.
+  // SQLite ne sert plus qu'à Cloudflare : comptes, zones et enregistrements DNS.
   openDatabase(config.dbFile);
-  // MySQL porte desormais les comptes, les roles et les sessions.
+  // MySQL porte les comptes, les roles, les sessions, le journal, le dictionnaire
+  // et les brouillons de sites.
   openMysql(config.mysql);
   await migrateMysql({ prepare: mysqlPrepare, exec: mysqlExec });
   await seedSystemRolesMysql(null, { SYSTEM_ROLES, PERMISSION_KEYS });

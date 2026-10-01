@@ -56,9 +56,9 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
     res.json(await audited(req, 'design.draft', 'site', () => sites.saveSiteDraft(id, domain, { config, style }, user)));
   });
 
-  r.delete('/draft', canEdit, (req, res) => {
+  r.delete('/draft', canEdit, async (req, res) => {
     const { id, domain } = ctx(req);
-    res.json(sites.discardDraft(id, domain));
+    res.json(await sites.discardDraft(id, domain));
   });
 
   // ── Images du site
@@ -133,9 +133,9 @@ export function designRouter({ ssh, sites, audit, uploadLimit }) {
     res.json(await audited(req, 'design.article_draft', path, () => sites.saveArticleDraft(id, domain, path, { meta, content }, user)));
   });
 
-  r.delete('/article/draft', canEdit, (req, res) => {
+  r.delete('/article/draft', canEdit, async (req, res) => {
     const { id, domain } = ctx(req);
-    res.json(sites.discardDraft(id, domain, 'article', String(req.query.path ?? '')));
+    res.json(await sites.discardDraft(id, domain, 'article', String(req.query.path ?? '')));
   });
 
   r.post('/article/publish', canPublish, async (req, res) => {
