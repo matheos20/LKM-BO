@@ -271,7 +271,8 @@
     "cf_zone_unknown": "Identifiant de zone inconnu",
     "cf_unknown_setting": "Réglage inconnu : {setting}",
     "cf_unknown_bulk": "Opération groupée inconnue : {kind}",
-    "cf_csv_columns": "Le fichier n’a pas les colonnes attendues"
+    "cf_csv_columns": "Le fichier n’a pas les colonnes attendues",
+    "password_change_required": "Changez votre mot de passe provisoire avant d’utiliser l’application."
   },
   "files": {
     "title": "Fichiers",
@@ -454,7 +455,11 @@
     "changed": "Mot de passe modifié. Vos autres sessions ont été fermées.",
     "must_change": "Vous devez changer votre mot de passe avant de continuer.",
     "role": "Rôle",
-    "scope": "Portée"
+    "scope": "Portée",
+    "welcome": "Bienvenue",
+    "forced_hint": "Ce mot de passe vous a été remis par votre administrateur. Choisissez-en un que vous seul connaissez.",
+    "rule": "Au moins {min} caractères",
+    "rule_match": "Les deux saisies sont identiques"
   },
   "design": {
     "title": "Design & contenu",

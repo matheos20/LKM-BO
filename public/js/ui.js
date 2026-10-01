@@ -160,17 +160,36 @@ export function toast(message, type = 'success', detail) {
 export const toastError = (err) => toast(err.message, 'error', err.detail);
 
 // ───────────────────────── Modale générique ─────────────────────────
-export function openModal(content, width = 'max-w-md') {
+/**
+ * Ouvre la fenêtre modale.
+ *
+ * `dismissible: false` la VERROUILLE : ni la touche Échap ni un clic à côté ne la
+ * ferment. Réservé au cas où il n'y a rien d'autre à faire que ce qu'elle demande —
+ * un mot de passe provisoire à remplacer, par exemple. Une fenêtre qu'on peut écarter
+ * d'un clic distrait n'oblige à rien, et laisse croire le contraire.
+ */
+export function openModal(content, width = 'max-w-md', { dismissible = true } = {}) {
   const panel = $('#modal-panel');
   panel.className = `relative w-full ${width} rounded-2xl bg-white p-6 shadow-2xl`;
   panel.replaceChildren(content);
   $('#modal').hidden = false;
+  $('#modal').dataset.locked = dismissible ? '' : '1';
   setTimeout(() => $('#modal-panel input, #modal-panel textarea')?.focus(), 30);
 }
 
+/** La fenêtre ouverte refuse-t-elle d'être écartée ? */
+export const isModalLocked = () => !$('#modal').hidden && $('#modal').dataset.locked === '1';
+
 export function closeModal() {
+  if (isModalLocked()) return;
   $('#modal').hidden = true;
   $('#modal-panel').replaceChildren();
+}
+
+/** Ferme la fenêtre même verrouillée : pour le code qui vient de la satisfaire. */
+export function releaseModal() {
+  $('#modal').dataset.locked = '';
+  closeModal();
 }
 
 export const modalHeader = (title, tone = 'bg-accent-50 text-accent-700', iconName = 'globe') =>

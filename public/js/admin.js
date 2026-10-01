@@ -1,7 +1,7 @@
 import { api } from './api.js';
 import { auditCount, auditView, loadAudit, onAuditChange, resetAudit } from './audit.js';
 import { t } from './i18n.js';
-import { $, closeModal, fmtDate, fmtNum, formError, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
+import { $, closeModal, fmtDate, fmtNum, formError, h, icon, modalHeader, openModal, releaseModal, toast, toastError } from './ui.js';
 
 /** Écran d'administration : comptes, rôles et permissions. */
 
@@ -465,12 +465,44 @@ function deleteRoleForm(role) {
 
 // ───────────────────────── Mon compte (tous les rôles) ─────────────────────────
 
+/**
+ * Mon compte, et le changement de mot de passe.
+ *
+ * DEUX SITUATIONS, DEUX ÉCRANS. Un changement volontaire demande le mot de passe actuel :
+ * une session laissée ouverte ne doit pas permettre à quelqu'un de passage de verrouiller
+ * le compte. Un changement EXIGÉ ne le demande pas — l'agent vient de le taper pour
+ * entrer, et le serveur ne lui laisse de toute façon rien faire d'autre. Lui réclamer de
+ * recopier douze caractères aléatoires une seconde fois, c'est l'inviter à se tromper.
+ *
+ * Quand le changement est exigé, la fenêtre ne se ferme ni par Échap ni par un clic à
+ * côté : elle l'était avant, et le compte se retrouvait alors dans l'application avec le
+ * mot de passe de son administrateur.
+ */
 export function accountDialog(user, { forced = false } = {}) {
+  const min = Number(user.passwordMinLength) || 12;
   const current = h('input', { class: 'input', type: 'password', autocomplete: 'current-password' });
   const next = h('input', { class: 'input', type: 'password', autocomplete: 'new-password' });
   const confirm = h('input', { class: 'input', type: 'password', autocomplete: 'new-password' });
   const error = h('div', { class: 'mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700', hidden: true, role: 'alert' });
   const submit = h('button', { type: 'submit', class: 'btn btn-primary' }, t('account.change_password'));
+
+  // Ce qu'on attend, dit AVANT la saisie, et qui se coche au fur et à mesure. Un agent
+  // ne doit pas découvrir la règle en se faisant refuser.
+  const regle = h('li', { class: 'flex items-center gap-2' }, h('span', {}, '•'), t('account.rule', { min }));
+  const egales = h('li', { class: 'flex items-center gap-2' }, h('span', {}, '•'), t('account.rule_match'));
+  const marque = (li, bon) => {
+    li.firstChild.textContent = bon ? '✓' : '•';
+    li.className = `flex items-center gap-2 ${bon ? 'text-accent-700' : 'text-ink-400'}`;
+  };
+
+  const verifier = () => {
+    const assezLong = next.value.length >= min;
+    const identiques = next.value.length > 0 && next.value === confirm.value;
+    marque(regle, assezLong);
+    marque(egales, identiques);
+    submit.disabled = !(assezLong && identiques) || (!forced && !current.value);
+  };
+  for (const champ of [current, next, confirm]) champ.addEventListener('input', verifier);
 
   const info = (label, value) =>
     h('div', { class: 'flex justify-between border-b border-ink-100 py-2 text-sm' }, h('span', { class: 'text-ink-500' }, label), h('span', { class: 'font-medium' }, value));
@@ -486,8 +518,9 @@ export function accountDialog(user, { forced = false } = {}) {
         submit.disabled = true;
         try {
           await api('/api/auth/password', { method: 'POST', body: { current: current.value, password: next.value } });
-          closeModal();
+          releaseModal();
           toast(t('account.changed'));
+          // Le compte vient d'obtenir ses droits : l'application se charge pour de bon.
           if (forced) window.location.reload();
         } catch (err) {
           formError(err, error);
@@ -495,19 +528,39 @@ export function accountDialog(user, { forced = false } = {}) {
         }
       },
     },
-    modalHeader(t('account.title'), 'bg-accent-50 text-accent-700', 'user'),
+    modalHeader(forced ? t('account.welcome') : t('account.title'), 'bg-accent-50 text-accent-700', forced ? 'lock' : 'user'),
+    forced
+      ? h(
+        'div',
+        { class: 'mb-5 rounded-lg bg-amber-50 px-3 py-3 text-sm text-amber-900' },
+        h('p', { class: 'font-medium' }, t('account.must_change')),
+        h('p', { class: 'mt-1' }, t('account.forced_hint')),
+      )
+      : null,
     info(t('admin.form_username'), user.username),
     info(t('account.role'), user.role.name),
     info(t('account.scope'), user.scopeAllServers ? t('admin.scope_all') : user.servers.join(', ') || t('admin.scope_none')),
-    forced ? h('p', { class: 'mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800' }, t('account.must_change')) : null,
-    h('div', { class: 'mt-5' }, field(t('account.current'), current), field(t('account.new'), next), field(t('account.confirm'), confirm)),
+    h(
+      'div',
+      { class: 'mt-5' },
+      forced ? null : field(t('account.current'), current),
+      field(t('account.new'), next),
+      field(t('account.confirm'), confirm),
+      h('ul', { class: 'mt-1 space-y-1 text-xs' }, regle, egales),
+    ),
     error,
     h(
       'div',
-      { class: 'mt-2 flex justify-end gap-2' },
-      forced ? null : h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.close')),
+      { class: 'mt-5 flex justify-end gap-2' },
+      // Exigé, il n'y a pas de « fermer » : il n'y a rien derrière. Mais on peut toujours
+      // partir — un agent qui n'a pas son mot de passe sous la main ne doit pas être pris
+      // au piège d'un écran sans issue.
+      forced
+        ? h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => api('/api/auth/logout', { method: 'POST' }).finally(() => window.location.reload()) }, t('auth.logout'))
+        : h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.close')),
       submit,
     ),
   );
-  openModal(form, 'max-w-md');
+  verifier();
+  openModal(form, 'max-w-md', { dismissible: !forced });
 }

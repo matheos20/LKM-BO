@@ -271,7 +271,8 @@
     "cf_zone_unknown": "Unknown zone id",
     "cf_unknown_setting": "Unknown setting: {setting}",
     "cf_unknown_bulk": "Unknown bulk operation: {kind}",
-    "cf_csv_columns": "The file lacks the expected columns"
+    "cf_csv_columns": "The file lacks the expected columns",
+    "password_change_required": "Altere a sua palavra-passe provisória antes de usar a aplicação."
   },
   "files": {
     "title": "Ficheiros",
@@ -454,7 +455,11 @@
     "changed": "Palavra-passe alterada. As outras sessões foram fechadas.",
     "must_change": "Tem de alterar a palavra-passe antes de continuar.",
     "role": "Perfil",
-    "scope": "Âmbito"
+    "scope": "Âmbito",
+    "welcome": "Bem-vindo",
+    "forced_hint": "Esta palavra-passe foi-lhe dada pelo administrador. Escolha uma que só o utilizador conheça.",
+    "rule": "Pelo menos {min} caracteres",
+    "rule_match": "As duas entradas coincidem"
   },
   "design": {
     "title": "Design e conteúdo",

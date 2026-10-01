@@ -687,11 +687,21 @@ async function showApp() {
   $('#view-app').hidden = false;
   $('#user-name').textContent = t('auth.signed_in_as', { user: state.user.username });
   $('#nav-admin').hidden = !can('users.manage');
+
+  // MOT DE PASSE PROVISOIRE : on ne charge RIEN derrière.
+  //
+  // L'écran se remplissait d'abord, puis la fenêtre s'ouvrait par-dessus : l'agent voyait
+  // tout le parc derrière une vitre, et le serveur refuse maintenant chacun de ces appels
+  // tant que le mot de passe n'a pas changé — on n'aurait donc récolté qu'une bordée
+  // d'erreurs. Le changement est la seule chose à faire : c'est la seule chose affichée.
+  if (state.user.mustChangePassword) {
+    accountDialog(state.user, { forced: true });
+    return;
+  }
+
   await refreshServers();
   const saved = store.get('lkm.current');
   await selectServer(saved === 'all' || serverById(saved) ? saved : (state.servers[0]?.id ?? 'all'));
-  // Mot de passe provisoire : changement exigé avant toute autre action.
-  if (state.user.mustChangePassword) accountDialog(state.user, { forced: true });
 }
 
 // ───────────────────────── Langues ─────────────────────────

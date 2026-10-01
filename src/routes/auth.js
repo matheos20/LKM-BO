@@ -18,6 +18,10 @@ const view = (user) => ({
   scopeAllServers: user.scopeAllServers,
   servers: user.servers,
   mustChangePassword: user.mustChangePassword,
+  // La longueur minimale appartient au serveur, qui la fait respecter. L'écran la reçoit
+  // pour l'ANNONCER : un agent doit savoir ce qu'on attend de lui avant de taper, pas
+  // après avoir été refusé.
+  passwordMinLength: config.passwordMinLength,
 });
 
 export function authRouter({ audit }) {
@@ -61,16 +65,31 @@ export function authRouter({ audit }) {
     res.json(view(req.user));
   });
 
-  /** Changement de son propre mot de passe : les autres sessions du compte sont fermées. */
+  /**
+   * Changement de son propre mot de passe : les autres sessions du compte sont fermées.
+   *
+   * LE MOT DE PASSE ACTUEL N'EST PAS REDEMANDÉ QUAND LE CHANGEMENT EST EXIGÉ. Un compte
+   * qui porte un mot de passe provisoire vient de le taper pour entrer : le redemander
+   * dans la seconde n'apporte aucune garantie, et c'est précisément ce qu'un agent non
+   * technique rate le plus souvent — une suite de douze caractères aléatoires qu'il
+   * recopie à la main. Dans cet état, la session ne peut de toute façon RIEN faire
+   * d'autre que ce changement : le garde de l'API s'en assure.
+   *
+   * Pour un changement volontaire, en revanche, il reste exigé : une session laissée
+   * ouverte ne doit pas permettre à quelqu'un de passage de verrouiller le compte.
+   */
   r.post('/password', async (req, res) => {
     if (!req.user) throw new AppError('errors.auth_required', { status: 401 });
     const { current, password } = req.body ?? {};
-    const full = await findUserByUsername(req.user.username);
-    if (!verifyPassword(current, full.passwordHash)) throw new AppError('errors.password_wrong', { status: 403 });
+    const impose = req.user.mustChangePassword;
+    if (!impose) {
+      const full = await findUserByUsername(req.user.username);
+      if (!verifyPassword(current, full.passwordHash)) throw new AppError('errors.password_wrong', { status: 403 });
+    }
     await setUserPassword(req.user.id, password);
     await revokeUserSessions(req.user.id, { exceptSid: req.sessionID });
-    audit(req, { action: 'password.self', ok: true, user: req.user.username });
-    res.json({ ok: true });
+    audit(req, { action: 'password.self', ok: true, user: req.user.username, target: impose ? 'mot de passe provisoire remplacé' : null });
+    res.json({ ok: true, forced: Boolean(impose) });
   });
 
   return r;

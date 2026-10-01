@@ -88,7 +88,11 @@ export function adminRouter({ audit, ssh }) {
 
   r.post('/users', async (req, res) => {
     const { username, displayName, email, password, roleId, scopeAllServers, servers, mustChangePassword } = req.body ?? {};
-    const out = audited(req, 'user.create', username, () =>
+    // Le « await » n'est pas décoratif : sans lui, la réponse part avec une promesse à
+    // la place du compte, le navigateur reçoit 201 et un objet vide, et une erreur —
+    // identifiant déjà pris, mot de passe trop court — disparaît sans que personne ne
+    // la voie. L'administrateur croirait avoir créé un compte qui n'existe pas.
+    const out = await audited(req, 'user.create', username, () =>
       createUser({
         username,
         displayName,
@@ -112,7 +116,7 @@ export function adminRouter({ audit, ssh }) {
       throw new AppError('errors.user_self_role', { status: 409 });
     }
     const before = await getUser(target);
-    const updated = audited(req, 'user.update', before.username, () =>
+    const updated = await audited(req, 'user.update', before.username, () =>
       updateUser(target, { ...patch, servers: checkServers(patch.servers) }),
     );
     // Droits modifiés : les sessions ouvertes doivent refléter le changement sans délai.
@@ -124,7 +128,7 @@ export function adminRouter({ audit, ssh }) {
   r.post('/users/:id/password', async (req, res) => {
     const target = id(req);
     const user = await getUser(target);
-    const out = audited(req, 'user.password', user.username, () =>
+    const out = await audited(req, 'user.password', user.username, () =>
       setUserPassword(target, req.body?.password, { mustChange: req.body?.mustChangePassword !== false }),
     );
     await revokeUserSessions(target);

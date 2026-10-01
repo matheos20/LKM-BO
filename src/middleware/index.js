@@ -42,6 +42,24 @@ export function requireAuth(req, _res, next) {
   next(new AppError('errors.auth_required', { status: 401 }));
 }
 
+/**
+ * Un mot de passe provisoire ne donne accès à RIEN tant qu'il n'a pas été changé.
+ *
+ * Le drapeau existait déjà, mais il ne servait qu'à ouvrir une fenêtre dans le
+ * navigateur : la fenêtre se fermait d'un clic à côté, et le compte avait alors tous
+ * ses droits avec le mot de passe que l'administrateur avait tapé pour lui. Autant dire
+ * que l'obligation n'existait pas.
+ *
+ * Elle est désormais tenue ICI, où elle ne se contourne pas. Ce garde se place après
+ * l'authentification et avant tout le reste ; la connexion, la déconnexion, la lecture
+ * de son propre profil et le changement de mot de passe sont montés avant lui, donc
+ * restent accessibles — c'est tout ce dont le compte a besoin pour se mettre en règle.
+ */
+export function requirePasswordChanged(req, _res, next) {
+  if (!req.user?.mustChangePassword) return next();
+  next(new AppError('errors.password_change_required', { status: 403 }));
+}
+
 /** Exige une permission précise ; le message nomme la permission manquante, traduite. */
 export const requirePermission = (permission) => (req, _res, next) => {
   if (req.user?.permissions.has(permission)) return next();

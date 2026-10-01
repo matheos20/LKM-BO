@@ -271,7 +271,8 @@
     "cf_zone_unknown": "Unknown zone id",
     "cf_unknown_setting": "Unknown setting: {setting}",
     "cf_unknown_bulk": "Unknown bulk operation: {kind}",
-    "cf_csv_columns": "The file lacks the expected columns"
+    "cf_csv_columns": "The file lacks the expected columns",
+    "password_change_required": "Cambie su contraseña provisional antes de usar la aplicación."
   },
   "files": {
     "title": "Archivos",
@@ -454,7 +455,11 @@
     "changed": "Contraseña cambiada. Sus otras sesiones se han cerrado.",
     "must_change": "Debe cambiar su contraseña antes de continuar.",
     "role": "Rol",
-    "scope": "Alcance"
+    "scope": "Alcance",
+    "welcome": "Bienvenido",
+    "forced_hint": "Su administrador le ha facilitado esta contraseña. Elija una que solo usted conozca.",
+    "rule": "Al menos {min} caracteres",
+    "rule_match": "Las dos entradas coinciden"
   },
   "design": {
     "title": "Diseño y contenido",

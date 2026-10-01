@@ -22,7 +22,7 @@ import { SearchService } from './services/searchService.js';
 import { CloudflareService } from './services/cloudflareService.js';
 import { createAudit } from './services/audit.js';
 import { purgeOlderThan } from './db/audit.js';
-import { attachUser, csrfGuard, errorHandler, langMiddleware, requireAuth } from './middleware/index.js';
+import { attachUser, csrfGuard, errorHandler, langMiddleware, requireAuth, requirePasswordChanged } from './middleware/index.js';
 import { authRouter } from './routes/auth.js';
 import { i18nRouter } from './routes/i18n.js';
 import { adminRouter } from './routes/admin.js';
@@ -115,6 +115,10 @@ app.use('/api', csrfGuard);
 app.use('/api/i18n', i18nRouter());
 app.use('/api/auth', authRouter({ audit }));
 app.use('/api', requireAuth);
+// L'ORDRE COMPTE. /api/i18n et /api/auth sont montés au-dessus : ils échappent donc à ce
+// garde, et c'est voulu — un compte au mot de passe provisoire doit pouvoir lire son
+// profil, changer son mot de passe et se déconnecter. Tout ce qui suit lui est fermé.
+app.use('/api', requirePasswordChanged);
 app.use('/api/admin', adminRouter({ audit, ssh }));
 app.use('/api/design', designCatalogRouter({ audit }));
 app.use('/api/servers/:id/domains/:domain/design', designRouter({ ssh, sites, audit, uploadLimit: config.files.maxUploadBytes }));
