@@ -379,9 +379,15 @@
     "audit": {
       "read": "Das Prüfprotokoll lesen"
     },
-    "cloudflare.read": "View Cloudflare",
-    "cloudflare.write": "Change Cloudflare settings",
-    "cloudflare.purge": "Purge Cloudflare cache"
+    "cloudflare": {
+      "read": "View Cloudflare",
+      "write": "Change Cloudflare settings",
+      "purge": "Purge Cloudflare cache"
+    },
+    "bulk": {
+      "read": "Bestand analysieren (ohne Änderungen)",
+      "apply": "Eine Verarbeitung auf den gesamten Bestand anwenden"
+    }
   },
   "perm_group": {
     "servers": "Server",
@@ -389,7 +395,8 @@
     "files": "Dateien",
     "admin": "Verwaltung",
     "design": "Design & Inhalt",
-    "cloudflare": "Cloudflare"
+    "cloudflare": "Cloudflare",
+    "bulk": "Massenverarbeitung"
   },
   "admin": {
     "title": "Verwaltung",

@@ -379,9 +379,15 @@
     "audit": {
       "read": "Lire le journal d'audit"
     },
-    "cloudflare.read": "Consulter Cloudflare",
-    "cloudflare.write": "Modifier les réglages Cloudflare",
-    "cloudflare.purge": "Vider le cache Cloudflare"
+    "cloudflare": {
+      "read": "Consulter Cloudflare",
+      "write": "Modifier les réglages Cloudflare",
+      "purge": "Vider le cache Cloudflare"
+    },
+    "bulk": {
+      "read": "Analyser le parc (aucune modification)",
+      "apply": "Appliquer un traitement à tout le parc"
+    }
   },
   "perm_group": {
     "servers": "Serveurs",
@@ -389,7 +395,8 @@
     "files": "Fichiers",
     "admin": "Administration",
     "design": "Design & contenu",
-    "cloudflare": "Cloudflare"
+    "cloudflare": "Cloudflare",
+    "bulk": "Traitements de masse"
   },
   "admin": {
     "title": "Administration",

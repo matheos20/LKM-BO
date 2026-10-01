@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, stepTitle, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, peutAppliquerEnMasse, stepTitle, toast, toastError } from './ui.js';
 
 /**
  * Action « Ajouter des rubriques ».
@@ -699,8 +699,8 @@ function detailSite(permissions, openFilesFor) {
         {
           type: 'button',
           class: state.operation === 'remove' ? 'btn btn-danger' : 'btn btn-primary',
-          disabled: !permissions.includes('design.publish'),
-          title: permissions.includes('design.publish') ? null : t('reason.permission_denied'),
+          disabled: !peutAppliquerEnMasse(permissions),
+          title: peutAppliquerEnMasse(permissions) ? null : t('reason.permission_denied'),
           onclick: (e) => (state.operation === 'remove' ? confirmer([site], e.currentTarget) : creer([site], e.currentTarget)),
         },
         icon(state.operation === 'remove' ? 'trash' : 'folderPlus'),
@@ -725,8 +725,8 @@ function barre(permissions) {
       {
         type: 'button',
         class: state.operation === 'remove' ? 'btn btn-danger' : 'btn btn-primary',
-        disabled: !reste.length || !permissions.includes('design.publish'),
-        title: permissions.includes('design.publish') ? null : t('reason.permission_denied'),
+        disabled: !reste.length || !peutAppliquerEnMasse(permissions),
+        title: peutAppliquerEnMasse(permissions) ? null : t('reason.permission_denied'),
         onclick: creerTout,
       },
       icon(state.operation === 'remove' ? 'trash' : 'folderPlus'),

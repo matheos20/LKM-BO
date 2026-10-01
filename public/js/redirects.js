@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, stepTitle, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, peutAppliquerEnMasse, stepTitle, toast, toastError } from './ui.js';
 
 /**
  * Action « Redirections 301 ».
@@ -403,7 +403,7 @@ function detailSite(permissions, openFilesFor) {
                       class: 'icon-btn hover:bg-red-50 hover:text-red-600',
                       'aria-label': t('redirects.remove_one'),
                       title: t('redirects.remove_one'),
-                      disabled: !permissions.includes('design.publish') || !site.writable,
+                      disabled: !peutAppliquerEnMasse(permissions) || !site.writable,
                       onclick: () => confirmerRetrait(site, r),
                     },
                     icon('trash'),
@@ -445,7 +445,7 @@ function detailSite(permissions, openFilesFor) {
 
 function boutonAppliquer(sites, permissions, libelle) {
   const cibles = sites.filter(pret);
-  const peut = permissions.includes('design.publish');
+  const peut = peutAppliquerEnMasse(permissions);
   return h(
     'button',
     {

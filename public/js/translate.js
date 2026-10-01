@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, peutAppliquerEnMasse, toast, toastError } from './ui.js';
 
 /**
  * Action « Traduction » : repérer et corriger les textes d'une page d'accueil rédigés
@@ -475,8 +475,8 @@ function siteDetail(permissions, openFilesFor) {
       {
         type: 'button',
         class: 'btn btn-primary',
-        disabled: !can('design.publish'),
-        title: can('design.publish') ? null : t('reason.permission_denied'),
+        disabled: !peutAppliquerEnMasse(permissions),
+        title: peutAppliquerEnMasse(permissions) ? null : t('reason.permission_denied'),
         onclick: (e) => applySite(site, e.currentTarget),
       },
       icon('save'),
@@ -605,8 +605,8 @@ function bulkBar(permissions) {
       {
         type: 'button',
         class: 'btn btn-primary',
-        disabled: !prets.length || !can('design.publish'),
-        title: can('design.publish') ? null : t('reason.permission_denied'),
+        disabled: !prets.length || !peutAppliquerEnMasse(permissions),
+        title: peutAppliquerEnMasse(permissions) ? null : t('reason.permission_denied'),
         onclick: publishAll,
       },
       icon('save'),

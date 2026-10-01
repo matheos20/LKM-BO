@@ -60,7 +60,11 @@ function renderSidebar() {
   $('#nav-all').setAttribute('aria-current', String(isAll()));
   // Les traitements de masse acceptent aussi une liste de domaines venue de
   // plusieurs serveurs : l'entrée reste donc accessible depuis « tous les serveurs ».
-  $('#nav-actions').hidden = !can('design.read');
+  //
+  // Elle demande son PROPRE droit. Elle s'ouvrait avec « voir le design », si bien qu'un
+  // rédacteur de contenu trouvait dans sa barre latérale de quoi lancer une tournée sur
+  // les 7 733 sites d'un VPS.
+  $('#nav-actions').hidden = !can('bulk.read');
   $('#nav-cloudflare').hidden = !can('cloudflare.read');
   $('#nav-actions').setAttribute('aria-current', String(isActionsOpen()));
   $('#all-count').textContent = `${connectedServers().length}/${state.servers.length}`;

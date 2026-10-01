@@ -14,26 +14,32 @@ import { LANGS } from '../services/langTools.js';
  *
  * L'analyse ne demande que le droit de lecture du design ; l'écriture demande le droit
  * de publier, comme toute modification qui atteint la production.
+ *
+ * CES ROUTES NE SERVENT QUE L'ÉCRAN « ACTIONS », et travaillent sur des milliers de
+ * sites à la fois. Elles exigent donc, EN PLUS du droit de design correspondant, celui
+ * des traitements de masse : « bulk.read » pour ce qui analyse, « bulk.apply » pour ce
+ * qui écrit. Publier la page d'un site et relancer une tournée sur tout un VPS ne sont
+ * pas le même geste, et ne doivent pas se confier d'un seul clic.
  */
 export function translationRouter({ ssh, translation, audit }) {
   const r = Router({ mergeParams: true });
   r.use(requireServerAccess(ssh), requireConnection(ssh));
 
-  r.get('/status', requirePermission('design.read'), (_req, res) => {
+  r.get('/status', requirePermission('bulk.read'), requirePermission('design.read'), (_req, res) => {
     res.json({ machine: translation.machineAvailable, provider: translation.providerName, langs: LANGS });
   });
 
-  r.post('/scan', requirePermission('design.read'), async (req, res) => {
+  r.post('/scan', requirePermission('bulk.read'), requirePermission('design.read'), async (req, res) => {
     const { domains, minScore } = req.body ?? {};
     res.json(await translation.scan(req.params.id, domains, { minScore }));
   });
 
-  r.post('/translate', requirePermission('design.edit'), async (req, res) => {
+  r.post('/translate', requirePermission('bulk.read'), requirePermission('design.edit'), async (req, res) => {
     const { texts, from, to } = req.body ?? {};
     res.json(await translation.translate(texts, { from, to }));
   });
 
-  r.post('/templates', requirePermission('design.read'), async (req, res) => {
+  r.post('/templates', requirePermission('bulk.read'), requirePermission('design.read'), async (req, res) => {
     res.json(await translation.templates(req.params.id, req.body?.domains));
   });
 
@@ -42,7 +48,7 @@ export function translationRouter({ ssh, translation, audit }) {
    * brouillon ni de md5 d'ensemble, mais une sauvegarde et un contrôle de syntaxe par
    * fichier, côté serveur.
    */
-  r.post('/templates/apply', requirePermission('design.publish'), async (req, res) => {
+  r.post('/templates/apply', requirePermission('bulk.apply'), requirePermission('design.publish'), async (req, res) => {
     const { changes } = req.body ?? {};
     const domains = Object.keys(changes ?? {});
     try {
@@ -56,7 +62,7 @@ export function translationRouter({ ssh, translation, audit }) {
     }
   });
 
-  r.post('/apply', requirePermission('design.publish'), async (req, res) => {
+  r.post('/apply', requirePermission('bulk.apply'), requirePermission('design.publish'), async (req, res) => {
     const { domain, changes } = req.body ?? {};
     const target = String(domain ?? '');
     try {

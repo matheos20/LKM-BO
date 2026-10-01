@@ -18,20 +18,26 @@ import { requireConnection, requirePermission, requireServerAccess } from '../mi
  * Lire demande `design.read` ; écrire demande `design.publish`, comme toute écriture
  * qui atteint la production. Le `.htaccess` porte tout le routage d'un site : une
  * règle posée là se voit immédiatement par les visiteurs.
+ *
+ * CES ROUTES NE SERVENT QUE L'ÉCRAN « ACTIONS », et travaillent sur des milliers de
+ * sites à la fois. Elles exigent donc, EN PLUS du droit de design correspondant, celui
+ * des traitements de masse : « bulk.read » pour ce qui analyse, « bulk.apply » pour ce
+ * qui écrit. Publier la page d'un site et relancer une tournée sur tout un VPS ne sont
+ * pas le même geste, et ne doivent pas se confier d'un seul clic.
  */
 export function redirectsRouter({ ssh, redirects, audit }) {
   const r = Router({ mergeParams: true });
   r.use(requireServerAccess(ssh), requireConnection(ssh));
 
-  r.post('/existing', requirePermission('design.read'), async (req, res) => {
+  r.post('/existing', requirePermission('bulk.read'), requirePermission('design.read'), async (req, res) => {
     res.json(await redirects.existing(req.params.id, req.body?.domains));
   });
 
-  r.post('/plan', requirePermission('design.read'), async (req, res) => {
+  r.post('/plan', requirePermission('bulk.read'), requirePermission('design.read'), async (req, res) => {
     res.json(await redirects.plan(req.params.id, req.body?.request, { operation: req.body?.operation, format: req.body?.format }));
   });
 
-  r.post('/apply', requirePermission('design.publish'), async (req, res) => {
+  r.post('/apply', requirePermission('bulk.apply'), requirePermission('design.publish'), async (req, res) => {
     const demande = req.body?.request ?? {};
     const operation = req.body?.operation === 'remove' ? 'remove' : 'add';
     const domaines = Object.keys(demande);

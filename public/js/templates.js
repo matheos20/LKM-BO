@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, peutAppliquerEnMasse, toast, toastError } from './ui.js';
 
 /**
  * Action « Gabarits » : les mots visibles restés en français dans les fichiers du
@@ -386,8 +386,8 @@ function siteDetail(permissions, openFilesFor) {
         {
           type: 'button',
           class: 'btn btn-primary',
-          disabled: !permissions.includes('design.publish'),
-          title: permissions.includes('design.publish') ? null : t('reason.permission_denied'),
+          disabled: !peutAppliquerEnMasse(permissions),
+          title: peutAppliquerEnMasse(permissions) ? null : t('reason.permission_denied'),
           onclick: (e) => applySites([site], e.currentTarget),
         },
         icon('save'),
@@ -410,8 +410,8 @@ function bulkBar(permissions) {
       {
         type: 'button',
         class: 'btn btn-primary',
-        disabled: !reste.length || !permissions.includes('design.publish'),
-        title: permissions.includes('design.publish') ? null : t('reason.permission_denied'),
+        disabled: !reste.length || !peutAppliquerEnMasse(permissions),
+        title: peutAppliquerEnMasse(permissions) ? null : t('reason.permission_denied'),
         onclick: applyAll,
       },
       icon('save'),

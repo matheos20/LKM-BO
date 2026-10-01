@@ -7,7 +7,7 @@
  * Les libellés sont traduits via les clés « perm.<clé> » et « perm_group.<groupe> ».
  */
 
-export const PERMISSION_GROUPS = ['servers', 'domains', 'design', 'files', 'cloudflare', 'admin'];
+export const PERMISSION_GROUPS = ['servers', 'domains', 'design', 'bulk', 'files', 'cloudflare', 'admin'];
 
 export const PERMISSIONS = [
   { key: 'servers.connect', group: 'servers' },
@@ -21,6 +21,19 @@ export const PERMISSIONS = [
   { key: 'design.read', group: 'design' },
   { key: 'design.edit', group: 'design' },
   { key: 'design.publish', group: 'design' },
+  // TRAITEMENTS DE MASSE : un droit à part, et c'est tout l'objet de ce groupe.
+  //
+  // Publier la page d'un site qu'on est en train d'éditer, et relancer une traduction
+  // sur les 7 733 sites d'un VPS, ne sont pas le même geste — même si, techniquement,
+  // le second n'est que le premier répété. L'écran « Actions » s'ouvrait avec le simple
+  // droit de lire le design, et s'exécutait avec celui de publier : un rédacteur de
+  // contenu pouvait donc lancer une tournée sur tout le parc.
+  //
+  // Lire et appliquer sont séparés parce que l'écran lui-même l'est : l'analyse ne
+  // modifie rien et sert à décider ; l'application écrit sur des milliers de sites en
+  // production. On peut vouloir confier la première sans la seconde.
+  { key: 'bulk.read', group: 'bulk' },
+  { key: 'bulk.apply', group: 'bulk' },
   { key: 'files.read', group: 'files' },
   { key: 'files.write', group: 'files' },
   { key: 'files.delete', group: 'files' },
@@ -48,6 +61,8 @@ export const SYSTEM_ROLES = [
     permissions: [
       'servers.connect', 'domains.read', 'domains.lock', 'domains.fix_perms',
       'design.read', 'design.edit', 'design.publish',
+      // L'opérateur est celui qui fait les tournées de fond : c'est son métier.
+      'bulk.read', 'bulk.apply',
       'files.read', 'files.write', 'files.delete',
       'cloudflare.read', 'cloudflare.purge',
     ],
@@ -55,7 +70,9 @@ export const SYSTEM_ROLES = [
   {
     key: 'editor',
     name: 'Éditeur',
-    permissions: ['servers.connect', 'domains.read', 'design.read', 'design.edit', 'design.publish', 'files.read', 'files.write', 'cloudflare.read'],
+    // L'éditeur peut REGARDER ce qu'un traitement de masse ferait, sans pouvoir le
+    // lancer : « montre-moi » ne coûte rien, « applique » touche des milliers de sites.
+    permissions: ['servers.connect', 'domains.read', 'design.read', 'design.edit', 'design.publish', 'bulk.read', 'files.read', 'files.write', 'cloudflare.read'],
   },
   // Rédacteur : prépare et prévisualise, mais ne met jamais en ligne.
   { key: 'contributor', name: 'Rédacteur', permissions: ['servers.connect', 'domains.read', 'design.read', 'design.edit', 'files.read'] },

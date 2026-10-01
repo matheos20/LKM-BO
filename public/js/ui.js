@@ -192,6 +192,18 @@ export function releaseModal() {
   closeModal();
 }
 
+/**
+ * A-t-on le droit d'appliquer un traitement à TOUT le parc ?
+ *
+ * Deux droits, et il les faut tous les deux — c'est exactement ce que le serveur exige
+ * sur les routes d'application. « design.publish » dit qu'on sait mettre un site en
+ * ligne ; « bulk.apply » dit qu'on a le droit de le faire sur des milliers d'un coup.
+ * Un bouton actif que le serveur refuserait serait pire qu'un bouton grisé : l'agent
+ * lancerait une tournée et récolterait une erreur à la première écriture.
+ */
+export const peutAppliquerEnMasse = (permissions = []) =>
+  permissions.includes('bulk.apply') && permissions.includes('design.publish');
+
 export const modalHeader = (title, tone = 'bg-accent-50 text-accent-700', iconName = 'globe') =>
   h(
     'div',
