@@ -18,10 +18,80 @@ npm run build:css        # compile TailwindCSS → public/css/app.css
 npm run set-password     # définit le mot de passe admin (hash scrypt dans .env)
 npm test                 # tests unitaires (hors ligne, aucun accès serveur)
 npm run check            # teste la connexion SSH à chaque serveur (lecture seule)
-npm start                # → http://127.0.0.1:3000
+npm run serve            # → http://127.0.0.1:3000, sous surveillance
 ```
 
-Prérequis : **Node.js ≥ 20** (testé avec 24.11) et l'accès réseau aux ports SSH des serveurs.
+Prérequis : **Node.js ≥ 20** (testé avec 24.11), **MySQL / MariaDB**, et l'accès réseau aux ports SSH des serveurs.
+
+---
+
+## 1 bis. Rester debout : surveillance et redémarrage
+
+`npm start` lance **un** processus. S'il s'arrête — une erreur jamais prévue, la machine
+qui redémarre, MySQL qui n'est pas encore là — le back-office est mort jusqu'à ce que
+quelqu'un s'en aperçoive. Cinq agents en dépendent chaque jour.
+
+```powershell
+npm run serve                        # lance le serveur SOUS SURVEILLANCE
+npm run serve -- --once              # une seule fois, sans relance (pour voir une panne)
+npm run service                      # montre ce qui serait installé au démarrage
+npm run service -- install --yes     # démarre avec la session Windows
+npm run service -- status
+npm run service -- uninstall --yes
+```
+
+### Ce que le surveillant rattrape
+
+| Panne | Comment elle se voit | Ce qu'il fait |
+| --- | --- | --- |
+| Le serveur s'arrête | le processus disparaît | relance, immédiatement puis de plus en plus espacé |
+| Le serveur ne démarre pas | il meurt en une seconde | réessaie 1 s, 2 s, 4 s… jusqu'à une minute, et dit de regarder MySQL |
+| Le serveur **ne répond plus** | il tourne, mais `/api/health` reste muet | le ferme et le relance après trois relévés manqués |
+
+La deuxième colonne est celle qui compte : un processus bloqué ne se voit pas du dehors,
+il *tourne*. C'est pour lui que la route de santé existe.
+
+L'attente double à chaque échec parce qu'un serveur qui ne **peut** pas démarrer ne
+démarrera pas davantage à la centième tentative : réessayer sans fin remplirait le disque
+de journaux et masquerait la cause. Dès que le serveur tient une minute, le compteur
+repart de zéro.
+
+Journaux : `logs/supervisor.log` (ce que le surveillant a décidé) et `logs/service.log`
+(la sortie du serveur lancé par la tâche planifiée).
+
+### `GET /api/health`
+
+**Sans authentification**, parce que ce qui surveille une application ne peut pas se
+connecter avec un compte — et donc sans rien dire d'utile à un curieux : des compteurs
+et un verdict, pas de version, pas de nom de serveur.
+
+```json
+{ "status": "ok", "uptimeSeconds": 3812,
+  "checks": { "database": { "ok": true, "ms": 2 },
+              "servers": { "configured": 5, "connected": 3, "connecting": 0, "error": 0, "disconnected": 2 } } }
+```
+
+Le code HTTP porte le verdict : **200** si tout va, **503** sinon. Un surveillant n'a donc
+pas besoin de lire la réponse.
+
+Le verdict ne retient que ce qui **empêche de travailler** : MySQL. Un VPS déconnecté est
+l'état normal au démarrage — les sessions SSH s'ouvrent à la demande de l'agent. Les
+compter comme un problème ferait sonner l'alarme tous les matins, et on finirait par ne
+plus la regarder.
+
+### Au démarrage de la machine
+
+`npm run service -- install --yes` déclare une tâche Windows qui part **à l'ouverture de
+session**. C'est ce qu'il faut sur un poste de travail, et cela ne demande aucun droit
+d'administrateur.
+
+Pour que le back-office serve **sans que personne soit connecté**, il faut
+`--at=startup` — une console administrateur, **et** MySQL installé en service Windows
+(XAMPP sait le faire). Sans cela, le serveur tournerait en rond faute de base.
+
+Sur un serveur Linux, `deploy/lkm-bo.service` fait le même travail avec systemd. Chez un
+hébergeur mutualisé comme o2switch, il n'y a rien à installer : c'est le panneau Node.js
+de l'hébergeur qui relance l'application.
 
 ---
 
@@ -548,6 +618,7 @@ Toutes les routes `/api/*` (sauf i18n et login) exigent une session. Les requêt
 
 | Méthode | Route | Description |
 |---|---|---|
+| `GET` | `/api/health` | État de l'application — **sans authentification**, 200 ou 503 |
 | `POST` | `/api/auth/login` · `/api/auth/logout` | Ouverture / fermeture de session |
 | `GET` | `/api/auth/me` | Profil, rôle, permissions et portée du compte connecté |
 | `POST` | `/api/auth/password` `{ current, password }` | Changement de son propre mot de passe |

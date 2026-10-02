@@ -355,6 +355,18 @@ export class SshManager {
     return { state: c.state, error: c.lastError, fingerprint: c.fingerprint, connectedAt: c.connectedAt };
   }
 
+  /**
+   * L'état d'une session SANS la faire naître, ou `null` si elle n'existe pas encore.
+   *
+   * `conn(id)` crée l'objet de connexion au premier appel : c'est ce qu'il faut pour
+   * travailler, et exactement ce qu'il ne faut pas pour OBSERVER. Le relevé de santé
+   * passe toutes les minutes ; s'il employait `status`, il ferait naître cinq
+   * connexions à chaque passage, et surveiller finirait par peser plus que servir.
+   */
+  peek(id) {
+    return this.conns.get(id)?.state ?? null;
+  }
+
   // Session disponible plutôt que strictement ouverte : une session tombée toute seule
   // est rouverte au moment d'ouvrir le canal. Fermée par l'utilisateur, elle refuse.
   exec(id, command, opts) {

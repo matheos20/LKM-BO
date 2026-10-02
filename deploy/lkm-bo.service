@@ -1,0 +1,60 @@
+; Démarrage automatique du back-office sur un serveur Linux (systemd).
+;
+;   sudo cp deploy/lkm-bo.service /etc/systemd/system/
+;   sudo systemctl daemon-reload
+;   sudo systemctl enable --now lkm-bo
+;   sudo systemctl status lkm-bo
+;
+; Adaptez User, WorkingDirectory et ExecStart avant la première copie.
+;
+; Chez un hébergeur mutualisé (o2switch), il n'y a rien à installer : c'est le panneau
+; Node.js de l'hébergeur qui lance et relance l'application. Ce fichier ne sert que sur
+; une machine dont on a la main — un VPS, ou le poste qui héberge le back-office.
+
+[Unit]
+Description=LKM Back-Office — gestion des domaines du parc
+Documentation=https://github.com/matheos20/LKM-BO
+; La base doit être là AVANT : sans elle le serveur refuse de démarrer, et systemd
+; passerait son temps à le relancer pour rien.
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lkm
+Group=lkm
+WorkingDirectory=/opt/lkm-bo
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/lkm-bo/.env
+
+; SYSTEMD SURVEILLE, LE SURVEILLANT AUSSI — ET C'EST VOULU.
+;
+; systemd relance un processus qui s'arrête. Il ne voit pas celui qui reste là sans
+; plus rien servir : base perdue, boucle bloquée. Le surveillant, lui, interroge
+; /api/health et relance aussi dans ce cas. Les deux filets se complètent.
+ExecStart=/usr/bin/node scripts/supervise.js
+
+Restart=always
+RestartSec=5
+; Si le serveur ne parvient pas à démarrer, on cesse d'essayer après cinq fois en deux
+; minutes : mieux vaut un service arrêté et visible qu'une boucle qui remplit le disque.
+StartLimitBurst=5
+StartLimitIntervalSec=120
+
+; L'arrêt ferme les sessions SSH proprement : on lui laisse le temps.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lkm-bo
+
+; Le service n'a besoin de rien d'autre que son dossier.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/lkm-bo/logs /opt/lkm-bo/backups
+
+[Install]
+WantedBy=multi-user.target

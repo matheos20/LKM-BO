@@ -25,6 +25,7 @@ import { purgeOlderThan } from './db/audit.js';
 import { attachUser, csrfGuard, errorHandler, langMiddleware, requireAuth, requirePasswordChanged } from './middleware/index.js';
 import { authRouter } from './routes/auth.js';
 import { i18nRouter } from './routes/i18n.js';
+import { healthRouter } from './routes/health.js';
 import { adminRouter } from './routes/admin.js';
 import { serversRouter } from './routes/servers.js';
 import { domainsRouter } from './routes/domains.js';
@@ -71,6 +72,9 @@ const audit = createAudit(config.auditLog);
 const purges = await purgeOlderThan(config.auditRetentionDays);
 if (purges) console.log(`[audit] ${purges} événement(s) de plus de ${config.auditRetentionDays} jours effacés`);
 const SESSION_TTL = 8 * 3600 * 1000;
+// L'instant du demarrage : c'est lui qui donne la duree de fonctionnement annoncee par
+// le releve de sante, et qui permet de voir qu'un redemarrage a eu lieu.
+const DEMARRE_A = Date.now();
 
 const app = express();
 app.disable('x-powered-by');
@@ -112,6 +116,10 @@ app.use(langMiddleware);
 app.use(attachUser); // recharge le compte et ses droits à chaque requête
 
 app.use('/api', csrfGuard);
+// LA SANTE AVANT TOUT LE RESTE, et sans authentification : ce qui surveille une
+// application ne peut pas se connecter avec un compte. La reponse ne dit rien d'utile a
+// un curieux, et son code HTTP suffit a decider (200 ou 503).
+app.use('/api/health', healthRouter({ ssh, startedAt: DEMARRE_A }));
 app.use('/api/i18n', i18nRouter());
 app.use('/api/auth', authRouter({ audit }));
 app.use('/api', requireAuth);
