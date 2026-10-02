@@ -1411,6 +1411,9 @@
     "all_good": "Every site checked responds normally.",
     "only_problems": "Show only what is wrong",
     "busy_note": "{server} was heavily loaded during the scan ({load} across {cores} cores): sites on it may look slow without being slow.",
-    "nothing_measured": "No site could be measured. That is not a sign the sites are in trouble: the scan itself reported nothing. Check the run’s details, then try again."
+    "nothing_measured": "No site could be measured. That is not a sign the sites are in trouble: the scan itself reported nothing. Check the run’s details, then try again.",
+    "col_proto": "Address the site claims for itself",
+    "col_modified": "Last modified",
+    "col_file": "Last modified file"
   }
 }

@@ -1411,6 +1411,9 @@
     "all_good": "Tutti i siti controllati rispondono normalmente.",
     "only_problems": "Mostrare solo ciò che non va",
     "busy_note": "{server} era molto carico durante l’analisi ({load} su {cores} core): i siti che vi risiedono possono sembrare lenti senza esserlo.",
-    "nothing_measured": "Nessun sito ha potuto essere misurato. Non è un segno che i siti stiano male: è l’analisi che non ha riportato nulla. Guardate il dettaglio del giro, poi riprovate."
+    "nothing_measured": "Nessun sito ha potuto essere misurato. Non è un segno che i siti stiano male: è l’analisi che non ha riportato nulla. Guardate il dettaglio del giro, poi riprovate.",
+    "col_proto": "Indirizzo che il sito si attribuisce",
+    "col_modified": "Ultima modifica",
+    "col_file": "Ultimo file modificato"
   }
 }

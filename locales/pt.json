@@ -1411,6 +1411,9 @@
     "all_good": "Todos os sites verificados respondem normalmente.",
     "only_problems": "Mostrar apenas o que está mal",
     "busy_note": "{server} estava muito carregado durante a análise ({load} em {cores} núcleos): os sites alojados aí podem parecer lentos sem o serem.",
-    "nothing_measured": "Nenhum site pôde ser medido. Isso não indica que os sites estejam mal: foi a análise que não devolveu nada. Veja o detalhe da ronda e tente novamente."
+    "nothing_measured": "Nenhum site pôde ser medido. Isso não indica que os sites estejam mal: foi a análise que não devolveu nada. Veja o detalhe da ronda e tente novamente.",
+    "col_proto": "Endereço que o site se atribui",
+    "col_modified": "Última modificação",
+    "col_file": "Último ficheiro modificado"
   }
 }

@@ -1411,6 +1411,9 @@
     "all_good": "Alle geprüften Websites antworten normal.",
     "only_problems": "Nur Auffälliges zeigen",
     "busy_note": "{server} war während der Prüfung stark belastet ({load} auf {cores} Kernen): Websites dort können langsam wirken, ohne es zu sein.",
-    "nothing_measured": "Keine Website konnte gemessen werden. Das heißt nicht, dass es den Websites schlecht geht: die Prüfung selbst hat nichts gemeldet. Sehen Sie sich die Einzelheiten des Durchgangs an und versuchen Sie es erneut."
+    "nothing_measured": "Keine Website konnte gemessen werden. Das heißt nicht, dass es den Websites schlecht geht: die Prüfung selbst hat nichts gemeldet. Sehen Sie sich die Einzelheiten des Durchgangs an und versuchen Sie es erneut.",
+    "col_proto": "Adresse, die die Website für sich angibt",
+    "col_modified": "Zuletzt geändert",
+    "col_file": "Zuletzt geänderte Datei"
   }
 }

@@ -139,11 +139,65 @@ export const TEMOIN = 'lkm-sonde-sans-site.invalid';
 export const AWK = [
   'index($0, "@@LKM@@") == 1 { m = $0; next }',
   '{ l = tolower($0)',
-  '  if (l ~ /fatal error|parse error|uncaught (exception|error)|call to undefined|database error/) e++ }',
+  '  if (l ~ /fatal error|parse error|uncaught (exception|error)|call to undefined|database error/) e++',
+  // L'ADRESSE QUE LE SITE SE DONNE À LUI-MÊME, lue au passage et sans seconde requête :
+  // elle est dans la page que la sonde télécharge déjà. C'est elle qui dit si le site se
+  // présente en http ou en https — la sonde, qui interroge le port 8080 en clair, ne
+  // pourrait pas le deviner. Mesuré sur 100 sites : tous déclarent « https://<domaine>/ ».
+  '  if (can == "" && match(l, /rel="?canonical"?[^>]*href="[^"]+"/)) {',
+  '    s = substr(l, RSTART, RLENGTH)',
+  '    if (match(s, /href="[^"]+"/)) can = substr(s, RSTART + 6, RLENGTH - 7)',
+  '  } }',
   'END { if (m == "") m = "@@LKM@@\\t000\\t0\\t0\\t"',
   '      sub(/^@@LKM@@\\t/, "", m)',
-  '      print d "\\t" m "\\t" (e + 0) }',
+  '      print d "\\t" m "\\t" (e + 0) "\\t" can }',
 ].join('\n');
+
+/**
+ * La seconde commande : la dernière retouche du site, LUE SUR LE DISQUE.
+ *
+ * Elle ne réveille aucun pool php-fpm — c'est de la lecture de répertoires, et rien de
+ * plus. Mesuré le 02/10/2026 : 40 sites en 2 s, soit ~4,4 min pour les 5 246 sites d'une
+ * machine, contre une demi-heure pour la sonde HTTP. Elle tourne donc même pour les sites
+ * qui ne répondent pas — c'est justement là qu'on veut savoir quand ils ont été touchés.
+ *
+ * LE mtime DU DOSSIER NE SUFFIT PAS, et la liste des domaines ne donne que celui-là :
+ * mesuré, 21 sites sur 40 avaient plus d'un jour d'écart entre la date du dossier et celle
+ * de son contenu. Un article modifié ne touche pas le dossier qui le contient.
+ *
+ * Les chemins commençant par un point sont écartés : `.lkm-backups` est notre propre
+ * comptabilité, et nginx refuse de les servir de toute façon.
+ */
+export function touchCommand(root, domains, { parallel = 8 } = {}) {
+  const lecture = [
+    'p="$LKM_ROOT/$1/public_html"',
+    // `find -L` : sur ce parc, un site sur trois est un lien symbolique vers /data/www.
+    'r=$(find -L "$p" -name ".*" -prune -o -type f -printf "%T@\\t%P\\n" 2>/dev/null | sort -rn | head -1)',
+    'printf "%s\\t%s\\n" "$1" "$r"',
+  ].join('; ');
+  return [
+    `export LKM_ROOT=${shq(root)}`,
+    `printf '%s\\n' ${domains.map(shq).join(' ')} | xargs -P ${parallel} -n 1 bash -c ${shq(lecture)} _`,
+  ].join('\n');
+}
+
+/** Une ligne par site : le fichier le plus récemment modifié, et quand. */
+export function parseTouch(stdout) {
+  const out = new Map();
+  for (const brut of String(stdout ?? '').split('\n')) {
+    const p = brut.replace(/\r/g, '').split('\t');
+    if (!p[0]) continue;
+    const [domain, mtime, chemin] = p;
+    const quand = Number(mtime);
+    out.set(domain, {
+      // Un horodatage absolu, en millisecondes : les serveurs vivent en UTC et l'agent
+      // trois heures devant. C'est l'écran qui traduira, pas le serveur.
+      modifiedAt: Number.isFinite(quand) && quand > 0 ? Math.round(quand * 1000) : null,
+      modifiedFile: chemin || null,
+    });
+  }
+  return out;
+}
 
 /** Le format que curl ajoute APRÈS la page, précédé d'un saut de ligne à lui. */
 const FORMAT = '\\n@@LKM@@\\t%{http_code}\\t%{time_total}\\t%{size_download}\\t%{redirect_url}\\n';
@@ -171,7 +225,7 @@ export function parseProbe(stdout) {
   for (const brut of String(stdout ?? '').split('\n')) {
     const p = brut.replace(/\r/g, '').split('\t');
     if (p.length < 6) continue;
-    const [domain, code, time, bytes, redirect, errors] = p;
+    const [domain, code, time, bytes, redirect, errors, canonical] = p;
     if (!domain) continue;
     out.push({
       domain,
@@ -180,6 +234,7 @@ export function parseProbe(stdout) {
       bytes: Number(bytes) || 0,
       redirect: redirect || null,
       phpErrors: Number(errors) || 0,
+      canonical: canonical || null,
     });
   }
   return out;
@@ -201,6 +256,26 @@ export function renvoiInterne(domain, redirect) {
 }
 
 /**
+ * HTTP OU HTTPS : ce que le site se donne pour adresse.
+ *
+ * Attention à ce que cela veut dire, et à ce que cela ne veut pas dire. La sonde parle au
+ * serveur en clair sur le port 8080 ; elle ne peut donc PAS mesurer ce qu'obtient un
+ * visiteur — c'est Cloudflare qui termine le TLS, en amont, pour tout le parc. Ce qui est
+ * rendu ici, c'est le protocole que le site écrit dans ses propres liens, et c'est
+ * précisément ce qui compte pour les moteurs de recherche : un site qui se déclare en
+ * « http:// » envoie ses visiteurs sur une version non sécurisée de lui-même.
+ *
+ * Deux sources, dans cet ordre : l'adresse canonique de la page, et à défaut la
+ * destination d'une redirection — un site canonique en « www » redirige avant de servir
+ * une page, il n'y a donc pas d'adresse canonique à lire.
+ */
+export function protocole(row) {
+  const url = row?.canonical || row?.redirect || '';
+  const m = /^(https?):\/\//i.exec(String(url));
+  return m ? m[1].toLowerCase() : null;
+}
+
+/**
  * Le verdict, et le seul endroit où il se décide.
  *
  * L'ordre compte : une page qui rend 500 est en panne même si elle est lente, et un
@@ -218,6 +293,25 @@ export function verdict(row, { slow = SEUIL_LENT, minBytes = SEUIL_VIDE } = {}) 
   if (row.time > slow) return 'slow';
   return 'ok';
 }
+
+/**
+ * Un site sur lequel on n'a rien pu mesurer.
+ *
+ * Écrit une seule fois : trois endroits construisaient cet objet à la main, et le jour où
+ * un champ s'ajoute, l'un des trois l'oublie — l'écran lit alors `undefined` sans que rien
+ * ne le signale.
+ */
+const VIDE = Object.freeze({
+  code: 0,
+  time: 0,
+  bytes: 0,
+  redirect: null,
+  phpErrors: 0,
+  canonical: null,
+  scheme: null,
+  modifiedAt: null,
+  modifiedFile: null,
+});
 
 /** Les états qui demandent un geste, du plus grave au plus bénin. */
 export const ETATS_GRAVES = ['unreachable', 'no_answer', 'server_error', 'php_error', 'empty', 'missing', 'refused', 'slow', 'redirect', 'invalid'];
@@ -320,7 +414,7 @@ export class HealthService {
 
     const sondables = voulus.filter((d) => sondable(d));
     const refuses = voulus.filter((d) => !sondable(d));
-    const sites = refuses.map((domain) => ({ domain, state: 'invalid', code: 0, time: 0, bytes: 0, redirect: null, phpErrors: 0 }));
+    const sites = refuses.map((domain) => ({ ...VIDE, domain, state: 'invalid' }));
     let charge = null;
 
     if (sondables.length) {
@@ -342,12 +436,27 @@ export class HealthService {
         });
       }
 
+      // LA DERNIÈRE RETOUCHE, lue sur le disque. Cette seconde commande ne réveille aucun
+      // pool php-fpm : elle coûte ~4,4 min pour 5 246 sites, contre une demi-heure pour la
+      // sonde. Elle tourne donc pour TOUS les sites du lot, y compris ceux qui n'ont pas
+      // répondu — c'est justement là que la question « depuis quand ? » se pose.
+      // Un échec de cette lecture ne doit pas emporter l'analyse : la santé du site est le
+      // renseignement principal, la date est un supplément.
+      let retouches = new Map();
+      try {
+        const brut = await this.ssh.exec(serverId, touchCommand(server.wwwRoot, sondables), { timeout: 180000 });
+        retouches = parseTouch(brut.stdout);
+      } catch {
+        retouches = new Map();
+      }
+
       const vus = new Map(lignes.filter((l) => l.domain !== TEMOIN).map((l) => [l.domain, l]));
       for (const domain of sondables) {
         const row = vus.get(domain);
+        const retouche = retouches.get(domain) ?? { modifiedAt: null, modifiedFile: null };
         // Une sonde dont la ligne manque n'est pas un site sain : elle est dite perdue.
-        if (!row) sites.push({ domain, state: 'no_answer', code: 0, time: 0, bytes: 0, redirect: null, phpErrors: 0 });
-        else sites.push({ ...row, state: verdict(row, { slow, minBytes }) });
+        if (!row) sites.push({ ...VIDE, ...retouche, domain, state: 'no_answer' });
+        else sites.push({ ...row, ...retouche, scheme: protocole(row), state: verdict(row, { slow, minBytes }) });
       }
 
       // LE FREIN. Un lot trop rapide attend : c'est le débit qui protège la machine, et

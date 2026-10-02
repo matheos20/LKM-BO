@@ -1411,6 +1411,9 @@
     "all_good": "Tous les sites vérifiés répondent normalement.",
     "only_problems": "Ne montrer que ce qui va mal",
     "busy_note": "{server} était très chargé pendant l’analyse ({load} sur {cores} cœurs) : des sites peuvent y paraître lents sans l’être.",
-    "nothing_measured": "Aucun site n’a pu être mesuré. Ce n’est pas un signe que les sites vont mal : c’est l’analyse qui n’a rien rapporté. Regardez le détail de la tournée, puis recommencez."
+    "nothing_measured": "Aucun site n’a pu être mesuré. Ce n’est pas un signe que les sites vont mal : c’est l’analyse qui n’a rien rapporté. Regardez le détail de la tournée, puis recommencez.",
+    "col_proto": "Adresse que le site se donne",
+    "col_modified": "Dernière modification",
+    "col_file": "Dernier fichier modifié"
   }
 }

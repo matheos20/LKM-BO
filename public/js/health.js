@@ -1,5 +1,5 @@
 import { t } from './i18n.js';
-import { fmtNum, fmtSize, h, icon } from './ui.js';
+import { fmtDate, fmtNum, fmtSize, h, icon } from './ui.js';
 
 /**
  * Action « Santé du parc ».
@@ -201,6 +201,28 @@ function duree(secondes) {
   return `${fmtNum(arrondi)} s`;
 }
 
+/**
+ * Le protocole que le site se donne, en pastille à côté de son nom.
+ *
+ * Pas une colonne : sur cent sites mesurés, cent se déclarent en « https ». Une colonne
+ * entière pour répéter la même chose fatigue l'œil ; une pastille discrète se lit d'un
+ * coup, et l'exception — un site en « http », c'est-à-dire qui envoie ses visiteurs sur
+ * une version non sécurisée de lui-même — ressort en ambre au lieu de se noyer.
+ */
+function pastilleProtocole(s) {
+  if (!s.scheme) return null;
+  const faible = s.scheme === 'http';
+  return h(
+    'span',
+    {
+      class: `rounded px-1 py-px text-[0.65rem] font-semibold uppercase ${faible ? 'bg-amber-100 text-amber-800' : 'bg-ink-100 text-ink-400'}`,
+      // L'adresse exacte que le site déclare : c'est elle qui a servi à décider.
+      title: s.canonical ?? s.redirect ?? t('health.col_proto'),
+    },
+    s.scheme,
+  );
+}
+
 /** Un état, son nombre, et les sites concernés. */
 function groupe(etat, sites) {
   const multi = new Set(state.sites.map((s) => s.server)).size > 1;
@@ -227,6 +249,10 @@ function groupe(etat, sites) {
             {},
             h('th', { class: 'px-4 py-2 text-left font-medium' }, t('col.domain')),
             multi ? h('th', { class: 'px-3 py-2 text-left font-medium' }, t('col.server')) : null,
+            // La date et le fichier avant les chiffres techniques : c'est ce qu'un agent
+            // regarde en second, juste après le nom du site.
+            h('th', { class: 'px-3 py-2 text-left font-medium' }, t('health.col_modified')),
+            h('th', { class: 'px-3 py-2 text-left font-medium' }, t('health.col_file')),
             h('th', { class: 'px-3 py-2 text-right font-medium' }, t('health.col_code')),
             h('th', { class: 'px-3 py-2 text-right font-medium' }, t('health.col_time')),
             h('th', { class: 'px-4 py-2 text-right font-medium' }, t('health.col_size')),
@@ -242,11 +268,24 @@ function groupe(etat, sites) {
               h(
                 'td',
                 { class: 'px-4 py-1.5' },
-                // Le lien ouvre le site tel qu'un visiteur le voit : c'est la première
-                // chose que fait l'agent après avoir lu une ligne rouge.
-                h('a', { href: `https://${s.domain}/`, target: '_blank', rel: 'noopener', class: 'text-accent-700 hover:underline' }, s.domain),
+                h(
+                  'span',
+                  { class: 'flex items-center gap-1.5' },
+                  // Le lien ouvre le site tel qu'un visiteur le voit : c'est la première
+                  // chose que fait l'agent après avoir lu une ligne rouge.
+                  h('a', { href: `https://${s.domain}/`, target: '_blank', rel: 'noopener', class: 'text-accent-700 hover:underline' }, s.domain),
+                  pastilleProtocole(s),
+                ),
               ),
               multi ? h('td', { class: 'px-3 py-1.5 text-ink-400' }, s.server) : null,
+              // `fmtDate` traduit dans le fuseau de l'agent : les serveurs vivent en UTC et
+              // l'agent trois heures devant. Une date brute l'aurait fait chercher en vain.
+              h('td', { class: 'px-3 py-1.5 whitespace-nowrap text-ink-500' }, s.modifiedAt ? fmtDate(s.modifiedAt) : '—'),
+              h(
+                'td',
+                { class: 'max-w-[18rem] truncate px-3 py-1.5 text-ink-400', title: s.modifiedFile ?? '' },
+                s.modifiedFile ?? '—',
+              ),
               h('td', { class: 'px-3 py-1.5 text-right tabular-nums text-ink-500' }, s.code || '—'),
               h('td', { class: 'px-3 py-1.5 text-right tabular-nums text-ink-500' }, duree(s.time)),
               h('td', { class: 'px-4 py-1.5 text-right tabular-nums text-ink-500' }, s.bytes ? fmtSize(s.bytes) : '—'),
