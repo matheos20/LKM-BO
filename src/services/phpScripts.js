@@ -1284,7 +1284,13 @@ function contenuStub($cible, $stamp) {
         . "// « error_page 404 /404.php » SANS le signe « = », ce qui force le statut 404.\n"
         . "// Un fichier qui EXISTE, lui, est servi comme une page normale — et PHP y impose\n"
         . "// son propre code. Mesuré en direct le 02/10/2026 : 301 Moved Permanently.\n"
-        . "header('Location: " . $litteral . "', true, 301);\n"
+        . "\$cible = '" . $litteral . "';\n"
+        . "// CE QUI SUIT LE « ? » EST CONSERVÉ. Un lien de campagne, un paramètre de\n"
+        . "// suivi : les perdre en route romprait le comptage, et l'agent ne verrait\n"
+        . "// jamais d'où venaient ses visiteurs.\n"
+        . "\$qs = isset(\$_SERVER['QUERY_STRING']) ? (string) \$_SERVER['QUERY_STRING'] : '';\n"
+        . "if (\$qs !== '') { \$cible .= (strpos(\$cible, '?') === false ? '?' : '&') . \$qs; }\n"
+        . "header('Location: ' . \$cible, true, 301);\n"
         . "exit;\n";
 }
 
@@ -1292,7 +1298,9 @@ function contenuStub($cible, $stamp) {
 function lireStub($f, $marque) {
     $t = @file_get_contents($f, false, null, 0, 2048);
     if ($t === false || strpos($t, $marque) === false) return null;
-    if (!preg_match("/header\\('Location: (.*)', true, 301\\);/", $t, $m)) return array('to' => '');
+    // La cible vit sur sa propre ligne, et non plus dans l'appel à header() : celui-ci
+    // compose désormais l'adresse avec ce qui suit le « ? ».
+    if (!preg_match("/\\\$cible = '(.*)';/", $t, $m)) return array('to' => '');
     return array('to' => str_replace(array("\\'", '\\\\'), array("'", '\\'), $m[1]));
 }
 

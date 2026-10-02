@@ -139,7 +139,10 @@ test('redirections : le fichier posé impose un 301, et rien d’autre', { skip:
   assert.equal(site.error, undefined);
   assert.equal(site.written, 1);
   const pose = site.lire('/vieille.php');
-  assert.match(pose, /header\('Location: \/nouvelle\.php', true, 301\);/);
+  assert.match(pose, /\$cible = '\/nouvelle\.php';/);
+  assert.match(pose, /header\('Location: ' \. \$cible, true, 301\);/);
+  // Ce qui suit le « ? » doit survivre : sans cela, un lien de campagne perd son suivi.
+  assert.match(pose, /QUERY_STRING/);
   assert.match(pose, /^<\?php/);
   assert.match(pose, /exit;/);
   // Il doit porter notre marque, sinon on ne saura plus qu'il est à nous.
@@ -179,7 +182,7 @@ test('redirections : changer la destination remplace le fichier, sans le doubler
   );
   assert.equal(site.items[0].state, 'conflict');
   assert.equal(site.items[0].current, '/nouvelle.php');
-  assert.match(site.lire('/vieille.php'), /Location: \/troisieme\.php/);
+  assert.match(site.lire('/vieille.php'), /\$cible = '\/troisieme\.php';/);
   assert.deepEqual(site.registre, { '/vieille.php': '/troisieme.php' });
 });
 
@@ -200,7 +203,7 @@ test('redirections : UNE VRAIE PAGE n’est jamais écrasée sans qu’on le dem
     'apply',
   );
   assert.equal(apres.items[0].state, 'to_replace');
-  assert.match(apres.lire('/vieille.php'), /Location: \/nouvelle\.php/);
+  assert.match(apres.lire('/vieille.php'), /\$cible = '\/nouvelle\.php';/);
   assert.equal(apres.sauvegardes.length, 1, 'la page remplacée est sauvegardée');
   assert.ok(apres.sauvegardes[0].startsWith('vieille.php-'));
 });
@@ -215,7 +218,7 @@ test('redirections : une cible HORS du parc demande une autorisation', { skip: p
 
   const permis = lancer(PARC, { 'exemple.com': { rules: [{ from: '/vieille.php', to: 'https://inconnu.test/piege', external: true }] } }, 'apply');
   assert.equal(permis.items[0].state, 'to_add');
-  assert.match(permis.lire('/vieille.php'), /Location: https:\/\/inconnu\.test\/piege/);
+  assert.match(permis.lire('/vieille.php'), /\$cible = 'https:\/\/inconnu\.test\/piege';/);
 });
 
 test('redirections : un autre domaine DU PARC passe sans autorisation', { skip: phpAbsent && 'php absent' }, () => {
@@ -224,13 +227,13 @@ test('redirections : un autre domaine DU PARC passe sans autorisation', { skip: 
   const site = lancer(PARC, { 'exemple.com': { rules: [{ from: '/vieille.php', to: 'https://autre.fr/article.php' }] } }, 'apply');
   assert.equal(site.items[0].state, 'to_add');
   assert.equal(site.items[0].external, undefined, 'ce n’est pas considéré comme extérieur');
-  assert.match(site.lire('/vieille.php'), /Location: https:\/\/autre\.fr\/article\.php/);
+  assert.match(site.lire('/vieille.php'), /\$cible = 'https:\/\/autre\.fr\/article\.php';/);
 });
 
 test('redirections : « http » vers le parc devient « https »', { skip: phpAbsent && 'php absent' }, () => {
   // Le parc redirige http vers https : viser http ajouterait un saut inutile.
   const site = lancer(PARC, { 'exemple.com': { rules: [{ from: '/vieille.php', to: 'http://autre.fr/article.php' }] } }, 'apply');
-  assert.match(site.lire('/vieille.php'), /Location: https:\/\/autre\.fr\/article\.php/);
+  assert.match(site.lire('/vieille.php'), /\$cible = 'https:\/\/autre\.fr\/article\.php';/);
 });
 
 test('redirections : seules les adresses en « .php » sont acceptées', { skip: phpAbsent && 'php absent' }, () => {
