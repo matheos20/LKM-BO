@@ -19,6 +19,8 @@ import { basename } from 'node:path';
 import { config } from '../src/config.js';
 import { closeMysql, openMysql, prepare } from '../src/db/mysql.js';
 import { analyzeCsv, cloudflareStats, deriveMissingEmails, importCsv } from '../src/services/cloudflareImport.js';
+import { CloudflareService } from '../src/services/cloudflareService.js';
+import { HORS_PORTEE, PERMISSIONS } from '../src/services/cloudflareTokens.js';
 import { redact } from '../src/services/cloudflareClient.js';
 import {
   SECURITY_LEVELS, SSL_MODES, createDnsRecord, deleteDnsRecord, findZoneByName, getSettings,
@@ -258,6 +260,93 @@ const commandes = {
     return 0;
   },
 
+  /**
+   * Remplace les clés globales par des jetons à portée limitée.
+   *
+   *   npm run cf -- token                      l'état : combien de clés restent
+   *   npm run cf -- token <domaine> --yes      un seul compte
+   *   npm run cf -- token --all --limit 50 --yes
+   *
+   * Une clé globale ouvre TOUT un compte Cloudflare. Le back-office a besoin de six
+   * permissions. Cette commande crée le jeton, VÉRIFIE qu'il fonctionne, l'enregistre,
+   * et seulement alors efface la clé — dans cet ordre, parce qu'un jeton inutilisable
+   * avec une clé déjà effacée laisserait le domaine injoignable.
+   */
+  async token(positionnels, options) {
+    const cf = new CloudflareService();
+    titre('Jetons à portée limitée');
+
+    const etat = await cf.tokenProgress();
+    info(`${gras(nombre(etat.total))} compte(s) Cloudflare`);
+    note(`avec un jeton : ${etat.withToken ? vert(nombre(etat.withToken)) : '0'}   avec une clé globale : ${etat.withGlobalKey ? orange(nombre(etat.withGlobalKey)) : '0'}`);
+    console.log();
+    info('Ce qu’un jeton PEUT faire :');
+    for (const p of PERMISSIONS) note(`• ${p.nom.padEnd(20)} ${p.pourquoi}`);
+    console.log();
+    info('Ce qu’une clé globale donnait EN PLUS, et que le jeton n’a pas :');
+    for (const quoi of HORS_PORTEE) note(`• ${quoi}`);
+
+    const demandes = domainesDemandes(positionnels, options);
+    if (!demandes.length && !options.all) {
+      console.log();
+      note('La clé globale reste valable chez Cloudflare : seule NOTRE base cesse de la');
+      note('porter. En cas de besoin, « npm run cf -- import dataCF.csv --yes » la remet.');
+      console.log();
+      info(`${nombre(etat.convertible)} compte(s) convertible(s) — clé globale et adresse connues.`);
+      note('npm run cf -- token <domaine> --yes       pour un seul');
+      note('npm run cf -- token --all --limit 20 --yes  pour commencer doucement');
+      return 0;
+    }
+
+    const borne = Number(options.limit) || 0;
+    let cibles = demandes;
+    if (options.all) {
+      const { zones } = await cf.list({ status: 'ready', perPage: 200 });
+      cibles = zones.filter((z) => z.auth === 'key').map((z) => z.domain);
+    }
+    if (borne) cibles = cibles.slice(0, borne);
+
+    console.log();
+    info(`${gras(nombre(cibles.length))} domaine(s) à convertir`);
+    for (const d of cibles.slice(0, 8)) note(`• ${d}`);
+    if (cibles.length > 8) note(`… et ${nombre(cibles.length - 8)} autre(s)`);
+    if (options.ip) note(`le jeton ne vaudra que depuis : ${options.ip}`);
+    if (options['keep-key']) note('la clé globale sera CONSERVÉE en base (--keep-key)');
+
+    if (!cibles.length) { console.log(); ko('aucun domaine à convertir.'); return 1; }
+    if (!options.yes) {
+      console.log();
+      info(`${orange('Rien n’a été créé.')} Ajoutez ${gras('--yes')} pour convertir.`);
+      note('Un jeton est créé CHEZ CLOUDFLARE pour chaque compte : c’est une écriture.');
+      return 0;
+    }
+
+    console.log();
+    let faits = 0;
+    let rates = 0;
+    for (const [i, domaine] of cibles.entries()) {
+      try {
+        const r = await cf.convertToToken(domaine, {
+          ip: options.ip ? String(options.ip).split(',') : '',
+          expiresInDays: Number(options['expires-in-days']) || 0,
+          dropKey: !options['keep-key'],
+        });
+        if (r.already) note(`${domaine.padEnd(34)} déjà un jeton`);
+        else { ok(`${domaine.padEnd(34)} jeton ${court(r.tokenId)}${r.keyDropped ? gris('  clé effacée') : ''}`); faits += 1; }
+      } catch (err) {
+        ko(`${domaine.padEnd(34)} ${redact(err.message)}`);
+        rates += 1;
+      }
+      progression(i + 1, cibles.length, 'comptes');
+    }
+
+    console.log();
+    info(`${vert(nombre(faits))} converti(s), ${rates ? rouge(nombre(rates)) : '0'} en échec`);
+    const apres = await cf.tokenProgress();
+    note(`il reste ${nombre(apres.withGlobalKey)} clé(s) globale(s) en base`);
+    return rates ? 1 : 0;
+  },
+
   async verify(positionnels, options) {
     const demandes = domainesDemandes(positionnels, options);
     const { pretes, ecartees } = await cibles({ domains: demandes, all: !demandes.length, limit: options.limit ?? 20 });
@@ -434,6 +523,7 @@ ${gras('Données')}
   stats                     ce que la base contient aujourd'hui
   email --derive            déduit l'adresse du domaine ${gris('(<domaine>@linkuma.co)')}
   email <compte> <adresse>  renseigne l'adresse d'un seul compte
+  token [domaines…]         remplace les clés GLOBALES par des jetons limités
   verify [domaines…]        vérifie les accès ${gris('(lecture seule, 20 domaines par défaut)')}
 
 ${gras('Opérations')}

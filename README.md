@@ -804,6 +804,57 @@ server-scripts/del-site     script serveur de référence pour la suppression
 server-scripts/traduire-homepage.sh  même travail en ligne de commande (voir § 13)
 ```
 
+## 11 ter. Des jetons à la place des clés globales
+
+La base portait **38 195 clés globales**. Une clé globale ouvre la *totalité* d'un compte
+Cloudflare : la facturation, les membres de l'équipe, les Workers, la suppression de
+zones, et jusqu'à la création d'autres clés. Le back-office, lui, a besoin de six
+choses. Confier tout le compte pour faire cela, c'est laisser la clé de l'immeuble à qui
+vient relever le compteur.
+
+```bash
+npm run cf -- token                         # l'état, sans rien écrire
+npm run cf -- token <domaine> --yes         # un seul compte
+npm run cf -- token --all --limit 20 --yes  # commencer doucement
+```
+
+| Ce qu'un jeton **peut** | Ce qu'une clé globale donnait **en plus** |
+| --- | --- |
+| lire une zone, la retrouver par son nom | la facturation et les abonnements |
+| lire et changer ses réglages (SSL, HTTPS…) | les membres du compte et leurs droits |
+| lire et écrire son DNS | la création et la suppression de zones |
+| vider son cache | les Workers, R2, les tunnels |
+| — | la création d'autres clés et jetons |
+
+### L'ordre des gestes EST la garantie
+
+1. **créer** le jeton, avec la clé globale — c'est le seul moment où elle sert ;
+2. le **vérifier**, en interrogeant Cloudflare *avec lui* : un jeton créé mais inactif
+   existe, et on ne le saurait qu'au premier usage, en production ;
+3. l'**enregistrer** — sa valeur n'est montrée qu'une fois, la perdre oblige à recommencer ;
+4. alors seulement, **effacer la clé**.
+
+Inverser 2 et 4 laisserait le domaine injoignable au premier pépin. Si la vérification
+échoue, le jeton bancal est révoqué et **la clé n'est pas touchée**.
+
+La clé globale reste valable *chez Cloudflare* : ce qui change, c'est que **notre base ne
+la porte plus**. En cas de besoin, `npm run cf -- import dataCF.csv --yes` la remet.
+`--keep-key` permet de garder les deux le temps de prendre confiance — mais l'exposition
+reste alors inchangée.
+
+### Options
+
+`--ip=203.0.113.7` limite le jeton à une adresse : la protection la plus forte, et la
+plus fragile — elle se brise le jour où l'adresse change. `--expires-in-days=90` force la
+rotation : bonne pratique, et piège d'exploitation si personne n'y pense. Ni l'une ni
+l'autre par défaut.
+
+Sur 38 195 comptes, la conversion passe par une **tournée** (`cloudflare.token`) : le
+serveur la mène, elle reprend où elle s'arrête, et un compte qui résiste est noté sans
+arrêter les autres — sa clé reste intacte.
+
+---
+
 ## 11 bis. Les tournées : un traitement de masse confié au serveur
 
 La boucle d'un traitement de masse vivait dans **l'onglet du navigateur** : il envoyait

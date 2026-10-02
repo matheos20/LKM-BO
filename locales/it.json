@@ -280,7 +280,8 @@
     "job_unknown": "Elaborazione introvabile: {id}",
     "job_kind_unknown": "Trattamento sconosciuto: {kind}",
     "job_no_target": "Nessun dominio da trattare.",
-    "job_too_many": "Troppi domini in una volta: {max} al massimo."
+    "job_too_many": "Troppi domini in una volta: {max} al massimo.",
+    "cf_token_unusable": "Il token creato per {domain} non è utilizzabile (stato: {status}). La chiave globale non è stata toccata."
   },
   "files": {
     "title": "File",

@@ -280,7 +280,8 @@
     "job_unknown": "Tournée introuvable : {id}",
     "job_kind_unknown": "Traitement inconnu : {kind}",
     "job_no_target": "Aucun domaine à traiter.",
-    "job_too_many": "Trop de domaines d’un coup : {max} au maximum."
+    "job_too_many": "Trop de domaines d’un coup : {max} au maximum.",
+    "cf_token_unusable": "Le jeton créé n’est pas utilisable pour {domain} (état : {status}). La clé globale n’a pas été touchée."
   },
   "files": {
     "title": "Fichiers",

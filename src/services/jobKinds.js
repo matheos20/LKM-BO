@@ -59,6 +59,30 @@ export function buildJobKinds({ translation, categories, redirects, cloudflare }
 
     // ── Cloudflare : ni serveur ni SSH, seulement l'API. Les lots sont plus gros,
     //    l'opération étant déjà menée en parallèle par le service.
+
+    // REMPLACER LES CLÉS GLOBALES PAR DES JETONS. 38 195 comptes, un appel chacun :
+    // c'est exactement ce pour quoi les tournées existent. Les lots restent petits —
+    // créer un jeton écrit chez Cloudflare, et on avance prudemment.
+    ['cloudflare.token', {
+      kind: 'cloudflare.token',
+      // Remplacer un accès est une écriture, et des plus sensibles.
+      permission: 'cloudflare.write',
+      batch: 20,
+      perServer: false,
+      run: async ({ domains, params }) => {
+        const faits = [];
+        for (const domain of domains) {
+          try {
+            faits.push({ domain, ...(await cloudflare.convertToToken(domain, params)) });
+          } catch (err) {
+            // Un compte qui résiste ne doit pas arrêter la tournée : il est noté, et on
+            // passe au suivant. Sa clé globale est intacte — rien n'a été effacé.
+            faits.push({ domain, error: String(err.key ?? err.message).slice(0, 200) });
+          }
+        }
+        return { tokens: faits };
+      },
+    }],
     ['cloudflare.bulk', {
       kind: 'cloudflare.bulk',
       // Purger relève du droit de purge ; changer un réglage, de celui d'écriture.

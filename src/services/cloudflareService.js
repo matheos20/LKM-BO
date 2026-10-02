@@ -11,6 +11,7 @@ import { prepare } from '../db/mysql.js';
 import { parseDomainInput } from './cloudflareImport.js';
 import { AppError } from '../errors.js';
 import { redact } from './cloudflareClient.js';
+import { NOM_PAR_DEFAUT, createScopedToken, revokeToken, verifyToken } from './cloudflareTokens.js';
 import {
   createDnsRecord, deleteDnsRecord, findZoneByName, getSettings, getZone, listDnsRecords,
   purgeCache, purgeMany, setAlwaysUseHttps, setAlwaysUseHttpsMany, setAutoMinify,
@@ -307,6 +308,68 @@ export class CloudflareService {
       globalApiKey: l.global_api_key || null,
       apiToken: l.api_token || null,
     };
+  }
+
+  // ─────────────────────── Jetons à portée limitée ───────────────────────
+
+  /**
+   * Remplace la clé globale d'un compte par un jeton qui ne peut que ce qu'il faut.
+   *
+   * L'ORDRE DES QUATRE GESTES EST LA GARANTIE :
+   *
+   *   1. créer le jeton, avec la clé globale — c'est le seul moment où elle sert ;
+   *   2. le VÉRIFIER, en interrogeant Cloudflare AVEC LUI : un jeton créé mais inactif
+   *      existe, et on ne le saurait qu'au premier usage, en production ;
+   *   3. l'enregistrer — sa valeur n'est montrée qu'une fois, la perdre oblige à
+   *      recommencer ;
+   *   4. alors seulement, effacer la clé globale.
+   *
+   * Inverser 2 et 4 laisserait le domaine injoignable au premier pépin. La clé reste
+   * d'ailleurs valable chez Cloudflare : ce qui change, c'est que NOTRE base ne la porte
+   * plus. En cas de besoin, un réimport de l'export la remet.
+   */
+  async convertToToken(domain, { name, ip = '', expiresInDays = 0, dropKey = true } = {}) {
+    const nom = String(domain ?? '').trim().toLowerCase();
+    const l = await prepare(
+      `SELECT z.domain, a.id AS ref, a.account_id, a.email, a.global_api_key, a.api_token
+       FROM cf_zones z JOIN cf_accounts a ON a.id = z.account_ref WHERE z.domain = ?`,
+    ).get(nom);
+    if (!l) throw new AppError('errors.cf_unknown_domain', { status: 404, vars: { domain: nom } });
+    if (l.api_token) return { domain: l.domain, accountId: l.account_id, already: true, tokenId: null };
+    if (!l.global_api_key) throw new AppError('errors.cf_no_access', { status: 400, vars: { domain: nom } });
+    if (!l.email) throw new AppError('errors.cf_no_email', { status: 400, vars: { domain: nom } });
+
+    const creds = { globalApiKey: l.global_api_key, email: l.email };
+    const jeton = await createScopedToken(l.account_id, creds, { name: name ?? NOM_PAR_DEFAUT, ip, expiresInDays });
+
+    const controle = await verifyToken(jeton.value);
+    if (!controle.ok) {
+      // On ne garde pas un jeton qui ne marche pas, et on ne touche surtout pas à la clé.
+      await revokeToken(jeton.id, creds).catch(() => {});
+      throw new AppError('errors.cf_token_unusable', { status: 502, vars: { domain: nom, status: controle.status } });
+    }
+
+    await prepare('UPDATE cf_accounts SET api_token = ?, global_api_key = ?, verified_at = ?, last_error = \'\', updated_at = ? WHERE id = ?').run(
+      jeton.value,
+      dropKey ? '' : l.global_api_key,
+      Date.now(),
+      Date.now(),
+      l.ref,
+    );
+    return { domain: l.domain, accountId: l.account_id, tokenId: jeton.id, keyDropped: Boolean(dropKey), already: false };
+  }
+
+  /** Combien de comptes portent encore une clé globale, et combien un jeton. */
+  async tokenProgress() {
+    const un = async (sql) => Number((await prepare(sql).get())?.n ?? 0);
+    const [total, avecJeton, avecCle, convertibles] = await Promise.all([
+      un('SELECT COUNT(*) AS n FROM cf_accounts'),
+      un("SELECT COUNT(*) AS n FROM cf_accounts WHERE api_token <> ''"),
+      un("SELECT COUNT(*) AS n FROM cf_accounts WHERE global_api_key <> ''"),
+      // Convertible = clé globale, adresse connue, et pas encore de jeton.
+      un("SELECT COUNT(*) AS n FROM cf_accounts WHERE api_token = '' AND global_api_key <> '' AND email <> ''"),
+    ]);
+    return { total, withToken: avecJeton, withGlobalKey: avecCle, convertible: convertibles };
   }
 
   // ─────────────────────── Opérations de masse ───────────────────────

@@ -280,7 +280,8 @@
     "job_unknown": "Run not found: {id}",
     "job_kind_unknown": "Unknown treatment: {kind}",
     "job_no_target": "No domain to process.",
-    "job_too_many": "Too many domains at once: {max} maximum."
+    "job_too_many": "Too many domains at once: {max} maximum.",
+    "cf_token_unusable": "The token created for {domain} is not usable (status: {status}). The global key was left untouched."
   },
   "files": {
     "title": "Files",

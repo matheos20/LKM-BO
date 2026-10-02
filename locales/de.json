@@ -280,7 +280,8 @@
     "job_unknown": "Durchlauf nicht gefunden: {id}",
     "job_kind_unknown": "Unbekannte Verarbeitung: {kind}",
     "job_no_target": "Keine Domain zu verarbeiten.",
-    "job_too_many": "Zu viele Domains auf einmal: höchstens {max}."
+    "job_too_many": "Zu viele Domains auf einmal: höchstens {max}.",
+    "cf_token_unusable": "Das für {domain} erstellte Token ist nicht nutzbar (Status: {status}). Der globale Schlüssel blieb unangetastet."
   },
   "files": {
     "title": "Dateien",

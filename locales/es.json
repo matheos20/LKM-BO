@@ -280,7 +280,8 @@
     "job_unknown": "Tarea no encontrada: {id}",
     "job_kind_unknown": "Tratamiento desconocido: {kind}",
     "job_no_target": "Ningún dominio que tratar.",
-    "job_too_many": "Demasiados dominios a la vez: {max} como máximo."
+    "job_too_many": "Demasiados dominios a la vez: {max} como máximo.",
+    "cf_token_unusable": "El token creado para {domain} no es utilizable (estado: {status}). La clave global no se ha tocado."
   },
   "files": {
     "title": "Archivos",
