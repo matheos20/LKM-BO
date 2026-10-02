@@ -281,7 +281,10 @@
     "job_kind_unknown": "Trattamento sconosciuto: {kind}",
     "job_no_target": "Nessun dominio da trattare.",
     "job_too_many": "Troppi domini in una volta: {max} al massimo.",
-    "cf_token_unusable": "Il token creato per {domain} non è utilizzabile (stato: {status}). La chiave globale non è stata toccata."
+    "cf_token_unusable": "Il token creato per {domain} non è utilizzabile (stato: {status}). La chiave globale non è stata toccata.",
+    "health_no_target": "Nessun sito da controllare.",
+    "health_probe_unreachable": "La sonda non raggiunge il server web su {server} (porta {port}). Nessun sito è stato dichiarato fuori servizio: è la misura che non è riuscita, non i siti.",
+    "health_server_busy": "{server} è troppo carico in questo momento ({load} su {cores} core). L’analisi si è fermata per non aggravare la situazione; riprendetela più tardi, ripartirà da dove era arrivata."
   },
   "files": {
     "title": "File",
@@ -843,7 +846,8 @@
     "job_status_running": "in corso",
     "job_status_done": "terminata",
     "job_status_failed": "fallita",
-    "job_status_cancelled": "interrotta"
+    "job_status_cancelled": "interrotta",
+    "health": "Salute del parco"
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
@@ -1140,7 +1144,7 @@
     }
   },
   "redirects": {
-    "explain": "Il back-office scrive il reindirizzamento nel .htaccess del sito, subito dopo la riga di riferimento del motore. Nient’altro viene toccato.",
+    "explain": "Il back-office colloca al vecchio indirizzo un piccolo file che rinvia il visitatore con un 301 al nuovo. Una pagina già esistente non viene mai sovrascritta senza che lo chiediate, e ogni file sostituito viene salvato.",
     "step_what": "Quali reindirizzamenti?",
     "step_what_hint": "L’indirizzo vecchio, quello che non risponde più, e quello verso cui mandare il visitatore.",
     "from_label": "Indirizzo vecchio (404)",
@@ -1382,5 +1386,31 @@
     "job_background": "Questa operazione è affidata al server. Può chiudere questa finestra, e anche il browser: proseguirà.",
     "job_waiting": "In attesa del server…",
     "job_progress": "{done} su {total} domini ({pct} %)"
+  },
+  "health": {
+    "title": "Salute del parco",
+    "explain": "Il back-office chiede la pagina iniziale di ogni sito al server stesso, come farebbe un visitatore, e non modifica nulla. Calcolate circa mezz’ora per server: l’analisi avanza lentamente, rallenta quando la macchina è carica e si interrompe piuttosto che disturbare i siti.",
+    "state_ok": "online",
+    "state_slow": "lento",
+    "state_empty": "pagina vuota",
+    "state_php_error": "errore PHP",
+    "state_redirect": "rinvia altrove",
+    "state_refused": "accesso rifiutato",
+    "state_missing": "sito assente",
+    "state_server_error": "errore del server",
+    "state_unreachable": "non risponde",
+    "state_no_answer": "sonda perduta",
+    "state_invalid": "nome non valido",
+    "stat_probed": "Siti controllati",
+    "stat_ok": "Online",
+    "stat_problems": "Da guardare",
+    "col_state": "Stato",
+    "col_code": "Codice",
+    "col_time": "Durata",
+    "col_size": "Peso",
+    "all_good": "Tutti i siti controllati rispondono normalmente.",
+    "only_problems": "Mostrare solo ciò che non va",
+    "busy_note": "{server} era molto carico durante l’analisi ({load} su {cores} core): i siti che vi risiedono possono sembrare lenti senza esserlo.",
+    "nothing_measured": "Nessun sito ha potuto essere misurato. Non è un segno che i siti stiano male: è l’analisi che non ha riportato nulla. Guardate il dettaglio del giro, poi riprovate."
   }
 }

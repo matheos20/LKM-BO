@@ -4,6 +4,7 @@ import { $, enc, fmtNum, folderButton, h, icon, stepTitle, toast, toastError } f
 import { categoryAction } from './categories.js';
 import { templateAction } from './templates.js';
 import { redirectAction } from './redirects.js';
+import { healthAction } from './health.js';
 import { translateAction } from './translate.js';
 
 /**
@@ -35,7 +36,9 @@ import { translateAction } from './translate.js';
  *               collé) ; le périmètre de l'écran s'efface alors ;
  *   canRun()    false tant que la saisie est incomplète — le bouton reste inerte.
  */
-const ACTIONS = [translateAction, templateAction, categoryAction, redirectAction];
+// L'ordre est celui du menu. La santé du parc vient en tête : c'est par elle qu'on
+// commence une journée, et c'est la seule qui ne modifie rien.
+const ACTIONS = [healthAction, translateAction, templateAction, categoryAction, redirectAction];
 
 const state = {
   open: false,

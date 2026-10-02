@@ -281,7 +281,10 @@
     "job_kind_unknown": "Unknown treatment: {kind}",
     "job_no_target": "No domain to process.",
     "job_too_many": "Too many domains at once: {max} maximum.",
-    "cf_token_unusable": "The token created for {domain} is not usable (status: {status}). The global key was left untouched."
+    "cf_token_unusable": "The token created for {domain} is not usable (status: {status}). The global key was left untouched.",
+    "health_no_target": "No site to check.",
+    "health_probe_unreachable": "The probe cannot reach the web server on {server} (port {port}). No site has been declared down: the measurement failed, not the sites.",
+    "health_server_busy": "{server} is too busy right now ({load} across {cores} cores). The scan stopped so as not to make things worse; resume it later and it will pick up where it left off."
   },
   "files": {
     "title": "Files",
@@ -843,7 +846,8 @@
     "job_status_running": "running",
     "job_status_done": "finished",
     "job_status_failed": "failed",
-    "job_status_cancelled": "stopped"
+    "job_status_cancelled": "stopped",
+    "health": "Fleet health"
   },
   "translate": {
     "explain": "The back office reads the home page of the selected sites and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",
@@ -1140,7 +1144,7 @@
     }
   },
   "redirects": {
-    "explain": "The back-office writes the redirect into the site .htaccess, right after the engine marker line. Nothing else is touched.",
+    "explain": "The back-office places a small file at the old address that sends the visitor on with a 301 to the new one. A page that already exists is never overwritten unless you ask, and every replaced file is backed up.",
     "step_what": "Which redirects?",
     "step_what_hint": "The old address, the one that no longer answers, and the one to send the visitor to.",
     "from_label": "Old address (404)",
@@ -1382,5 +1386,31 @@
     "job_background": "This operation now runs on the server. You can close this window, and even your browser: it will carry on.",
     "job_waiting": "Waiting for the server…",
     "job_progress": "{done} of {total} domains ({pct}%)"
+  },
+  "health": {
+    "title": "Fleet health",
+    "explain": "The back-office requests each site’s homepage from the server itself, the way a visitor would, and changes nothing. Allow about half an hour per server: the scan advances slowly, slows down further when the machine is busy, and stops rather than getting in the sites’ way.",
+    "state_ok": "online",
+    "state_slow": "slow",
+    "state_empty": "blank page",
+    "state_php_error": "PHP error",
+    "state_redirect": "sent elsewhere",
+    "state_refused": "access refused",
+    "state_missing": "site missing",
+    "state_server_error": "server error",
+    "state_unreachable": "no response",
+    "state_no_answer": "probe lost",
+    "state_invalid": "invalid name",
+    "stat_probed": "Sites checked",
+    "stat_ok": "Online",
+    "stat_problems": "Needs a look",
+    "col_state": "State",
+    "col_code": "Code",
+    "col_time": "Time",
+    "col_size": "Size",
+    "all_good": "Every site checked responds normally.",
+    "only_problems": "Show only what is wrong",
+    "busy_note": "{server} was heavily loaded during the scan ({load} across {cores} cores): sites on it may look slow without being slow.",
+    "nothing_measured": "No site could be measured. That is not a sign the sites are in trouble: the scan itself reported nothing. Check the run’s details, then try again."
   }
 }

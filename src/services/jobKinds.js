@@ -31,12 +31,21 @@ const part = (request, domains) => {
   return Object.fromEntries(domains.filter((d) => tout[d] !== undefined).map((d) => [d, tout[d]]));
 };
 
-export function buildJobKinds({ translation, categories, redirects, cloudflare }) {
+export function buildJobKinds({ translation, categories, redirects, cloudflare, health }) {
   return Object.fromEntries([
     // ── Analyse : rien n'est modifié sur les sites.
     parServeur('translate.scan', {
       permission: 'bulk.read',
       appel: ({ serverId, domains, params }) => translation.scan(serverId, domains, { minScore: params.minScore }),
+    }),
+    // SANTÉ DU PARC. Le lot est petit et le service se bride lui-même sur la charge de la
+    // machine : une mesure de 300 sites à dix sondes a fait passer vps-001 de 6 à 138 de
+    // charge moyenne, le 02/10/2026. Cinquante par lot, deux sondes à la fois, et un lot
+    // qui patiente quand le serveur souffre — voir `healthService.js`.
+    parServeur('health.scan', {
+      permission: 'bulk.read',
+      batch: 50,
+      appel: ({ serverId, domains, params }) => health.scan(serverId, domains, params ?? {}),
     }),
     parServeur('templates.scan', {
       permission: 'bulk.read',

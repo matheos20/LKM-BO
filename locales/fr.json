@@ -281,7 +281,10 @@
     "job_kind_unknown": "Traitement inconnu : {kind}",
     "job_no_target": "Aucun domaine à traiter.",
     "job_too_many": "Trop de domaines d’un coup : {max} au maximum.",
-    "cf_token_unusable": "Le jeton créé n’est pas utilisable pour {domain} (état : {status}). La clé globale n’a pas été touchée."
+    "cf_token_unusable": "Le jeton créé n’est pas utilisable pour {domain} (état : {status}). La clé globale n’a pas été touchée.",
+    "health_no_target": "Aucun site à vérifier.",
+    "health_probe_unreachable": "La sonde n'atteint pas le serveur web sur {server} (port {port}). Aucun site n'a été déclaré en panne : c'est la mesure qui a échoué, pas les sites.",
+    "health_server_busy": "{server} est trop chargé en ce moment ({load} sur {cores} cœurs). L'analyse s'est arrêtée pour ne pas aggraver la situation ; reprenez-la plus tard, elle repartira où elle en était."
   },
   "files": {
     "title": "Fichiers",
@@ -843,7 +846,8 @@
     "job_status_running": "en cours",
     "job_status_done": "terminée",
     "job_status_failed": "échouée",
-    "job_status_cancelled": "arrêtée"
+    "job_status_cancelled": "arrêtée",
+    "health": "Santé du parc"
   },
   "translate": {
     "explain": "Le back-office lit la page d'accueil des sites choisis et repère les textes rédigés dans une autre langue que celle du site. Rien n'est modifié pendant l'analyse.",
@@ -1140,7 +1144,7 @@
     }
   },
   "redirects": {
-    "explain": "Le back-office écrit la redirection dans le .htaccess du site, juste après la ligne de repère du moteur. Rien d'autre n'est touché.",
+    "explain": "Le back-office dépose, à l’ancienne adresse, un petit fichier qui renvoie le visiteur en 301 vers la nouvelle. Une page qui existe déjà n’est jamais écrasée sans que vous le demandiez, et chaque fichier remplacé est sauvegardé.",
     "step_what": "Quelles redirections ?",
     "step_what_hint": "L'ancienne adresse, celle qui ne répond plus, et celle vers laquelle envoyer le visiteur.",
     "from_label": "Ancienne adresse (404)",
@@ -1382,5 +1386,31 @@
     "job_background": "Cette opération est confiée au serveur. Vous pouvez fermer cette fenêtre, et même votre navigateur : elle se poursuivra.",
     "job_waiting": "En attente du serveur…",
     "job_progress": "{done} sur {total} domaines ({pct} %)"
+  },
+  "health": {
+    "title": "Santé du parc",
+    "explain": "Le back-office demande la page d’accueil de chaque site depuis le serveur lui-même, comme un visiteur le ferait, et ne modifie rien. Comptez environ une demi-heure par serveur : l’analyse avance lentement, ralentit quand la machine est chargée, et s’arrête plutôt que de gêner les sites.",
+    "state_ok": "en ligne",
+    "state_slow": "lent",
+    "state_empty": "page vide",
+    "state_php_error": "erreur PHP",
+    "state_redirect": "renvoi ailleurs",
+    "state_refused": "accès refusé",
+    "state_missing": "site absent",
+    "state_server_error": "erreur serveur",
+    "state_unreachable": "ne répond pas",
+    "state_no_answer": "sonde perdue",
+    "state_invalid": "nom invalide",
+    "stat_probed": "Sites vérifiés",
+    "stat_ok": "En ligne",
+    "stat_problems": "À regarder",
+    "col_state": "État",
+    "col_code": "Code",
+    "col_time": "Durée",
+    "col_size": "Poids",
+    "all_good": "Tous les sites vérifiés répondent normalement.",
+    "only_problems": "Ne montrer que ce qui va mal",
+    "busy_note": "{server} était très chargé pendant l’analyse ({load} sur {cores} cœurs) : des sites peuvent y paraître lents sans l’être.",
+    "nothing_measured": "Aucun site n’a pu être mesuré. Ce n’est pas un signe que les sites vont mal : c’est l’analyse qui n’a rien rapporté. Regardez le détail de la tournée, puis recommencez."
   }
 }

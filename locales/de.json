@@ -281,7 +281,10 @@
     "job_kind_unknown": "Unbekannte Verarbeitung: {kind}",
     "job_no_target": "Keine Domain zu verarbeiten.",
     "job_too_many": "Zu viele Domains auf einmal: höchstens {max}.",
-    "cf_token_unusable": "Das für {domain} erstellte Token ist nicht nutzbar (Status: {status}). Der globale Schlüssel blieb unangetastet."
+    "cf_token_unusable": "Das für {domain} erstellte Token ist nicht nutzbar (Status: {status}). Der globale Schlüssel blieb unangetastet.",
+    "health_no_target": "Keine Website zu prüfen.",
+    "health_probe_unreachable": "Die Messung erreicht den Webserver auf {server} (Port {port}) nicht. Keine Website wurde als ausgefallen gemeldet: die Messung ist fehlgeschlagen, nicht die Websites.",
+    "health_server_busy": "{server} ist derzeit zu stark belastet ({load} auf {cores} Kernen). Die Prüfung wurde abgebrochen, um die Lage nicht zu verschlimmern; setzen Sie sie später fort, sie macht dort weiter, wo sie war."
   },
   "files": {
     "title": "Dateien",
@@ -843,7 +846,8 @@
     "job_status_running": "läuft",
     "job_status_done": "abgeschlossen",
     "job_status_failed": "fehlgeschlagen",
-    "job_status_cancelled": "gestoppt"
+    "job_status_cancelled": "gestoppt",
+    "health": "Zustand des Bestands"
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",
@@ -1140,7 +1144,7 @@
     }
   },
   "redirects": {
-    "explain": "Das Back-Office schreibt die Weiterleitung in die .htaccess der Website, direkt nach der Markierungszeile der Engine. Nichts anderes wird angerührt.",
+    "explain": "Das Back-Office legt an der alten Adresse eine kleine Datei ab, die den Besucher mit einem 301 zur neuen weiterschickt. Eine bereits vorhandene Seite wird nie überschrieben, ohne dass Sie es verlangen, und jede ersetzte Datei wird gesichert.",
     "step_what": "Welche Weiterleitungen?",
     "step_what_hint": "Die alte Adresse, die nicht mehr antwortet, und die, zu der der Besucher geschickt werden soll.",
     "from_label": "Alte Adresse (404)",
@@ -1382,5 +1386,31 @@
     "job_background": "Dieser Vorgang läuft nun auf dem Server. Sie können dieses Fenster und sogar den Browser schließen: er läuft weiter.",
     "job_waiting": "Warten auf den Server…",
     "job_progress": "{done} von {total} Domains ({pct} %)"
+  },
+  "health": {
+    "title": "Zustand des Bestands",
+    "explain": "Das Back-Office ruft die Startseite jeder Website vom Server selbst ab, so wie es ein Besucher täte, und ändert nichts. Rechnen Sie mit etwa einer halben Stunde pro Server: die Prüfung geht langsam vor, wird bei hoher Last noch langsamer und bricht ab, statt die Websites zu behindern.",
+    "state_ok": "online",
+    "state_slow": "langsam",
+    "state_empty": "leere Seite",
+    "state_php_error": "PHP-Fehler",
+    "state_redirect": "leitet woandershin",
+    "state_refused": "Zugriff verweigert",
+    "state_missing": "Website fehlt",
+    "state_server_error": "Serverfehler",
+    "state_unreachable": "keine Antwort",
+    "state_no_answer": "Messung verloren",
+    "state_invalid": "ungültiger Name",
+    "stat_probed": "Geprüfte Websites",
+    "stat_ok": "Online",
+    "stat_problems": "Anzusehen",
+    "col_state": "Zustand",
+    "col_code": "Code",
+    "col_time": "Dauer",
+    "col_size": "Größe",
+    "all_good": "Alle geprüften Websites antworten normal.",
+    "only_problems": "Nur Auffälliges zeigen",
+    "busy_note": "{server} war während der Prüfung stark belastet ({load} auf {cores} Kernen): Websites dort können langsam wirken, ohne es zu sein.",
+    "nothing_measured": "Keine Website konnte gemessen werden. Das heißt nicht, dass es den Websites schlecht geht: die Prüfung selbst hat nichts gemeldet. Sehen Sie sich die Einzelheiten des Durchgangs an und versuchen Sie es erneut."
   }
 }

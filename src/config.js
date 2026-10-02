@@ -169,6 +169,10 @@ export function loadServers(filePath = config.serversFile) {
     checkAuth(s.auth, where);
 
     s.port = Number(s.port) || 22;
+    // Le port où nginx écoute POUR LES SITES, qui n'est pas celui de SSH. Mesuré le
+    // 02/10/2026 : 8080 sur les cinq machines, et ni 80 ni 443 — ce qui termine le TLS
+    // est en amont. Réglable au cas où une machine en changerait.
+    s.httpPort = Number(s.httpPort) || 8080;
     s.label ??= s.id;
     s.group ??= 'default';
     s.commands ??= {};

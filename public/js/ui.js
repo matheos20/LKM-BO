@@ -92,6 +92,8 @@ export const ICONS = {
   plus: ['M12 5v14M5 12h14'],
   user: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'M4 20a8 8 0 0 1 16 0'],
   shield: ['M12 3l8 3v6c0 4.5-3.2 7.9-8 9-4.8-1.1-8-4.5-8-9V6l8-3Z', 'm9 12 2 2 4-4'],
+  // Un tracé de pouls : la santé du parc, et rien d'autre dans l'application.
+  activity: ['M3 12h3.5l2-5.5 3.5 11 2.5-6.5H21'],
   palette: ['M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-1-.6-1.4-.3-.4-.4-.8-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-3.9-4-7-9-7Z', 'M7.5 11.5h.01M10.5 8h.01M14.5 8h.01'],
 };
 

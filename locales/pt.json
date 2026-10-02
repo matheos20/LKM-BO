@@ -281,7 +281,10 @@
     "job_kind_unknown": "Tratamento desconhecido: {kind}",
     "job_no_target": "Nenhum domínio a tratar.",
     "job_too_many": "Demasiados domínios de uma vez: {max} no máximo.",
-    "cf_token_unusable": "O token criado para {domain} não é utilizável (estado: {status}). A chave global não foi tocada."
+    "cf_token_unusable": "O token criado para {domain} não é utilizável (estado: {status}). A chave global não foi tocada.",
+    "health_no_target": "Nenhum site a verificar.",
+    "health_probe_unreachable": "A sonda não alcança o servidor web em {server} (porta {port}). Nenhum site foi declarado em baixo: falhou a medição, não os sites.",
+    "health_server_busy": "{server} está demasiado carregado neste momento ({load} em {cores} núcleos). A análise parou para não agravar a situação; retome-a mais tarde e continuará de onde ficou."
   },
   "files": {
     "title": "Ficheiros",
@@ -843,7 +846,8 @@
     "job_status_running": "em curso",
     "job_status_done": "terminado",
     "job_status_failed": "falhado",
-    "job_status_cancelled": "interrompido"
+    "job_status_cancelled": "interrompido",
+    "health": "Saúde do parque"
   },
   "translate": {
     "explain": "O back-office lê a página inicial dos sites escolhidos e assinala os textos escritos noutra língua que não a do site. Nada é alterado durante a análise.",
@@ -1140,7 +1144,7 @@
     }
   },
   "redirects": {
-    "explain": "O back-office escreve o redireccionamento no .htaccess do site, logo a seguir à linha de referência do motor. Nada mais é tocado.",
+    "explain": "O back-office coloca no endereço antigo um pequeno ficheiro que envia o visitante com um 301 para o novo. Uma página que já existe nunca é substituída sem que o peça, e cada ficheiro substituído é guardado.",
     "step_what": "Que redireccionamentos?",
     "step_what_hint": "O endereço antigo, o que já não responde, e aquele para onde enviar o visitante.",
     "from_label": "Endereço antigo (404)",
@@ -1382,5 +1386,31 @@
     "job_background": "Esta operação é confiada ao servidor. Pode fechar esta janela, e até o navegador: continuará.",
     "job_waiting": "A aguardar o servidor…",
     "job_progress": "{done} de {total} domínios ({pct} %)"
+  },
+  "health": {
+    "title": "Saúde do parque",
+    "explain": "O back-office pede a página inicial de cada site ao próprio servidor, como faria um visitante, e não altera nada. Conte cerca de meia hora por servidor: a análise avança devagar, abranda quando a máquina está carregada e para em vez de atrapalhar os sites.",
+    "state_ok": "online",
+    "state_slow": "lento",
+    "state_empty": "página vazia",
+    "state_php_error": "erro PHP",
+    "state_redirect": "envia para outro lado",
+    "state_refused": "acesso recusado",
+    "state_missing": "site ausente",
+    "state_server_error": "erro do servidor",
+    "state_unreachable": "não responde",
+    "state_no_answer": "sonda perdida",
+    "state_invalid": "nome inválido",
+    "stat_probed": "Sites verificados",
+    "stat_ok": "Online",
+    "stat_problems": "A verificar",
+    "col_state": "Estado",
+    "col_code": "Código",
+    "col_time": "Duração",
+    "col_size": "Tamanho",
+    "all_good": "Todos os sites verificados respondem normalmente.",
+    "only_problems": "Mostrar apenas o que está mal",
+    "busy_note": "{server} estava muito carregado durante a análise ({load} em {cores} núcleos): os sites alojados aí podem parecer lentos sem o serem.",
+    "nothing_measured": "Nenhum site pôde ser medido. Isso não indica que os sites estejam mal: foi a análise que não devolveu nada. Veja o detalhe da ronda e tente novamente."
   }
 }

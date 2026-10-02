@@ -281,7 +281,10 @@
     "job_kind_unknown": "Tratamiento desconocido: {kind}",
     "job_no_target": "Ningún dominio que tratar.",
     "job_too_many": "Demasiados dominios a la vez: {max} como máximo.",
-    "cf_token_unusable": "El token creado para {domain} no es utilizable (estado: {status}). La clave global no se ha tocado."
+    "cf_token_unusable": "El token creado para {domain} no es utilizable (estado: {status}). La clave global no se ha tocado.",
+    "health_no_target": "Ningún sitio que revisar.",
+    "health_probe_unreachable": "La sonda no alcanza el servidor web en {server} (puerto {port}). Ningún sitio ha sido declarado caído: ha fallado la medición, no los sitios.",
+    "health_server_busy": "{server} está demasiado cargado ahora mismo ({load} en {cores} núcleos). El análisis se detuvo para no empeorar la situación; reanúdelo más tarde y continuará donde lo dejó."
   },
   "files": {
     "title": "Archivos",
@@ -843,7 +846,8 @@
     "job_status_running": "en curso",
     "job_status_done": "terminada",
     "job_status_failed": "fallida",
-    "job_status_cancelled": "detenida"
+    "job_status_cancelled": "detenida",
+    "health": "Salud del parque"
   },
   "translate": {
     "explain": "El back-office lee la página de inicio de los sitios elegidos y detecta los textos escritos en un idioma distinto al del sitio. Nada se modifica durante el análisis.",
@@ -1140,7 +1144,7 @@
     }
   },
   "redirects": {
-    "explain": "El back-office escribe la redirección en el .htaccess del sitio, justo después de la línea de referencia del motor. No se toca nada más.",
+    "explain": "El back-office coloca en la dirección antigua un pequeño archivo que envía al visitante con un 301 a la nueva. Una página que ya existe nunca se sobrescribe sin que lo pida, y cada archivo reemplazado se respalda.",
     "step_what": "¿Qué redirecciones?",
     "step_what_hint": "La dirección antigua, la que ya no responde, y aquella a la que enviar al visitante.",
     "from_label": "Dirección antigua (404)",
@@ -1382,5 +1386,31 @@
     "job_background": "Esta operación se confía al servidor. Puede cerrar esta ventana, e incluso el navegador: continuará.",
     "job_waiting": "Esperando al servidor…",
     "job_progress": "{done} de {total} dominios ({pct} %)"
+  },
+  "health": {
+    "title": "Salud del parque",
+    "explain": "El back-office pide la página de inicio de cada sitio desde el propio servidor, como lo haría un visitante, y no modifica nada. Cuente media hora por servidor: el análisis avanza despacio, se ralentiza cuando la máquina está cargada y se detiene antes que estorbar a los sitios.",
+    "state_ok": "en línea",
+    "state_slow": "lento",
+    "state_empty": "página vacía",
+    "state_php_error": "error PHP",
+    "state_redirect": "envía a otro sitio",
+    "state_refused": "acceso denegado",
+    "state_missing": "sitio ausente",
+    "state_server_error": "error del servidor",
+    "state_unreachable": "no responde",
+    "state_no_answer": "sonda perdida",
+    "state_invalid": "nombre no válido",
+    "stat_probed": "Sitios revisados",
+    "stat_ok": "En línea",
+    "stat_problems": "Para revisar",
+    "col_state": "Estado",
+    "col_code": "Código",
+    "col_time": "Duración",
+    "col_size": "Tamaño",
+    "all_good": "Todos los sitios revisados responden con normalidad.",
+    "only_problems": "Mostrar solo lo que va mal",
+    "busy_note": "{server} estaba muy cargado durante el análisis ({load} en {cores} núcleos): los sitios alojados ahí pueden parecer lentos sin serlo.",
+    "nothing_measured": "No se pudo medir ningún sitio. Eso no indica que los sitios estén mal: es el análisis el que no ha devuelto nada. Revise el detalle de la ronda y vuelva a intentarlo."
   }
 }
