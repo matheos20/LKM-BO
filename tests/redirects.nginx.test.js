@@ -116,7 +116,7 @@ test('redirections : les deux états nouveaux sont nommés dans les six langues'
   // était arrivé aux droits Cloudflare.
   for (const langue of ['fr', 'en', 'es', 'it', 'pt', 'de']) {
     const textes = JSON.parse(readFileSync(join(RACINE, 'locales', `${langue}.json`), 'utf8'));
-    for (const etat of ['exists', 'unsupported', 'to_add', 'present', 'conflict']) {
+    for (const etat of ['exists', 'unsupported', 'to_add', 'present', 'conflict', 'to_replace', 'external']) {
       const libelle = textes.redirects?.[`state_${etat}`];
       assert.equal(typeof libelle, 'string', `${langue} : « redirects.state_${etat} » manque`);
       assert.ok(libelle.trim().length > 0);

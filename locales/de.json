@@ -1223,7 +1223,11 @@
     "state_exists": "Seite vorhanden",
     "state_unsupported": "nicht umleitbar",
     "exists_hint": "Eine Seite der Website nutzt diese Adresse bereits: sie wird nicht überschrieben.",
-    "unsupported_hint": "Nur Adressen, die auf „.php“ enden, können umgeleitet werden."
+    "unsupported_hint": "Nur Adressen, die auf „.php“ enden, können umgeleitet werden.",
+    "state_to_replace": "ersetzt die Seite",
+    "state_external": "außerhalb des Bestands",
+    "external_hint": "Diese Adresse verlässt Ihre Domains. Haken Sie „erlauben“ an, wenn das gewollt ist.",
+    "replace_hint": "Diese Seite existiert und wird durch eine Weiterleitung ERSETZT."
   },
   "search": {
     "searching": "Suche…",

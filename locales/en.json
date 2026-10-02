@@ -1223,7 +1223,11 @@
     "state_exists": "page exists",
     "state_unsupported": "not redirectable",
     "exists_hint": "A page of the site already uses this address: it is not overwritten.",
-    "unsupported_hint": "Only addresses ending in “.php” can be redirected."
+    "unsupported_hint": "Only addresses ending in “.php” can be redirected.",
+    "state_to_replace": "replaces the page",
+    "state_external": "outside the estate",
+    "external_hint": "This address leaves your domains. Tick “allow” if that is intended.",
+    "replace_hint": "This page exists and will be REPLACED by a redirect."
   },
   "search": {
     "searching": "Searching…",

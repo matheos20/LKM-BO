@@ -1223,7 +1223,11 @@
     "state_exists": "página existente",
     "state_unsupported": "no redirigible",
     "exists_hint": "Una página del sitio ya usa esta dirección: no se sobrescribe.",
-    "unsupported_hint": "Solo pueden redirigirse las direcciones que terminan en «.php»."
+    "unsupported_hint": "Solo pueden redirigirse las direcciones que terminan en «.php».",
+    "state_to_replace": "sustituye la página",
+    "state_external": "fuera del parque",
+    "external_hint": "Esta dirección sale de sus dominios. Marque «permitir» si es intencionado.",
+    "replace_hint": "Esta página existe y será SUSTITUIDA por una redirección."
   },
   "search": {
     "searching": "Buscando…",

@@ -1223,7 +1223,11 @@
     "state_exists": "page existante",
     "state_unsupported": "non redirigeable",
     "exists_hint": "Une page du site porte déjà cette adresse : elle n’est pas écrasée.",
-    "unsupported_hint": "Seules les adresses finissant par « .php » peuvent être redirigées."
+    "unsupported_hint": "Seules les adresses finissant par « .php » peuvent être redirigées.",
+    "state_to_replace": "remplace la page",
+    "state_external": "hors du parc",
+    "external_hint": "Cette adresse sort de vos domaines. Cochez « autoriser » si c’est voulu.",
+    "replace_hint": "Cette page existe et sera REMPLACÉE par une redirection."
   },
   "search": {
     "searching": "Recherche…",

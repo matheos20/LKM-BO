@@ -1003,307 +1003,7 @@ echo json_encode(['sites' => $sites, 'mode' => $mode], JSON_UNESCAPED_UNICODE | 
  * Le nombre d'articles est compté ici parce qu'il décide de tout : la suppression
  * retire la page de la rubrique, jamais les articles, et l'agent doit le voir avant.
  */
-/**
- * Redirections 301 dans le .htaccess d'un site.
- *
- * Le fichier fait de 4 à 99 Ko sur le parc et porte tout le routage du site : une
- * écriture ratée le casse entièrement. Quatre garde-fous, dans cet ordre :
- *
- *   1. LE REPÈRE DOIT ÊTRE LÀ, UNE SEULE FOIS. Sans lui on ne sait pas où écrire, et
- *      deux repères voudraient dire deux endroits possibles : dans les deux cas on
- *      refuse plutôt que de choisir.
- *   2. RIEN N'EST ÉCRIT SI LE FICHIER A CHANGÉ depuis la vérification : la somme de
- *      contrôle vue à l'étape 1 est comparée avant d'écrire.
- *   3. UNE SAUVEGARDE HORODATÉE part avant toute écriture.
- *   4. LE FICHIER EST RELU APRÈS ÉCRITURE et comparé octet à octet à ce qu'on voulait
- *      écrire. Au moindre écart, la sauvegarde est remise en place.
- *
- * L'écriture se fait SUR PLACE (file_put_contents), et non par un renommage : un
- * renommage donnerait au .htaccess le propriétaire du compte SSH au lieu de celui du
- * site. L'inode, le propriétaire et les droits sont ainsi conservés.
- */
-export const HTACCESS_REDIRECTS = String.raw`<?php
-error_reporting(0);
-$root   = rtrim((string) getenv('LKM_ROOT'), '/');
-$mode   = getenv('LKM_MODE') === 'apply' ? 'apply' : 'scan';
-$op     = getenv('LKM_OP') === 'remove' ? 'remove' : 'add';
-// La forme écrite. « redirect » est celle d'Apache/mod_alias, demandée pour un parc
-// servi par Apache ; « rewrite » est celle que le moteur du parc utilise déjà.
-$format = getenv('LKM_FORMAT') === 'redirect' ? 'redirect' : 'rewrite';
-$demande = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true) ?: [];
-$stamp  = date('Ymd-His');
 
-// La ligne après laquelle tout se passe. Elle vient du moteur du parc.
-$REPERE = '# Direct access to .php files redirects 301 to the old URL.';
-// Notre bloc : ce qui est dedans a été écrit par le back-office, et lui seul.
-$DEBUT = '# >>> LKM-BO redirections 301';
-$FIN   = '# <<< LKM-BO redirections 301';
-
-/**
- * Le chemin devient un motif mod_rewrite.
- *
- * Deux choses à savoir. Dans un .htaccess, mod_rewrite compare le chemin SANS sa barre
- * oblique de tête : « /page.php » se cherche donc par « ^page\.php$ ». Et les
- * caractères spéciaux d'expression régulière doivent être neutralisés, sans quoi
- * « prix-a+b.php » attraperait autre chose que lui-même. L'échappement des tirets suit
- * la convention déjà présente dans ces fichiers.
- */
-function motif($chemin) {
-    $sans = ltrim((string) $chemin, '/');
-    // Dans la classe, \x5C et \x2D désignent l'antislash et le tiret sans avoir à les
-    // échapper ; dans le remplacement, '\\\\$1' rend UN antislash suivi du caractère.
-    return '^' . preg_replace('/([.\x5C+*?\[\]^$(){}=!<>|:\x2D])/', '\\\\$1', $sans) . '$';
-}
-
-/** Une URL acceptable : un chemin absolu, sans rien qui puisse casser une ligne. */
-function urlValide($u) {
-    if (!is_string($u) || $u === '' || strlen($u) > 512) return false;
-    // Un saut de ligne laisserait écrire n'importe quelle directive Apache.
-    if (preg_match('/[\x00-\x20\x7f"]/', $u)) return false;
-    if ($u[0] === '/') return true;
-    return (bool) preg_match('#^https?://[^/\s]+#i', $u);
-}
-
-$sites = [];
-foreach ($demande as $domain => $entree) {
-    $domain = (string) $domain;
-    if (!preg_match('/^[a-z0-9][a-z0-9.-]{1,252}$/i', $domain) || !is_array($entree)) continue;
-    // La somme de contrôle vue à la vérification : elle appartient au fichier, pas à
-    // une règle en particulier.
-    $attendu = isset($entree['md5']) ? (string) $entree['md5'] : '';
-    $regles = isset($entree['rules']) && is_array($entree['rules']) ? $entree['rules'] : [];
-    $doc = $root . '/' . $domain . '/public_html';
-    $f = $doc . '/.htaccess';
-    $site = ['domain' => $domain, 'items' => []];
-
-    if (!is_file($f)) { $site['error'] = 'no_htaccess'; $sites[] = $site; continue; }
-    $texte = @file_get_contents($f);
-    if ($texte === false) { $site['error'] = 'unreadable'; $sites[] = $site; continue; }
-
-    $site['md5'] = md5($texte);
-    $site['bytes'] = strlen($texte);
-    // Le fichier garde ses fins de ligne : les changer ferait un écart partout.
-    $eol = substr_count($texte, "\r\n") > 0 ? "\r\n" : "\n";
-    $lignes = preg_split('/\r\n|\r|\n/', $texte);
-
-    $iRepere = -1; $nRepere = 0;
-    foreach ($lignes as $i => $l) if (trim($l) === $REPERE) { $nRepere++; if ($iRepere < 0) $iRepere = $i; }
-    if ($nRepere === 0) { $site['error'] = 'no_marker'; $sites[] = $site; continue; }
-    if ($nRepere > 1)   { $site['error'] = 'many_markers'; $sites[] = $site; continue; }
-    $site['markerAt'] = $iRepere + 1;
-
-    // Notre bloc, s'il existe déjà.
-    $iDebut = -1; $iFin = -1;
-    foreach ($lignes as $i => $l) {
-        if ($i <= $iRepere) continue;
-        if (trim($l) === $DEBUT && $iDebut < 0) $iDebut = $i;
-        if (trim($l) === $FIN && $iDebut >= 0 && $iFin < 0) { $iFin = $i; break; }
-    }
-    if ($iDebut >= 0 && $iFin < 0) { $site['error'] = 'block_broken'; $sites[] = $site; continue; }
-
-    // Une fin de bloc orpheline : cela arrive quand le fichier a été retouché à la main
-    // et que la ligne d'ouverture a sauté. On l'adopte — mais seulement si tout ce qui
-    // la sépare du repère est du vide ou une règle de redirection. Au moindre doute on
-    // refuse, plutôt que d'avaler des lignes qui ne sont pas à nous.
-    if ($iDebut < 0) {
-        $orphelin = -1;
-        foreach ($lignes as $i => $l) if ($i > $iRepere && trim($l) === $FIN) { $orphelin = $i; break; }
-        if ($orphelin >= 0) {
-            $sur = true;
-            for ($k = $iRepere + 1; $k < $orphelin; $k++) {
-                $t = trim($lignes[$k]);
-                if ($t === '' || preg_match('/^(Redirect\s+301\s|RewriteRule\s|RewriteCond\s)/', $t)) continue;
-                $sur = false;
-                break;
-            }
-            if (!$sur) { $site['error'] = 'block_broken'; $sites[] = $site; continue; }
-            $iDebut = $iRepere;
-            $iFin = $orphelin;
-            $site['repaired'] = true;
-        }
-    }
-
-    // OÙ COMMENCE LA ZONE À REMPLACER. Elle ne se confond pas avec $iDebut : dans le
-    // cas réparé, $iDebut vaut le repère lui-même — c'est ce qu'il faut pour LIRE les
-    // règles qui suivent, mais splicer à partir de là EFFACERAIT le repère. Ce n'est
-    // pas une hypothèse : la première version l'a fait sur un site de production.
-    $iSplice = empty($site['repaired']) ? $iDebut : $iRepere + 1;
-
-    // Ce que le bloc contient aujourd'hui, dans l'ordre. Les deux formes sont lues :
-    // celle écrite aujourd'hui, et celle des premières versions, pour que le tableau
-    // n'oublie aucune règle déjà posée.
-    $existantes = [];
-    // Les deux formes sont lues, et chaque règle se souvient de la sienne. Une règle
-    // écrite dans une forme alors que l'agent en demande une autre n'est pas « déjà
-    // là » : elle sera RÉÉCRITE dans la forme demandée.
-    $ailleurs = 0;
-    if ($iDebut >= 0) {
-        for ($k = $iDebut + 1; $k < $iFin; $k++) {
-            $l = $lignes[$k];
-            if (preg_match('/^\s*RewriteRule\s+\^(\S+)\$\s+(\S+)\s+\[R=301,L\]/', $l, $m)) {
-                $existantes[] = ['from' => '/' . preg_replace('/\x5C(.)/', '$1', $m[1]), 'to' => $m[2], 'format' => 'rewrite'];
-                if ($format !== 'rewrite') $ailleurs++;
-            } elseif (preg_match('/^\s*Redirect\s+301\s+(\S+)\s+(\S+)\s*$/', $l, $m)) {
-                $existantes[] = ['from' => $m[1], 'to' => $m[2], 'format' => 'redirect'];
-                if ($format !== 'redirect') $ailleurs++;
-            }
-        }
-    }
-    // Combien de règles ne sont pas dans la forme demandée.
-    $site['otherFormat'] = $ailleurs;
-    $site['existing'] = $existantes;
-
-    // Les Redirect 301 posés AILLEURS : on les compte sans y toucher, ils ne sont
-    // pas à nous.
-    $dehors = 0;
-    foreach ($lignes as $i => $l) {
-        if ($iDebut >= 0 && $i > $iDebut && $i < $iFin) continue;
-        if (preg_match('/^\s*Redirect\s+(?:301|permanent)\s/i', $l)) $dehors++;
-    }
-    $site['foreign'] = $dehors;
-    $site['writable'] = is_writable($f);
-
-    // Ce que la demande ferait, règle par règle.
-    $index = [];
-    // La forme dans laquelle chaque règle est écrite aujourd'hui.
-    $formats = [];
-    foreach ($existantes as $r) {
-        $index[$r['from']] = $r['to'];
-        $formats[$r['from']] = $r['format'];
-    }
-    $apres = $existantes;
-
-    foreach ($regles as $r) {
-        $de = isset($r['from']) ? (string) $r['from'] : '';
-        $vers = isset($r['to']) ? (string) $r['to'] : '';
-        $etat = ['from' => $de, 'to' => $vers, 'done' => [], 'failed' => []];
-
-        if (!urlValide($de) || ($op === 'add' && !urlValide($vers))) { $etat['state'] = 'invalid'; $site['items'][] = $etat; continue; }
-        if ($op === 'add' && $de === $vers) { $etat['state'] = 'loop'; $site['items'][] = $etat; continue; }
-
-        $presente = array_key_exists($de, $index);
-        if ($op === 'remove') {
-            $etat['state'] = $presente ? 'to_remove' : 'absent';
-            if ($presente) $etat['to'] = $index[$de];
-        } else {
-            // Une règle déjà là, à la bonne destination, mais écrite dans l'AUTRE
-            // forme : la dire « déjà là » tromperait l'agent, qui a demandé celle-ci.
-            $memeForme = $presente && ($formats[$de] ?? $format) === $format;
-            if ($presente && $index[$de] === $vers) $etat['state'] = $memeForme ? 'present' : 'to_upgrade';
-            elseif ($presente) { $etat['state'] = 'conflict'; $etat['current'] = $index[$de]; }
-            else $etat['state'] = 'to_add';
-        }
-
-        if ($mode === 'apply') {
-            if ($op === 'remove' && $presente) {
-                $apres = array_values(array_filter($apres, function ($x) use ($de) { return $x['from'] !== $de; }));
-                unset($index[$de]);
-                $etat['done'][] = 'rule';
-            } elseif ($op === 'add' && $etat['state'] === 'to_add') {
-                $apres[] = ['from' => $de, 'to' => $vers];
-                $index[$de] = $vers;
-                $etat['done'][] = 'rule';
-            } elseif ($op === 'add' && ($etat['state'] === 'conflict' || $etat['state'] === 'to_upgrade')) {
-                // Réécrire suffit : le bloc entier repart au format qui fonctionne.
-                foreach ($apres as &$x) if ($x['from'] === $de) $x['to'] = $vers;
-                unset($x);
-                $index[$de] = $vers;
-                $etat['done'][] = 'rule';
-            }
-        }
-        $site['items'][] = $etat;
-    }
-
-    if ($mode !== 'apply') { $sites[] = $site; continue; }
-
-    $change = 0;
-    foreach ($site['items'] as $it) if ($it['done']) $change++;
-    // Un bloc qui porte des règles dans l'autre forme est réécrit même si la demande
-    // n'ajoute rien : le bloc entier passe dans la forme demandée, d'un seul tenant.
-    if (!$change && !$ailleurs) { $sites[] = $site; continue; }
-
-    // Rien n'est écrit si le fichier a bougé depuis la vérification : la règle
-    // atterrirait dans un fichier qu'on n'a pas montré à l'agent.
-    if ($attendu !== '' && $attendu !== $site['md5']) { $site['error'] = 'changed'; $sites[] = $site; continue; }
-    if (!is_writable($f)) { $site['error'] = 'not_writable'; $sites[] = $site; continue; }
-
-    // Le bloc reconstruit, à la place exacte demandée : juste après le repère, et
-    // TOUT ENTIER dans la forme demandée — on ne mélange pas les deux dans un même
-    // bloc, ce serait illisible pour qui ouvre le fichier.
-    //
-    //   « redirect » : Redirect 301 /ancienne /nouvelle          (mod_alias)
-    //   « rewrite »  : RewriteCond + RewriteRule … [R=301,L]     (mod_rewrite)
-    //
-    // La condition précède la règle de réécriture, exactement comme le bloc voisin du
-    // moteur : elle empêche qu'une redirection interne ne relance la règle.
-    $bloc = [$DEBUT];
-    foreach ($apres as $x) {
-        if ($format === 'redirect') {
-            $bloc[] = 'Redirect 301 ' . $x['from'] . ' ' . $x['to'];
-        } else {
-            $bloc[] = 'RewriteCond %{ENV:REDIRECT_STATUS} ^$';
-            $bloc[] = 'RewriteRule ' . motif($x['from']) . ' ' . $x['to'] . ' [R=301,L]';
-        }
-    }
-    $bloc[] = $FIN;
-    if (count($apres) === 0) $bloc = [];
-
-    if ($iDebut >= 0) {
-        $de = $iSplice;
-        $combien = $iFin - $iSplice + 1;
-        // Le bloc s'en va entièrement : la ligne vide qu'on avait posée devant lui
-        // part avec. Sans cela, chaque cycle poser/retirer en laisserait une de plus.
-        if (!$bloc && $de > 0 && trim($lignes[$de - 1]) === '' && $de - 1 > $iRepere) {
-            $de--;
-            $combien++;
-        }
-        array_splice($lignes, $de, $combien, $bloc);
-    } elseif ($bloc) {
-        // Première pose : une ligne vide avant, pour ne pas coller au repère — sauf
-        // s'il y en a déjà une.
-        $prefixe = (isset($lignes[$iRepere + 1]) && trim($lignes[$iRepere + 1]) === '') ? [] : [''];
-        array_splice($lignes, $iRepere + 1, 0, array_merge($prefixe, $bloc));
-    }
-
-    $nouveau = implode($eol, $lignes);
-
-    // Sauvegarde horodatée, hors de la racine servie tant que faire se peut.
-    $bk = $doc . '/.lkm-backups';
-    if (!is_dir($bk)) @mkdir($bk, 0750, true);
-    $sauve = $bk . '/htaccess-' . $stamp;
-    if (!@copy($f, $sauve)) { $site['error'] = 'backup_failed'; $sites[] = $site; continue; }
-
-    // Écriture SUR PLACE : l'inode, le propriétaire et les droits sont conservés.
-    if (@file_put_contents($f, $nouveau) === false) {
-        @copy($sauve, $f);
-        $site['error'] = 'write_failed';
-        $sites[] = $site;
-        continue;
-    }
-
-    // On relit, et on compare octet à octet. Au moindre écart, on remet la sauvegarde.
-    clearstatcache(true, $f);
-    $relu = @file_get_contents($f);
-    if ($relu !== $nouveau) {
-        @copy($sauve, $f);
-        $site['error'] = 'verify_failed';
-        $sites[] = $site;
-        continue;
-    }
-
-    $site['stamp'] = $stamp;
-    $site['md5'] = md5($nouveau);
-    $site['bytes'] = strlen($nouveau);
-    // Le bloc vient d'être réécrit d'un seul tenant : tout y est dans la forme demandée.
-    foreach ($apres as &$x) $x['format'] = $format;
-    unset($x);
-    $site['existing'] = $apres;
-    $site['otherFormat'] = 0;
-    $sites[] = $site;
-}
-
-echo json_encode(['sites' => $sites, 'mode' => $mode, 'op' => $op], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-`;
 
 export const CATEGORY_LIST = String.raw`<?php
 error_reporting(0);
@@ -1509,8 +1209,8 @@ $MARQUE = 'LKM-BO redirection 301';
 // point : nginx refuse de le servir (règle « location ~ /\. », vérifié : 403).
 $REGISTRE = '.lkm-redirects.json';
 
-/** Un chemin de site : commence par « / », pas de domaine, pas d'espace ni de saut de ligne. */
-function urlValide($u) {
+/** Un chemin du site : commence par « / », pas de domaine, pas d'espace ni de saut de ligne. */
+function cheminValide($u) {
     $s = (string) $u;
     if ($s === '' || $s[0] !== '/') return false;
     if (isset($s[1]) && $s[1] === '/') return false;
@@ -1518,6 +1218,34 @@ function urlValide($u) {
     if (strlen($s) > 1024) return false;
     if (strpos($s, '/../') !== false || substr($s, -3) === '/..') return false;
     return true;
+}
+
+/**
+ * Une destination : un chemin du site, ou une adresse complète.
+ *
+ * UNE ADRESSE COMPLÈTE VERS N'IMPORTE OÙ SERAIT UNE REDIRECTION OUVERTE : un lien
+ * portant le nom d'un de vos sites, et le visiteur atterrit ailleurs. C'est le matériau
+ * de base de l'hameçonnage, et nous en poserions sur 29 000 domaines.
+ *
+ * On distingue donc deux cas. Vers un domaine HÉBERGÉ SUR CETTE MACHINE, c'est un
+ * déménagement interne : on accepte, et on vise https puisque le parc y redirige de
+ * toute façon. Vers ailleurs, il faut que l'agent l'ait demandé explicitement.
+ *
+ * @return array|null  ['url' => …, 'externe' => bool], ou null si inacceptable
+ */
+function destinationValide($u, $root, $autoriseExterne) {
+    $s = (string) $u;
+    if ($s === '' || strlen($s) > 1024) return null;
+    if (strcspn($s, "\r\n\0 ") !== strlen($s)) return null;
+    if ($s[0] === '/') return cheminValide($s) ? array('url' => $s, 'externe' => false) : null;
+    if (!preg_match('~^(https?)://([a-z0-9.-]{1,253})(/.*)?$~i', $s, $m)) return null;
+    $hote = strtolower($m[2]);
+    $base = preg_replace('/^www\./', '', $hote);
+    if (is_dir($root . '/' . $base . '/public_html')) {
+        // Le parc force https (son vhost y redirige) : viser http ajouterait un saut.
+        return array('url' => 'https://' . $hote . (isset($m[3]) && $m[3] !== '' ? $m[3] : '/'), 'externe' => false);
+    }
+    return $autoriseExterne ? array('url' => $s, 'externe' => true) : null;
 }
 
 /** Le fichier qui porterait cette adresse, ou null si elle ne peut pas en avoir. */
@@ -1528,11 +1256,17 @@ function fichierDe($doc, $chemin) {
     // source compris, au lieu de rediriger.
     if (substr($chemin, -4) !== '.php') return null;
     $reel = $doc . $chemin;
-    // Le chemin doit rester SOUS le dossier du site, quoi qu'on lui donne.
+    // LE CHEMIN DOIT RESTER SOUS LE DOSSIER DU SITE, quoi qu'on lui donne.
+    //
+    // Les séparateurs sont ramenés à la barre oblique avant comparaison : sans cela, le
+    // contrôle échoue sous Windows — où tournent les contrôles automatiques — alors que
+    // le code est juste. Un garde-fou qui ne se vérifie pas finit par ne plus être sûr.
     $base = realpath($doc);
     $parent = realpath(dirname($reel));
     if ($base === false || $parent === false) return null;
-    if ($parent !== $base && strpos($parent, $base . '/') !== 0) return null;
+    $b = rtrim(str_replace('\\', '/', $base), '/');
+    $p = str_replace('\\', '/', $parent);
+    if ($p !== $b && strpos($p, $b . '/') !== 0) return null;
     return $reel;
 }
 
@@ -1600,7 +1334,24 @@ foreach ($demande as $domain => $entree) {
         $vers = isset($r['to'])   ? (string) $r['to']   : '';
         $etat = ['from' => $de, 'to' => $vers];
 
-        if (!urlValide($de) || ($op === 'add' && !urlValide($vers))) { $etat['state'] = 'invalid'; $site['items'][] = $etat; continue; }
+        // Deux autorisations, demandées règle par règle, et jamais supposées.
+        $remplacer = !empty($r['replace']);
+        $externeOk = !empty($r['external']);
+
+        if (!cheminValide($de)) { $etat['state'] = 'invalid'; $site['items'][] = $etat; continue; }
+        if ($op === 'add') {
+            $dest = destinationValide($vers, $root, $externeOk);
+            if ($dest === null) {
+                // Soit l'adresse est mal formée, soit elle sort du parc sans qu'on l'ait
+                // demandé. Le second cas se dit à part : il se corrige d'une case cochée.
+                $etat['state'] = preg_match('~^https?://~i', $vers) ? 'external' : 'invalid';
+                $site['items'][] = $etat;
+                continue;
+            }
+            $vers = $dest['url'];
+            $etat['to'] = $vers;
+            if ($dest['externe']) $etat['external'] = true;
+        }
         if ($op === 'add' && $de === $vers) { $etat['state'] = 'loop'; $site['items'][] = $etat; continue; }
 
         $f = fichierDe($doc, $de);
@@ -1617,10 +1368,15 @@ foreach ($demande as $domain => $entree) {
             continue;
         }
 
-        if ($present && $stub === null) {
-            // UNE VRAIE PAGE OCCUPE DÉJÀ CETTE ADRESSE. On refuse : l'écraser ferait
-            // disparaître une page en ligne pour la remplacer par une redirection.
+        if ($present && $stub === null && !$remplacer) {
+            // UNE VRAIE PAGE OCCUPE DÉJÀ CETTE ADRESSE. On refuse par défaut : l'écraser
+            // ferait disparaître une page en ligne pour la remplacer par une redirection.
+            // L'agent peut le vouloir — un article déménagé ailleurs — mais il doit le
+            // dire : c'est une page qui quitte le site, pas une adresse morte qu'on répare.
             $etat['state'] = 'exists';
+        } elseif ($present && $stub === null) {
+            $etat['state'] = 'to_replace';
+            $aEcrire[] = array($de, $f, $vers);
         } elseif ($stub !== null && $stub['to'] === $vers) {
             $etat['state'] = 'present';
         } elseif ($stub !== null) {
@@ -1674,7 +1430,10 @@ foreach ($demande as $domain => $entree) {
         $stub = $f !== null ? lireStub($f, $MARQUE) : null;
         if ($stub !== null) $verifie[(string) $de] = $stub['to'];
     }
-    $json = json_encode($verifie, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    // JSON_FORCE_OBJECT : sans lui, un registre VIDÉ s'écrit « [] » au lieu de « {} ».
+    // PHP le relit sans broncher, mais tout autre outil y verrait une liste là où il
+    // attend un dictionnaire — et un fichier qui ment sur sa forme finit par surprendre.
+    $json = json_encode($verifie, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_FORCE_OBJECT);
     @file_put_contents($fReg, $json);
     @chmod($fReg, 0644);
 

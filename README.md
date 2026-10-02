@@ -849,6 +849,28 @@ un fichier créé par le compte SSH lui serait totalement inaccessible, et la re
 ne partirait jamais. Ce n'est pas une ouverture : le dossier parent interdit `other`
 (mode 2770), donc aucun autre compte du serveur n'y accède.
 
+### Rediriger vers un AUTRE domaine
+
+Un article déménagé d'un de vos sites vers un autre est courant. Une destination
+complète est donc acceptée — `https://autre-site.fr/article.php` — **à condition que le
+domaine visé soit hébergé sur la même machine**. `http` y devient `https`, puisque le
+parc y redirige de toute façon.
+
+Vers un domaine **inconnu du parc**, l'état renvoyé est `hors du parc` et rien n'est
+écrit : une redirection ouverte ferait de chaque site un tremplin d'hameçonnage — un
+lien portant le nom d'un de vos domaines, et le visiteur atterrit ailleurs. Il faut
+cocher **« autoriser »** pour passer outre.
+
+De même, rediriger une page **en ligne** demande de cocher **« remplacer »** : la page
+disparaîtrait du site, et ce n'est pas la même chose que réparer une adresse morte.
+L'ancienne page est sauvegardée avant d'être remplacée.
+
+### Le cache peut vous faire croire que rien ne marche
+
+Cloudflare garde la réponse 404 jusqu'à **48 heures**. Une redirection fraîchement posée
+peut donc sembler sans effet. Ajoutez `?test=1` à l'adresse pour contourner le cache et
+voir la vérité immédiatement.
+
 ### À savoir
 
 Un domaine **verrouillé** refuse toute écriture, redirection comprise — c'est le verrou du

@@ -331,6 +331,10 @@ const ETATS = {
   exists: 'bg-amber-100 text-amber-800',
   // Une adresse qui ne finit pas par « .php » ne peut pas être redirigée ainsi.
   unsupported: 'bg-ink-100 text-ink-500',
+  // Une page EN LIGNE devient une redirection : le geste merite d etre vu.
+  to_replace: 'bg-amber-100 text-amber-800',
+  // La cible sort du parc : il faut l autoriser explicitement.
+  external: 'bg-red-100 text-red-700',
 };
 
 function detailSite(permissions, openFilesFor) {

@@ -66,15 +66,22 @@ export const motif = (chemin) => `^${String(chemin ?? '').replace(/^\//, '').rep
  * La condition précède la règle comme dans le bloc voisin du moteur : elle empêche
  * qu'une redirection interne ne relance la règle.
  */
+/**
+ * Les formes du .htaccess, conservées pour mémoire.
+ *
+ * Elles ne décrivent plus rien : nginx ne lit pas ce fichier. Le paramètre `format`
+ * traverse encore le service parce que d'anciens appels le passent, mais il n'a aucun
+ * effet — et l'écran ne le propose plus, pour ne pas faire croire à un choix.
+ */
 export const FORMATS = ['rewrite', 'redirect'];
 
-export const lignes = ({ from, to }, format = 'rewrite') =>
-  format === 'redirect'
-    ? [`Redirect 301 ${from} ${to}`]
-    : ['RewriteCond %{ENV:REDIRECT_STATUS} ^$', `RewriteRule ${motif(from)} ${to} [R=301,L]`];
-
-/** La règle en une ligne, pour l'aperçu et les journaux. */
-export const ligne = ({ from, to }, format = 'rewrite') => lignes({ from, to }, format).at(-1);
+/**
+ * La règle en une ligne, pour l'aperçu, les journaux et les fenêtres de confirmation.
+ *
+ * Elle ne montre plus une directive Apache, mais ce qui se passera vraiment : une
+ * adresse qui renvoie vers une autre, en 301.
+ */
+export const ligne = ({ from, to }) => `${from}  →  301  →  ${to}`;
 
 /**
  * Une URL acceptable.
@@ -110,7 +117,11 @@ export function normalizeRequest(request) {
       // Une même source deux fois dans la même demande : la seconde ne veut rien dire.
       if (!from || vues.has(from) || rules.length >= MAX_RULES) continue;
       vues.add(from);
-      rules.push({ from, to });
+      // DEUX AUTORISATIONS SUIVENT LA RÈGLE, et une seule les porte : celle que l'agent
+      // a cochée. `replace` accepte de transformer une page EN LIGNE en redirection ;
+      // `external` accepte d'envoyer le visiteur hors du parc. Sans elles, le script
+      // serveur refuse et le dit — il ne devine jamais une intention pareille.
+      rules.push({ from, to, replace: r?.replace === true, external: r?.external === true });
     }
     if (rules.length) out[domain] = { md5: String(brut.md5 ?? ''), rules };
   }
@@ -200,6 +211,11 @@ export class RedirectService {
         // …et celles posées ailleurs dans le fichier, qu'on ne touche pas.
         foreign: s.foreign ?? 0,
         stamp: s.stamp ?? null,
+        // Combien de fichiers ont été réellement posés ou retirés. Ce champ manquait,
+        // et son absence avait fait croire deux fois qu'une écriture n'avait pas eu
+        // lieu alors qu'elle était faite : le script disait vrai, c'est la recopie qui
+        // perdait l'information en route.
+        written: s.written ?? 0,
         items: s.items ?? [],
       })),
     };
