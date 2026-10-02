@@ -291,12 +291,51 @@ Les réglages par défaut visent l'installation XAMPP locale (`127.0.0.1:3306`, 
 
 ### Sauvegarde
 
+**Elle se fait toute seule** pendant que le serveur tourne : rien à lancer, rien à
+penser. Une sauvegarde qu'il faut penser à faire n'est pas une sauvegarde.
+
 ```bash
-npm run backup                     # écrit une sauvegarde (mysqldump)
+npm run backup                     # en écrire une tout de suite
 npm run backup -- list             # ce qui existe
+npm run backup -- verify [nom]     # la RESTAURER pour de bon, dans une base jetable
 npm run backup -- restore <nom>    # montre ce qui se passerait
 npm run backup -- restore <nom> --yes
 ```
+
+### On ne pose pas un minuteur, on rattrape le retard
+
+Un minuteur de vingt-quatre heures posé au démarrage ne se déclencherait **jamais** sur
+une machine qu'on éteint le soir, ou qu'un surveillant relance : le compte repartirait de
+zéro à chaque fois. Le serveur regarde donc l'âge de la **dernière** sauvegarde, et en
+fait une si elle est trop vieille. Une machine éteinte tout un week-end est sauvegardée
+en revenant.
+
+Cet âge se lit dans le dossier lui-même — les fichiers portent leur horodatage dans leur
+nom. Rien à mémoriser ailleurs, rien à désynchroniser.
+
+### Et on restaure pour de bon, régulièrement
+
+Une sauvegarde jamais rejouée est un fichier dont on espère quelque chose. Tous les sept
+jours, le serveur en **restaure une dans une base jetable** (`lkm_bo_verif`), compare
+table par table, puis efface la base d'épreuve. La vraie base n'est jamais touchée.
+
+Ce qui fait échouer le contrôle : le fichier ne se rejoue pas, une table manque, ou une
+table est **vide** dans la sauvegarde alors qu'elle porte des lignes en production —
+c'est la forme qu'aurait une perte de données. Les petits écarts de comptage, eux, ne
+sont qu'une observation : la sauvegarde est plus ancienne que la base, le journal a
+grossi depuis. Exiger l'égalité ferait échouer un contrôle parfaitement sain, et une
+alerte qui se trompe finit par ne plus être lue.
+
+Sauvegardes et contrôles entrent **au journal d'audit**, au nom de « système » : c'est
+là que l'agent les retrouve, et c'est là qu'un échec se voit. La console, elle, aura
+disparu au prochain redémarrage.
+
+| Réglage | Défaut | |
+| --- | --- | --- |
+| `BACKUP_AUTO` | `true` | à `false`, plus rien d'automatique |
+| `BACKUP_EVERY_HOURS` | `24` | âge au-delà duquel on en refait une |
+| `BACKUP_VERIFY_EVERY_DAYS` | `7` | à `0`, le contrôle de restauration est coupé |
+| `BACKUP_KEEP` | `14` | plancher de trois, quoi qu'on mette |
 
 Une sauvegarde de la base complète pèse environ 10 Mo et prend moins d'une seconde. Les fichiers vont dans `backups/`, ignoré par git : **ils portent les clés API de 38 000 domaines**. `BACKUP_SECRET` les chiffre, ce qui n'a de sens que si un fichier quitte la machine. Une restauration prend d'abord une sauvegarde de l'état courant, et refuse un fichier incomplet.
 

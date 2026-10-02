@@ -7,6 +7,7 @@ import {
   backupStamp, decryptFile, describeDbBackup, dumpLooksComplete, encryptFile,
   findMysqlTool, listDbBackups, prepareRestore, pruneBackups,
 } from '../src/services/dbBackup.js';
+import { aFaire, ageDerniereSauvegarde } from '../src/services/backupSchedule.js';
 
 /** Un dossier de travail, effacé à la fin. */
 function dansUnDossier(fn) {
@@ -205,4 +206,39 @@ test('sauvegarde : un chemin d’outil imposé mais faux n’est pas remplacé e
   // d'une autre version, peut-être d'un autre serveur.
   assert.equal(findMysqlTool('mysqldump', 'C:/nulle-part/mysqldump.exe'), null);
   assert.equal(findMysqlTool('mysql', '/chemin/inexistant/mysql'), null);
+});
+
+// ───────── La sauvegarde automatique ─────────
+
+test('sauvegarde : on regarde l’ÂGE de la dernière, on ne pose pas un minuteur', () => {
+  dansUnDossier((d) => {
+    // Un minuteur de vingt-quatre heures posé au démarrage ne se déclencherait JAMAIS
+    // sur une machine qu'on éteint le soir, ou qu'un surveillant relance : le compte
+    // repartirait de zéro à chaque fois. L'âge, lui, ne se remet pas à zéro.
+    assert.equal(ageDerniereSauvegarde(d), Infinity, 'sans aucune sauvegarde, l’âge est infini');
+    assert.equal(ageDerniereSauvegarde(join(d, 'nulle-part')), Infinity, 'un dossier absent n’est pas une erreur');
+
+    // Les fichiers portent leur horodatage dans leur nom : rien à mémoriser ailleurs.
+    ecrire(d, 'lkm-bo-20261001-120000.sql');
+    ecrire(d, 'lkm-bo-20261002-060000.sql');
+    const maintenant = Date.UTC(2026, 9, 2, 12, 0, 0);
+    assert.equal(ageDerniereSauvegarde(d, maintenant), 6, 'la plus RÉCENTE fait foi : six heures');
+  });
+});
+
+test('sauvegarde : la règle de décision, et ce qui la coupe', () => {
+  const regle = (ageHeures, controleIlYaJours, verifyEveryDays = 7) =>
+    aFaire({ ageHeures, controleIlYaJours, everyHours: 24, verifyEveryDays });
+
+  assert.deepEqual(regle(25, 0), { sauvegarder: true, verifier: false }, 'trop vieille → on sauvegarde');
+  assert.deepEqual(regle(3, 0), { sauvegarder: false, verifier: false }, 'récente → on ne fait rien');
+  assert.deepEqual(regle(24, 0).sauvegarder, true, 'pile à l’échéance, on y va');
+  // Une machine rallumée après un week-end doit être sauvegardée en revenant.
+  assert.deepEqual(regle(Infinity, Infinity), { sauvegarder: true, verifier: true });
+
+  assert.equal(regle(0, 8).verifier, true, 'contrôle vieux de huit jours → on le refait');
+  assert.equal(regle(0, 2).verifier, false, 'contrôle de deux jours → on attend');
+  // À 0, le contrôle est coupé : il faut pouvoir l'arrêter sans toucher au reste.
+  assert.equal(regle(0, 999, 0).verifier, false, 'à 0 jour, plus de contrôle de restauration');
+  assert.equal(regle(999, 999, 0).sauvegarder, true, 'mais la sauvegarde, elle, continue');
 });

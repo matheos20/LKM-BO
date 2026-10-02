@@ -294,6 +294,94 @@ export function prepareRestore({ dir, name, secret = '', workDir = null }) {
 }
 
 /**
+ * REJOUE une sauvegarde dans une base jetable, et compare — sans toucher la vraie.
+ *
+ * Une sauvegarde qu'on n'a jamais restaurée n'est pas une sauvegarde : c'est un fichier
+ * dont on espère quelque chose. Le jour où on en a besoin est le pire moment pour
+ * découvrir qu'elle ne se rejoue pas. Ce contrôle le fait à froid, régulièrement.
+ *
+ * CE QUI FAIT ÉCHOUER LE CONTRÔLE, et ce qui n'est qu'une observation :
+ *
+ *   - le fichier ne se rejoue pas, ou une table manque → ÉCHEC, le fichier ne vaut rien ;
+ *   - une table est VIDE dans la sauvegarde alors qu'elle porte des lignes en production
+ *     → ÉCHEC, c'est la forme qu'aurait une perte de données ;
+ *   - les comptes diffèrent un peu → observation. La sauvegarde est plus ancienne que la
+ *     base : le journal d'audit a grossi depuis, un agent a enregistré un brouillon.
+ *     Exiger l'égalité ferait échouer un contrôle parfaitement sain, et une alerte qui
+ *     se trompe finit par ne plus être lue.
+ */
+export async function verifyBackup({ dir, name, mysql: reglages, secret = '', mysqlClient = '' } = {}) {
+  const { closeMysql, exec, getPool, openMysql, prepare } = await import('../db/mysql.js');
+  const client = findMysqlTool('mysql', mysqlClient);
+  if (!client) throw new Error('le client mysql est introuvable : indiquez son chemin dans MYSQL_CLIENT_PATH');
+
+  const cible = listDbBackups(dir).find((b) => (name ? b.name === name : true));
+  if (!cible) throw new Error(name ? `sauvegarde introuvable : ${name}` : 'aucune sauvegarde à vérifier');
+
+  const pret = prepareRestore({ dir, name: cible.name, secret });
+  const bac = `${reglages.database}_verif`;
+  const t0 = Date.now();
+
+  // La base de l'application doit être ouverte : on s'en sert pour créer le bac à sable,
+  // compter les lignes des deux côtés, puis l'effacer.
+  let aOuvert = false;
+  try {
+    getPool();
+  } catch {
+    openMysql(reglages);
+    aOuvert = true;
+  }
+
+  const rapport = { backup: cible.name, at: cible.at, bytes: cible.bytes, ok: false, tables: [], problems: [], ms: 0 };
+  try {
+    await exec(`DROP DATABASE IF EXISTS \`${bac}\``);
+    await exec(`CREATE DATABASE \`${bac}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+
+    const { fichier: cnf, dossier: tmpCnf } = fichierIdentifiants({ ...reglages, database: bac });
+    try {
+      const r = spawnSync(client, [`--defaults-extra-file=${cnf}`, bac], {
+        input: fs.readFileSync(pret.path),
+        encoding: 'utf8',
+        maxBuffer: 1 << 20,
+      });
+      if (r.status !== 0) {
+        rapport.problems.push(`le fichier ne se rejoue pas : ${String(r.stderr || `code ${r.status}`).trim().split('\n')[0]}`);
+        return { ...rapport, ms: Date.now() - t0 };
+      }
+    } finally {
+      fs.rmSync(tmpCnf, { recursive: true, force: true });
+    }
+
+    // Les tables de la VRAIE base font foi : c'est ce qu'il faudrait retrouver.
+    const attendues = (await prepare(
+      'SELECT TABLE_NAME AS nom FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME',
+    ).all(reglages.database)).map((t) => t.nom);
+
+    for (const table of attendues) {
+      const vivant = Number((await prepare(`SELECT COUNT(*) AS n FROM \`${reglages.database}\`.\`${table}\``).get()).n);
+      let restaure = null;
+      try {
+        restaure = Number((await prepare(`SELECT COUNT(*) AS n FROM \`${bac}\`.\`${table}\``).get()).n);
+      } catch {
+        rapport.problems.push(`table absente de la sauvegarde : ${table}`);
+        rapport.tables.push({ table, live: vivant, restored: null });
+        continue;
+      }
+      // Une table vide là où la production en a : c'est la forme qu'aurait une perte.
+      if (vivant > 0 && restaure === 0) rapport.problems.push(`table vide dans la sauvegarde : ${table} (${vivant} ligne(s) en production)`);
+      rapport.tables.push({ table, live: vivant, restored: restaure });
+    }
+
+    rapport.ok = rapport.problems.length === 0;
+    return { ...rapport, ms: Date.now() - t0 };
+  } finally {
+    await exec(`DROP DATABASE IF EXISTS \`${bac}\``).catch(() => {});
+    if (pret.temporary) fs.rmSync(pret.path, { force: true });
+    if (aOuvert) await closeMysql().catch(() => {});
+  }
+}
+
+/**
  * Rejoue une sauvegarde dans la base.
  *
  * GESTE DESTRUCTEUR : le fichier porte des « DROP TABLE », donc tout ce que la base

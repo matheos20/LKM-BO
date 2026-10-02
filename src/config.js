@@ -70,6 +70,14 @@ export const config = {
   backup: {
     dir: file(env.BACKUP_DIR, 'backups'),
     keep: int(env.BACKUP_KEEP, 14),
+    // La sauvegarde se fait TOUTE SEULE. Une sauvegarde qu'il faut penser a faire n'en
+    // est pas une. On ne planifie pas « toutes les 24 h » : on regarde l'age de la
+    // derniere, ce qui rattrape une machine eteinte tout un week-end.
+    auto: env.BACKUP_AUTO !== 'false',
+    everyHours: int(env.BACKUP_EVERY_HOURS, 24),
+    // Et on la RESTAURE pour de bon, dans une base jetable. Une sauvegarde jamais
+    // rejouee est un fichier dont on espere quelque chose. A 0, le controle est coupe.
+    verifyEveryDays: int(env.BACKUP_VERIFY_EVERY_DAYS, 7),
     // Sans cle, la sauvegarde reste en clair : elle ne protege alors que d'une perte, pas
     // d'une lecture par quelqu'un qui obtiendrait le fichier.
     secret: env.BACKUP_SECRET ?? '',

@@ -21,6 +21,7 @@ import { RedirectService } from './services/redirectService.js';
 import { SearchService } from './services/searchService.js';
 import { CloudflareService } from './services/cloudflareService.js';
 import { createAudit } from './services/audit.js';
+import { startBackupSchedule } from './services/backupSchedule.js';
 import { purgeOlderThan } from './db/audit.js';
 import { attachUser, csrfGuard, errorHandler, langMiddleware, requireAuth, requirePasswordChanged } from './middleware/index.js';
 import { authRouter } from './routes/auth.js';
@@ -69,6 +70,12 @@ const audit = createAudit(config.auditLog);
 
 // Un journal qui grossit sans fin finit par ne plus être consulté : on efface au
 // démarrage ce qui dépasse la durée de conservation. Le fichier, lui, garde tout.
+// La base porte TOUT ce que l'application sait, et n'existe qu'en un exemplaire. La
+// sauvegarde part donc d'elle-meme pendant que le serveur tourne, et une restauration
+// est reellement eprouvee de temps en temps : une sauvegarde jamais rejouee est un
+// fichier dont on espere quelque chose.
+const sauvegardes = startBackupSchedule({ config, audit });
+
 const purges = await purgeOlderThan(config.auditRetentionDays);
 if (purges) console.log(`[audit] ${purges} événement(s) de plus de ${config.auditRetentionDays} jours effacés`);
 const SESSION_TTL = 8 * 3600 * 1000;
@@ -150,6 +157,7 @@ const server = app.listen(config.port, config.host, () => {
 function shutdown() {
   console.log('\nArrêt : fermeture des sessions SSH…');
   ssh.closeAll();
+  sauvegardes.stop();
   // Le groupe de connexions MySQL se ferme : sinon le processus s'attarde.
   closeMysql().catch(() => {});
   server.close(() => process.exit(0));

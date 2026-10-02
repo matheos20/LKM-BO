@@ -4,6 +4,7 @@
  *
  *   npm run backup                      écrit une sauvegarde
  *   npm run backup -- list              ce qui existe déjà
+ *   npm run backup -- verify [nom]      RESTAURE une sauvegarde dans une base jetable
  *   npm run backup -- restore <nom>     montre ce qui se passerait
  *   npm run backup -- restore <nom> --yes   remplace la base par cette sauvegarde
  *
@@ -12,7 +13,7 @@
  * se tromper de fichier ne doit pas être définitif.
  */
 import { config } from '../src/config.js';
-import { backupDatabase, findMysqlTool, listDbBackups, restoreDatabase } from '../src/services/dbBackup.js';
+import { backupDatabase, findMysqlTool, listDbBackups, restoreDatabase, verifyBackup } from '../src/services/dbBackup.js';
 
 const COULEUR = process.stdout.isTTY && !process.env.NO_COLOR;
 const c = (code, s) => (COULEUR ? `\u001b[${code}m${s}\u001b[0m` : String(s));
@@ -52,6 +53,29 @@ try {
     titre('Sauvegardes de la base');
     afficherListe();
     process.exit(0);
+  }
+
+  if (commande === 'verify') {
+    titre('Contrôle de restauration');
+    note('La sauvegarde est rejouée dans une base JETABLE, puis comparée à la production.');
+    note('La vraie base n’est pas touchée.');
+    console.log();
+    const r = await verifyBackup({ dir, name: positionnels[0], mysql: config.mysql, secret, mysqlClient });
+    info(`sauvegarde : ${gras(r.backup)}  ${gris(`${mo(r.bytes)} · ${local(r.at)}`)}`);
+    console.log();
+    for (const t of r.tables) {
+      const ecart = t.restored === null ? rouge('ABSENTE') : t.live === t.restored ? '' : gris(`  écart ${t.live - t.restored}`);
+      info(`${t.table.padEnd(20)} production ${String(t.live).padStart(7)}   restauré ${String(t.restored ?? '—').padStart(7)}${ecart}`);
+    }
+    console.log();
+    if (r.ok) {
+      ok(`la sauvegarde se rejoue entièrement (${(r.ms / 1000).toFixed(1)} s)`);
+      note('Les écarts viennent de ce que la sauvegarde est plus ancienne que la base :');
+      note('le journal a grossi depuis, un brouillon a été enregistré. C’est normal.');
+      process.exit(0);
+    }
+    for (const p of r.problems) ko(p);
+    process.exit(1);
   }
 
   if (commande === 'restore') {
