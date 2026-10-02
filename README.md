@@ -613,6 +613,33 @@ le compte attendu.
 
 ---
 
+## 6 ter. Le journal en fichier tourne
+
+`logs/audit.log` grossissait sans fin. Un journal qui remplit le disque fait tomber ce
+qu'il observe — la panne la plus bête qui soit, puisqu'elle vient de l'outil censé aider
+à comprendre les autres.
+
+Il tourne désormais : `audit.log` → `.1` → `.2`… jusqu'à `AUDIT_LOG_KEEP` générations de
+`AUDIT_LOG_MAX_MB` mégaoctets (cinq fois cinq par défaut). On garde donc toujours la même
+quantité de passé, quelle que soit l'activité.
+
+Deux détails qui ne vont pas de soi :
+
+- **On tourne AVANT d'écrire**, jamais après : une ligne ne doit pas se retrouver coupée
+  entre deux fichiers, sinon le journal n'est plus relisible ligne à ligne par aucun
+  outil. Conséquence voulue : un fichier reste légèrement *sous* la limite.
+- **L'écriture est synchrone.** L'écriture différée paraissait plus prudente, mais elle
+  rendait la rotation fausse : le renommage arrivait pendant que des lignes étaient
+  encore en vol. Sous Windows le renommage échouait (EPERM) ; ailleurs les lignes
+  atterrissaient dans le fichier déjà mis de côté. Mesuré : un journal à 2 000 octets
+  pour une limite de 1 000. Écrire sur place coûte quelques microsecondes, à comparer au
+  demi-seconde d'un aller-retour SSH que l'action vient de payer.
+
+La taille est suivie en mémoire, lue une seule fois à l'ouverture : interroger le
+système de fichiers à chaque événement coûterait plus cher que l'écriture elle-même.
+
+---
+
 ## 7. État actuel des droits SSH (relevé le 15/09/2026)
 
 | Serveur | Domaines | Réparer les droits | Créer | Supprimer |

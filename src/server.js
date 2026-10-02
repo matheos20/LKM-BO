@@ -69,7 +69,7 @@ const redirects = new RedirectService(ssh, sites);
 const search = new SearchService(ssh, domains, sites);
 // Cloudflare : la base porte les comptes et les zones ; aucun acces SSH n'intervient ici.
 const cloudflare = new CloudflareService();
-const audit = createAudit(config.auditLog);
+const audit = createAudit(config.auditLog, { maxBytes: config.auditLogMaxBytes, keep: config.auditLogKeep });
 
 // Un journal qui grossit sans fin finit par ne plus être consulté : on efface au
 // démarrage ce qui dépasse la durée de conservation. Le fichier, lui, garde tout.

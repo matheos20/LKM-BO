@@ -1,6 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { recordEvent } from '../db/audit.js';
+import { createRotatingLog } from './logRotation.js';
 
 /**
  * Journal d'audit : qui a fait quoi, sur quel serveur, avec quel résultat.
@@ -18,8 +17,10 @@ import { recordEvent } from '../db/audit.js';
  * sont ainsi anonymes — un journal d'audit sans auteur ne répond pas à la question
  * qu'on lui pose.
  */
-export function createAudit(file) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
+export function createAudit(file, { maxBytes, keep } = {}) {
+  // Le fichier TOURNE : il grossissait sans fin, et un journal qui remplit le disque
+  // fait tomber ce qu'il observe.
+  const journal = createRotatingLog(file, { max: maxBytes, keep });
   return (req, entry) => {
     const u = req.user ?? null;
     // Une entrée peut nommer son auteur elle-même : la connexion journalise un
@@ -32,7 +33,7 @@ export function createAudit(file) {
       ip: req.ip,
       ...entry,
     };
-    fs.appendFile(file, `${JSON.stringify(ligne)}\n`, (err) => err && console.error(`[audit] ${err.message}`));
+    journal.write(`${JSON.stringify(ligne)}\n`);
 
     recordEvent({
       at: Date.now(),

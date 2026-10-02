@@ -99,6 +99,11 @@ export const config = {
   serversFile: file(env.SERVERS_FILE, 'config/servers.json'),
   knownHostsFile: file(env.KNOWN_HOSTS_FILE, 'config/known_hosts.json'),
   auditLog: file(env.AUDIT_LOG, 'logs/audit.log'),
+  // Le journal fichier TOURNE : cinq generations de cinq megaoctets par defaut. Sans
+  // cela il grossit sans fin, et un journal qui remplit le disque fait tomber ce qu'il
+  // observe — la panne la plus bete, puisqu'elle vient de l'outil cense aider.
+  auditLogMaxBytes: int(env.AUDIT_LOG_MAX_MB, 5) * 1024 * 1024,
+  auditLogKeep: int(env.AUDIT_LOG_KEEP, 5),
   // Un journal qui grossit sans fin finit par ne plus être consulté. À 0, rien n'est
   // effacé ; le fichier `audit.log`, lui, n'est jamais purgé.
   auditRetentionDays: Number(env.AUDIT_RETENTION_DAYS ?? 180),
