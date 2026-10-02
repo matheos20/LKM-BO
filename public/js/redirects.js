@@ -49,9 +49,16 @@ const SPECIAUX = /[.\\+*?[\]^$(){}=!<>|:-]/g;
  */
 export const motif = (chemin) => `^${String(chemin ?? '').replace(/^\//, '').replace(SPECIAUX, (c) => `\\${c}`)}$`;
 
-/** La règle telle qu'elle sera écrite, pour l'aperçu et les fenêtres de confirmation. */
-export const ligne = ({ from, to }, format = state.format) =>
-  format === 'redirect' ? `Redirect 301 ${from} ${to}` : `RewriteRule ${motif(from)} ${to} [R=301,L]`;
+/**
+ * La règle telle qu'elle sera posée, pour l'aperçu et les fenêtres de confirmation.
+ *
+ * Ce n'est plus une ligne de .htaccess. Les serveurs du parc tournent sous nginx, qui
+ * ne lit jamais ce fichier : ce qui y était écrit n'a jamais rien fait. Le back-office
+ * dépose désormais, à l'ancienne adresse, un petit fichier PHP qui ne fait que
+ * rediriger — et comme ce fichier EXISTE, nginx le sert comme une page normale, ce qui
+ * laisse PHP imposer un vrai 301.
+ */
+export const ligne = ({ from, to }) => `${from}  →  301  →  ${to}`;
 
 /**
  * Une adresse acceptable. Même règle que côté serveur, qui a le dernier mot — et qui
@@ -195,6 +202,15 @@ function apercu(r) {
  * ligne exacte qu'il obtiendra. Changer de forme réécrit le bloc entier du fichier :
  * les deux ne se mélangent jamais.
  */
+/**
+ * ANCIEN SÉLECTEUR DE FORME — retiré de l'écran, conservé pour mémoire.
+ *
+ * Il proposait « RewriteRule » ou « Redirect 301 », les deux formes du .htaccess
+ * d'Apache. Mesuré le 02/10/2026 : les cinq machines du parc tournent sous nginx, qui
+ * ne lit pas ce fichier. Le choix ne changeait donc rien — et laissait croire le
+ * contraire, ce qui est pire que pas de choix du tout.
+ */
+// eslint-disable-next-line no-unused-vars
 function selecteurFormat() {
   const choix = (cle, titre, exemple) => {
     const actif = state.format === cle;
@@ -311,6 +327,10 @@ const ETATS = {
   absent: 'bg-ink-100 text-ink-400',
   invalid: 'bg-red-100 text-red-700',
   loop: 'bg-red-100 text-red-700',
+  // Une vraie page occupe déjà cette adresse : on ne l'écrase pas.
+  exists: 'bg-amber-100 text-amber-800',
+  // Une adresse qui ne finit pas par « .php » ne peut pas être redirigée ainsi.
+  unsupported: 'bg-ink-100 text-ink-500',
 };
 
 function detailSite(permissions, openFilesFor) {
@@ -621,7 +641,6 @@ export const redirectAction = {
       'div',
       { class: 'card p-5' },
       stepTitle(step, t('redirects.step_what'), t('redirects.step_what_hint')),
-      selecteurFormat(),
       formulaire(),
     );
   },

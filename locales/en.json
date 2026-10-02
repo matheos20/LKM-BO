@@ -1219,7 +1219,11 @@
     "format_redirect": "Apache · Redirect 301 (mod_alias)",
     "format_hint_rewrite": "This is the form the park engine already uses in its own files.",
     "format_hint_redirect": "The Apache form. It only takes effect if Apache reads the site .htaccess: nginx ignores those files.",
-    "other_format": "{count} rule(s) written in the other form: they will be rewritten."
+    "other_format": "{count} rule(s) written in the other form: they will be rewritten.",
+    "state_exists": "page exists",
+    "state_unsupported": "not redirectable",
+    "exists_hint": "A page of the site already uses this address: it is not overwritten.",
+    "unsupported_hint": "Only addresses ending in “.php” can be redirected."
   },
   "search": {
     "searching": "Searching…",

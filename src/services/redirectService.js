@@ -1,8 +1,23 @@
 import { AppError } from '../errors.js';
-import { HTACCESS_REDIRECTS } from './phpScripts.js';
+import { PHP_REDIRECTS } from './phpScripts.js';
 
 /**
- * Redirections 301 dans le `.htaccess` des sites du parc.
+ * Redirections 301 des sites du parc.
+ *
+ * ELLES NE PASSENT PLUS PAR `.htaccess`, ET VOICI POURQUOI. Mesuré le 02/10/2026 : les
+ * CINQ machines du parc tournent sous nginx, qui ne lit jamais ce fichier. Les règles
+ * « Redirect 301 » qui y étaient écrites n'ont donc jamais rien fait — et rien ne le
+ * disait à l'agent, qui voyait son geste confirmé.
+ *
+ * Le mécanisme actuel s'appuie sur ce que nginx fait DÉJÀ : il envoie toute adresse
+ * inconnue vers le `404.php` du site. Une liste `.lkm-redirects.json` y est déposée, et
+ * un bloc en tête de `404.php` la consulte avant tout le reste. Les deux sont
+ * inaccessibles depuis le web — nginx refuse tout chemin commençant par un point
+ * (vérifié : 403).
+ *
+ * Ce qui suit décrit l'ancien fonctionnement, conservé pour mémoire :
+ *
+ * ── ANCIEN (sans effet sous nginx) ──
  *
  * La règle écrite est celle demandée, au format exact :
  *
@@ -154,7 +169,7 @@ export class RedirectService {
     const raw = await this.sites.runPhp(
       serverId,
       server.wwwRoot,
-      HTACCESS_REDIRECTS,
+      PHP_REDIRECTS,
       {
         LKM_ROOT: server.wwwRoot,
         LKM_MODE: mode,

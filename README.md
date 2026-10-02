@@ -804,6 +804,59 @@ server-scripts/del-site     script serveur de référence pour la suppression
 server-scripts/traduire-homepage.sh  même travail en ligne de commande (voir § 13)
 ```
 
+## 10 bis. Redirections 301 — pourquoi un fichier, et pas `.htaccess`
+
+**Les cinq machines du parc tournent sous nginx.** Il ne lit jamais `.htaccess` : les
+règles `Redirect 301` qui y étaient écrites n'ont **jamais rien fait**, et rien ne le
+disait à l'agent, qui voyait son geste confirmé.
+
+Trois tentatives ont été mesurées avant de trouver la bonne :
+
+| Tentative | Résultat |
+| --- | --- |
+| `.htaccess` | **ignoré** |
+| Bloc en tête de `404.php` | en-tête `Location` posée… mais **statut 404** |
+| **Fichier `.php` à l'ancienne adresse** | **301 Moved Permanently** |
+
+La deuxième a échoué pour une raison précise : le vhost partagé écrit
+`error_page 404 /404.php` **sans le signe `=`**, ce qui force nginx à conserver le code
+404. Un navigateur **ignore** une redirection posée sur un 404.
+
+Le mécanisme retenu dépose, à l'ancienne adresse, un petit fichier PHP qui ne fait que
+rediriger. Comme ce fichier **existe**, nginx le sert comme une page normale — et PHP y
+impose son propre code.
+
+### Les garde-fous
+
+- **Une vraie page n'est jamais écrasée.** Si l'adresse est déjà occupée par une page du
+  site, l'état renvoyé est `exists` et rien n'est écrit. Nos fichiers se reconnaissent à
+  une marque ; tout autre contenu est laissé intact.
+- **Seules les adresses en `.php`** sont acceptées (`unsupported` sinon) : nginx servirait
+  tout autre fichier **en clair**, code source compris.
+- Sauvegarde avant écriture dans `.lkm-backups/`, puis **relecture** : c'est le fichier
+  relu qui fait foi, jamais l'intention.
+- Le registre `.lkm-redirects.json` est **reconstruit depuis les fichiers réellement
+  présents**. Un registre qui annoncerait une redirection disparue ferait croire une
+  adresse couverte alors qu'elle rend 404.
+- Registre et sauvegardes commencent par un point : nginx refuse ces chemins
+  (vérifié : **403**).
+
+### Un détail qui coûte cher
+
+Les fichiers posés sont en **0644**, et c'est nécessaire : PHP tourne sous le compte **du
+site**, qui n'appartient qu'à son propre groupe — ni `www-data`, ni `editors`. En 0640,
+un fichier créé par le compte SSH lui serait totalement inaccessible, et la redirection
+ne partirait jamais. Ce n'est pas une ouverture : le dossier parent interdit `other`
+(mode 2770), donc aucun autre compte du serveur n'y accède.
+
+### À savoir
+
+Un domaine **verrouillé** refuse toute écriture, redirection comprise — c'est le verrou du
+parc qui fait son travail. Il faut le déverrouiller, poser la redirection, puis le
+reverrouiller.
+
+---
+
 ## 11 ter. Des jetons à la place des clés globales
 
 La base portait **38 195 clés globales**. Une clé globale ouvre la *totalité* d'un compte

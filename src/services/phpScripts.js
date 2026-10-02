@@ -1469,3 +1469,223 @@ foreach ($demande as $domain => $rubriques) {
 
 echo json_encode(['sites' => $sites, 'mode' => $mode], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 `;
+
+/**
+ * Redirections 301 sur un parc servi par NGINX.
+ *
+ * POURQUOI CE SCRIPT EXISTE. Le précédent écrivait des règles « Redirect 301 » dans le
+ * `.htaccess` de chaque site. Mesuré le 02/10/2026 : les cinq machines du parc tournent
+ * sous nginx, qui ne lit jamais ce fichier. Les redirections posées n'ont donc jamais
+ * rien fait — et rien ne le disait.
+ *
+ * CE QUI LES REMPLACE. nginx envoie toute adresse inconnue vers le `404.php` du site
+ * (« error_page 404 /404.php », vérifié dans le vhost partagé). C'est donc là que la
+ * redirection se décide, avant même que la configuration du site ne soit chargée.
+ *
+ * Deux fichiers par site :
+ *   - `.lkm-redirects.json` : la liste { ancien chemin → nouveau } ;
+ *   - un bloc délimité en tête de `404.php`, qui la consulte.
+ *
+ * Les deux commencent par un point, ou vivent dans un dossier qui commence par un
+ * point : la règle « location ~ /\. { deny all } » du vhost les rend inaccessibles
+ * depuis le web. Vérifié en direct : 403.
+ *
+ * LES SAUVEGARDES AUSSI. Un « 404.php.20261002 » déposé dans public_html ne finirait
+ * pas par « .php » : nginx le servirait comme un fichier texte, et le code source du
+ * site serait lisible par tout le monde. Elles vont donc dans `.lkm-backups/`.
+ */
+export const PHP_REDIRECTS = String.raw`<?php
+error_reporting(0);
+$root   = rtrim((string) getenv('LKM_ROOT'), '/');
+$mode   = getenv('LKM_MODE') === 'apply' ? 'apply' : 'scan';
+$op     = getenv('LKM_OP') === 'remove' ? 'remove' : 'add';
+$demande = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true) ?: [];
+$stamp  = date('Ymd-His');
+
+// La marque qui distingue NOS fichiers de ceux du site. Elle est cherchée dans les
+// premiers octets : jamais on ne touche à un fichier qui ne la porte pas.
+$MARQUE = 'LKM-BO redirection 301';
+// Le registre de ce que le back-office a posé sur ce site. Son nom commence par un
+// point : nginx refuse de le servir (règle « location ~ /\. », vérifié : 403).
+$REGISTRE = '.lkm-redirects.json';
+
+/** Un chemin de site : commence par « / », pas de domaine, pas d'espace ni de saut de ligne. */
+function urlValide($u) {
+    $s = (string) $u;
+    if ($s === '' || $s[0] !== '/') return false;
+    if (isset($s[1]) && $s[1] === '/') return false;
+    if (strcspn($s, "\r\n\0 ") !== strlen($s)) return false;
+    if (strlen($s) > 1024) return false;
+    if (strpos($s, '/../') !== false || substr($s, -3) === '/..') return false;
+    return true;
+}
+
+/** Le fichier qui porterait cette adresse, ou null si elle ne peut pas en avoir. */
+function fichierDe($doc, $chemin) {
+    // SEULES LES ADRESSES EN « .php » FONCTIONNENT, et il faut le dire plutôt que de
+    // produire quelque chose qui ne marchera pas. nginx sert tout autre fichier TEL
+    // QUEL : un « /ancienne-page » déposé sans extension s'afficherait en clair, code
+    // source compris, au lieu de rediriger.
+    if (substr($chemin, -4) !== '.php') return null;
+    $reel = $doc . $chemin;
+    // Le chemin doit rester SOUS le dossier du site, quoi qu'on lui donne.
+    $base = realpath($doc);
+    $parent = realpath(dirname($reel));
+    if ($base === false || $parent === false) return null;
+    if ($parent !== $base && strpos($parent, $base . '/') !== 0) return null;
+    return $reel;
+}
+
+/** Le contenu d'un fichier de redirection. */
+function contenuStub($cible, $stamp) {
+    // La cible part dans une chaîne PHP à guillemets simples : seuls l'antislash et
+    // l'apostrophe doivent y être neutralisés.
+    $litteral = str_replace(array('\\', "'"), array('\\\\', "\\'"), $cible);
+    return "<?php\n"
+        . "// LKM-BO redirection 301 — fichier généré, ne pas modifier à la main.\n"
+        . "// Posé par le back-office le " . $stamp . ".\n"
+        . "//\n"
+        . "// Pourquoi un fichier. Les serveurs du parc tournent sous nginx, qui ne lit pas\n"
+        . "// .htaccess. Et sa page d'erreur ne peut pas rendre un 301 : le vhost écrit\n"
+        . "// « error_page 404 /404.php » SANS le signe « = », ce qui force le statut 404.\n"
+        . "// Un fichier qui EXISTE, lui, est servi comme une page normale — et PHP y impose\n"
+        . "// son propre code. Mesuré en direct le 02/10/2026 : 301 Moved Permanently.\n"
+        . "header('Location: " . $litteral . "', true, 301);\n"
+        . "exit;\n";
+}
+
+/** Ce fichier est-il l'un des nôtres, et vers où pointe-t-il ? */
+function lireStub($f, $marque) {
+    $t = @file_get_contents($f, false, null, 0, 2048);
+    if ($t === false || strpos($t, $marque) === false) return null;
+    if (!preg_match("/header\\('Location: (.*)', true, 301\\);/", $t, $m)) return array('to' => '');
+    return array('to' => str_replace(array("\\'", '\\\\'), array("'", '\\'), $m[1]));
+}
+
+$sites = [];
+foreach ($demande as $domain => $entree) {
+    $domain = (string) $domain;
+    if (!preg_match('/^[a-z0-9.-]{1,253}$/i', $domain)) continue;
+    $doc  = $root . '/' . $domain . '/public_html';
+    $site = ['domain' => $domain, 'items' => []];
+
+    if (!is_dir($doc)) { $site['error'] = 'no_site'; $sites[] = $site; continue; }
+    $site['writable'] = is_writable($doc);
+
+    // ── Ce qui est déjà en place, d'après le registre, VÉRIFIÉ fichier par fichier :
+    //    un registre qui annonce une redirection disparue mentirait à l'agent.
+    $fReg = $doc . '/' . $REGISTRE;
+    $registre = [];
+    if (is_file($fReg)) {
+        $lu = json_decode((string) @file_get_contents($fReg), true);
+        if (is_array($lu)) $registre = $lu;
+    }
+    $existantes = [];
+    foreach ($registre as $de => $vers) {
+        $f = fichierDe($doc, (string) $de);
+        $stub = $f !== null ? lireStub($f, $MARQUE) : null;
+        if ($stub !== null) $existantes[] = ['from' => (string) $de, 'to' => $stub['to'], 'format' => 'php'];
+    }
+    $site['existing'] = $existantes;
+    $site['otherFormat'] = 0;
+    $enPlace = [];
+    foreach ($existantes as $x) $enPlace[$x['from']] = $x['to'];
+
+    // ── L'état de chaque règle demandée
+    $regles = isset($entree['rules']) && is_array($entree['rules']) ? $entree['rules'] : [];
+    $aEcrire = [];
+    $aEffacer = [];
+    foreach ($regles as $r) {
+        $de   = isset($r['from']) ? (string) $r['from'] : '';
+        $vers = isset($r['to'])   ? (string) $r['to']   : '';
+        $etat = ['from' => $de, 'to' => $vers];
+
+        if (!urlValide($de) || ($op === 'add' && !urlValide($vers))) { $etat['state'] = 'invalid'; $site['items'][] = $etat; continue; }
+        if ($op === 'add' && $de === $vers) { $etat['state'] = 'loop'; $site['items'][] = $etat; continue; }
+
+        $f = fichierDe($doc, $de);
+        if ($f === null) { $etat['state'] = 'unsupported'; $site['items'][] = $etat; continue; }
+
+        $present = is_file($f);
+        $stub = $present ? lireStub($f, $MARQUE) : null;
+
+        if ($op === 'remove') {
+            if (!$present) $etat['state'] = 'absent';
+            elseif ($stub === null) { $etat['state'] = 'exists'; } // page du site : on n'y touche pas
+            else { $etat['state'] = 'to_remove'; $aEffacer[] = array($de, $f); }
+            $site['items'][] = $etat;
+            continue;
+        }
+
+        if ($present && $stub === null) {
+            // UNE VRAIE PAGE OCCUPE DÉJÀ CETTE ADRESSE. On refuse : l'écraser ferait
+            // disparaître une page en ligne pour la remplacer par une redirection.
+            $etat['state'] = 'exists';
+        } elseif ($stub !== null && $stub['to'] === $vers) {
+            $etat['state'] = 'present';
+        } elseif ($stub !== null) {
+            $etat['state'] = 'conflict';
+            $etat['current'] = $stub['to'];
+            $aEcrire[] = array($de, $f, $vers);
+        } else {
+            $etat['state'] = 'to_add';
+            $aEcrire[] = array($de, $f, $vers);
+        }
+        $site['items'][] = $etat;
+    }
+
+    if ($mode !== 'apply') { $sites[] = $site; continue; }
+    if (!$site['writable']) { $site['error'] = 'not_writable'; $sites[] = $site; continue; }
+
+    // ── Écriture
+    $bak = $doc . '/.lkm-backups';
+    if (!is_dir($bak)) @mkdir($bak, 0750, true);
+    $faits = 0;
+
+    foreach ($aEcrire as $x) {
+        list($de, $f, $vers) = $x;
+        $parent = dirname($f);
+        if (!is_dir($parent)) continue;
+        if (is_file($f)) @copy($f, $bak . '/' . str_replace('/', '_', ltrim($de, '/')) . '-' . $stamp);
+        $contenu = contenuStub($vers, $stamp);
+        if (@file_put_contents($f, $contenu) === false) continue;
+        clearstatcache(true, $f);
+        // C'est le fichier RELU qui fait foi, jamais l'intention d'écrire.
+        if (@file_get_contents($f) !== $contenu) { @unlink($f); continue; }
+        // PHP tourne sous le compte DU SITE, qui n'appartient qu'à son propre groupe :
+        // sans lecture pour « other », il ne pourrait pas exécuter ce que nous écrivons.
+        // Le dossier, lui, interdit « other » (mode 2770) — personne d'autre n'y entre.
+        @chmod($f, 0644);
+        $registre[$de] = $vers;
+        $faits++;
+    }
+
+    foreach ($aEffacer as $x) {
+        list($de, $f) = $x;
+        @copy($f, $bak . '/' . str_replace('/', '_', ltrim($de, '/')) . '-' . $stamp);
+        if (@unlink($f)) { unset($registre[$de]); $faits++; }
+    }
+
+    // Le registre reflète ce qui EST, pas ce qu'on voulait : il est reconstruit depuis
+    // les fichiers réellement en place.
+    $verifie = [];
+    foreach ($registre as $de => $vers) {
+        $f = fichierDe($doc, (string) $de);
+        $stub = $f !== null ? lireStub($f, $MARQUE) : null;
+        if ($stub !== null) $verifie[(string) $de] = $stub['to'];
+    }
+    $json = json_encode($verifie, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    @file_put_contents($fReg, $json);
+    @chmod($fReg, 0644);
+
+    $apres = [];
+    foreach ($verifie as $de => $vers) $apres[] = ['from' => (string) $de, 'to' => (string) $vers, 'format' => 'php'];
+    $site['existing'] = $apres;
+    $site['stamp'] = $stamp;
+    $site['written'] = $faits;
+    $site['bytes'] = strlen($json);
+    $sites[] = $site;
+}
+
+echo json_encode(['sites' => $sites, 'mode' => $mode, 'op' => $op], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+`;

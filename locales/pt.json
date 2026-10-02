@@ -1219,7 +1219,11 @@
     "format_redirect": "Apache · Redirect 301 (mod_alias)",
     "format_hint_rewrite": "É a forma que o motor do parque já emprega nos seus próprios ficheiros.",
     "format_hint_redirect": "A forma do Apache. Só produz efeito se o Apache ler o .htaccess do site: o nginx ignora esses ficheiros.",
-    "other_format": "{count} regra(s) escritas na outra forma: serão reescritas."
+    "other_format": "{count} regra(s) escritas na outra forma: serão reescritas.",
+    "state_exists": "página existente",
+    "state_unsupported": "não redirecionável",
+    "exists_hint": "Uma página do site já usa este endereço: não é substituída.",
+    "unsupported_hint": "Só podem ser redirecionados os endereços terminados em «.php»."
   },
   "search": {
     "searching": "A procurar…",
