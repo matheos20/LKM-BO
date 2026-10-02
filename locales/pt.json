@@ -276,7 +276,11 @@
     "password_change_required": "Altere a sua palavra-passe provisória antes de usar a aplicação.",
     "auth_unknown_user": "Nenhuma conta corresponde a «{login}». Verifique o seu utilizador ou o seu e-mail.",
     "auth_wrong_password": "Palavra-passe incorreta. Restam-lhe {remaining} tentativa(s) antes do bloqueio da conta.",
-    "auth_email_ambiguous": "Várias contas partilham este endereço de e-mail. Inicie sessão com o seu utilizador."
+    "auth_email_ambiguous": "Várias contas partilham este endereço de e-mail. Inicie sessão com o seu utilizador.",
+    "job_unknown": "Processamento não encontrado: {id}",
+    "job_kind_unknown": "Tratamento desconhecido: {kind}",
+    "job_no_target": "Nenhum domínio a tratar.",
+    "job_too_many": "Demasiados domínios de uma vez: {max} no máximo."
   },
   "files": {
     "title": "Ficheiros",
@@ -827,7 +831,18 @@
     "unsearched": "{count} domínio(s) não procurados, por falta de ligação:",
     "connect_done": "Servidores ligados.",
     "connect_partial": "Continuam fora de linha: {servers}.",
-    "redirects": "Redireccionamentos 301"
+    "redirects": "Redireccionamentos 301",
+    "lost_targets": "{count} site(s) não tratados",
+    "stopping": "Paragem pedida: o processamento para após o lote em curso.",
+    "job_follow": "Seguir este processamento",
+    "job_reopen": "Reabrir",
+    "job_history": "{count} processamento(s) recente(s)",
+    "job_other_kind": "Esse processamento pertence a outro tratamento.",
+    "job_status_pending": "em espera",
+    "job_status_running": "em curso",
+    "job_status_done": "terminado",
+    "job_status_failed": "falhado",
+    "job_status_cancelled": "interrompido"
   },
   "translate": {
     "explain": "O back-office lê a página inicial dos sites escolhidos e assinala os textos escritos noutra língua que não a do site. Nada é alterado durante a análise.",
@@ -1354,6 +1369,9 @@
     "lookup_show_missing": "Quais?",
     "lookup_missing_title": "Domínios não encontrados",
     "lookup_missing_body": "{count} domínio(s) da sua lista não estão na aplicação.",
-    "lookup_clear": "Voltar à lista completa"
+    "lookup_clear": "Voltar à lista completa",
+    "job_background": "Esta operação é confiada ao servidor. Pode fechar esta janela, e até o navegador: continuará.",
+    "job_waiting": "A aguardar o servidor…",
+    "job_progress": "{done} de {total} domínios ({pct} %)"
   }
 }

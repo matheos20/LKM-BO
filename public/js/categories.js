@@ -844,13 +844,14 @@ export const categoryAction = {
     return nomsSaisis().length > 0;
   },
 
-  async run(server, domains) {
-    const cibles = domains.map((domain) => ({ domain, server }));
-    const request = demande(cibles);
-    if (!Object.keys(request).length) return;
-    const out = await api(`/api/servers/${enc(server)}/categories/plan`, { method: 'POST', body: { request, operation: state.operation } });
+  jobKind: 'categories.plan',
+  // La demande part ENTIERE au depart : en mode tableau, chaque site a ses propres
+  // rubriques, et le moteur n'en prend que la part de chaque lot.
+  jobParams: (cibles) => ({ request: demande(cibles), operation: state.operation }),
+
+  absorb(server, out) {
     state.plan ??= { sites: [] };
-    for (const site of out.sites ?? []) state.plan.sites.push({ ...site, server, serverLabel: server });
+    for (const site of out?.sites ?? []) state.plan.sites.push({ ...site, server, serverLabel: server });
     if (!state.selected && state.plan.sites.length) state.selected = keyOf(state.plan.sites[0]);
   },
 

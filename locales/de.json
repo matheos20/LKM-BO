@@ -276,7 +276,11 @@
     "password_change_required": "Ändern Sie Ihr vorläufiges Passwort, bevor Sie die Anwendung nutzen.",
     "auth_unknown_user": "Kein Konto entspricht „{login}“. Prüfen Sie Benutzername oder E-Mail-Adresse.",
     "auth_wrong_password": "Falsches Passwort. Sie haben noch {remaining} Versuch(e), bevor das Konto gesperrt wird.",
-    "auth_email_ambiguous": "Mehrere Konten teilen sich diese E-Mail-Adresse. Melden Sie sich mit Ihrem Benutzernamen an."
+    "auth_email_ambiguous": "Mehrere Konten teilen sich diese E-Mail-Adresse. Melden Sie sich mit Ihrem Benutzernamen an.",
+    "job_unknown": "Durchlauf nicht gefunden: {id}",
+    "job_kind_unknown": "Unbekannte Verarbeitung: {kind}",
+    "job_no_target": "Keine Domain zu verarbeiten.",
+    "job_too_many": "Zu viele Domains auf einmal: höchstens {max}."
   },
   "files": {
     "title": "Dateien",
@@ -827,7 +831,18 @@
     "unsearched": "{count} Domain(s) nicht gesucht, mangels Verbindung:",
     "connect_done": "Server verbunden.",
     "connect_partial": "Weiterhin offline: {servers}.",
-    "redirects": "301-Weiterleitungen"
+    "redirects": "301-Weiterleitungen",
+    "lost_targets": "{count} Website(s) nicht verarbeitet",
+    "stopping": "Stopp angefordert: der Durchlauf endet nach dem laufenden Stapel.",
+    "job_follow": "Diesem Durchlauf folgen",
+    "job_reopen": "Erneut öffnen",
+    "job_history": "{count} letzte Durchläufe",
+    "job_other_kind": "Dieser Durchlauf gehört zu einer anderen Verarbeitung.",
+    "job_status_pending": "wartend",
+    "job_status_running": "läuft",
+    "job_status_done": "abgeschlossen",
+    "job_status_failed": "fehlgeschlagen",
+    "job_status_cancelled": "gestoppt"
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",
@@ -1354,6 +1369,9 @@
     "lookup_show_missing": "Welche?",
     "lookup_missing_title": "Nicht gefundene Domains",
     "lookup_missing_body": "{count} Domain(s) Ihrer Liste sind nicht in der Anwendung.",
-    "lookup_clear": "Zurück zur vollen Liste"
+    "lookup_clear": "Zurück zur vollen Liste",
+    "job_background": "Dieser Vorgang läuft nun auf dem Server. Sie können dieses Fenster und sogar den Browser schließen: er läuft weiter.",
+    "job_waiting": "Warten auf den Server…",
+    "job_progress": "{done} von {total} Domains ({pct} %)"
   }
 }

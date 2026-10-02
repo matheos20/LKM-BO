@@ -633,12 +633,16 @@ export const redirectAction = {
     return regles.every((r) => urlValide(r.from) && urlValide(r.to, { destination: true }) && r.from !== r.to);
   },
 
-  async run(server, domains) {
-    const request = Object.fromEntries(domains.map((domain) => [domain, { rules: reglesSaisies() }]));
-    if (!Object.keys(request).length) return;
-    const out = await api(`/api/servers/${enc(server)}/redirects/plan`, { method: 'POST', body: { request, operation: 'add', format: state.format } });
+  jobKind: 'redirects.plan',
+  jobParams: (cibles) => ({
+    request: Object.fromEntries(cibles.map((c) => [c.domain, { rules: reglesSaisies() }])),
+    operation: 'add',
+    format: state.format,
+  }),
+
+  absorb(server, out) {
     state.plan ??= { sites: [] };
-    for (const site of out.sites ?? []) state.plan.sites.push({ ...site, server, serverLabel: server });
+    for (const site of out?.sites ?? []) state.plan.sites.push({ ...site, server, serverLabel: server });
     if (!state.selected && state.plan.sites.length) state.selected = keyOf(state.plan.sites[0]);
   },
 

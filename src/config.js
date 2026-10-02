@@ -102,6 +102,9 @@ export const config = {
   // Un journal qui grossit sans fin finit par ne plus être consulté. À 0, rien n'est
   // effacé ; le fichier `audit.log`, lui, n'est jamais purgé.
   auditRetentionDays: Number(env.AUDIT_RETENTION_DAYS ?? 180),
+  // Les tournees terminees partent avec leurs resultats au bout de N jours : un balayage
+  // du parc entier laisse des dizaines de megaoctets que plus personne ne regardera.
+  jobRetentionDays: int(env.JOB_RETENTION_DAYS, 30),
 };
 
 /** Refuse de démarrer avec une configuration dangereuse ou incomplète. */

@@ -57,6 +57,10 @@ const state = {
   total: 0,
   done: 0,
   cancel: false,
+  job: null, // la tournée suivie : c'est le serveur qui la mène
+  lastSeq: -1, // dernier lot absorbé, pour ne demander que la suite
+  encours: null, // une tournée que le serveur mène, qu'on ne suit pas encore
+  historique: [], // les dernières tournées, pour en rouvrir une
   suspended: false, // écran mis de côté le temps d'un détour par les fichiers
   onClose: null,
 };
@@ -87,6 +91,10 @@ export async function openActions({ serverId, serverLabel: label, servers, permi
     total: 0,
     done: 0,
     cancel: false,
+    job: null,
+    lastSeq: -1,
+    encours: null,
+    historique: [],
     onClose,
   });
   if (listArea) listArea.value = '';
@@ -106,7 +114,37 @@ export async function openActions({ serverId, serverLabel: label, servers, permi
   for (const sel of ['#btn-conn', '#btn-refresh', '#btn-add']) $(sel).hidden = true;
 
   render();
+  // Ce que le serveur fait en ce moment, et ce qu'il a fait : l'agent qui revient après
+  // avoir fermé son navigateur doit le voir sans avoir à le deviner.
+  rafraichirTournees();
   await (state.scope === 'parc' ? loadParcDomains() : loadServerDomains());
+}
+
+/**
+ * Va voir où en sont les tournées.
+ *
+ * Deux choses en une : celle qui tourne encore — on propose de la suivre — et les
+ * dernières terminées, qu'on peut rouvrir. Sans cet appel, un agent qui ferme son
+ * navigateur pendant une tournée d'une heure reviendrait devant un écran vide,
+ * persuadé que son travail est perdu.
+ */
+async function rafraichirTournees() {
+  try {
+    const out = await api('/api/jobs?limit=12');
+    state.historique = out.jobs ?? [];
+    state.encours = state.historique.find((j) => ['running', 'pending'].includes(j.status)) ?? null;
+    render();
+  } catch {
+    // L'écran reste utilisable sans l'historique : ce n'est pas lui qui fait le travail.
+  }
+}
+
+/** Rouvre une tournée : ses résultats se rechargent en quelques secondes. */
+async function rouvrir(job) {
+  const traitement = ACTIONS.find((a) => a.jobKind === job.kind);
+  if (!traitement) return toast(t('actions.job_other_kind'), 'info');
+  state.action = traitement;
+  await reprendre(job);
 }
 
 /**
@@ -328,51 +366,130 @@ function targets() {
 
 // ───────────────────────── Exécution ─────────────────────────
 
+/**
+ * Lance la tournée : le SERVEUR la mène, l'écran la regarde.
+ *
+ * La boucle vivait ici, dans l'onglet. Fermer l'onglet arrêtait une tournée de 7 733
+ * sites en plein milieu, et rien ne disait où elle en était. Désormais l'écran ne fait
+ * que deux choses : confier le travail, puis absorber ce qui revient. L'agent peut
+ * fermer son navigateur, se déconnecter, revenir le lendemain — le serveur continue.
+ */
 async function run() {
   const list = targets();
   if (!list.length) return toast(t('actions.no_target'), 'info');
 
   const action = state.action;
   action.reset();
-  Object.assign(state, { phase: 'running', total: list.length, done: 0, cancel: false });
+  Object.assign(state, { phase: 'running', total: list.length, done: 0, cancel: false, job: null, lastSeq: -1 });
   render();
 
-  // Un lot ne mélange jamais deux serveurs : chaque appel s'adresse à une machine.
-  const size = action.batch ?? 100;
-  const groups = new Map();
-  for (const target of list) {
-    if (!groups.has(target.server)) groups.set(target.server, []);
-    groups.get(target.server).push(target.domain);
+  try {
+    // Ce dont l'écran a besoin et que la tournée ne rend pas : les moyens de traduction
+    // disponibles sur chaque machine, par exemple.
+    await action.before?.([...new Set(list.map((x) => x.server))].filter(Boolean));
+    const job = await api('/api/jobs', {
+      method: 'POST',
+      body: {
+        kind: action.jobKind,
+        label: `${t(action.labelKey)} · ${list.length}`,
+        params: action.jobParams?.(list) ?? {},
+        targets: list,
+      },
+    });
+    state.job = job;
+    render();
+    await suivre(job.id);
+  } catch (err) {
+    state.phase = 'done';
+    render();
+    toastError(err);
   }
+}
 
-  // Une coupure sur un serveur ne doit pas emporter le travail des autres : le parc
-  // entier demande une dizaine de minutes, et une session SSH peut tomber en route.
-  const echecs = [];
-  for (const [server, domains] of groups) {
-    for (let i = 0; i < domains.length; i += size) {
-      if (state.cancel || !state.open) break;
-      const batch = domains.slice(i, i + size);
-      try {
-        await action.run(server, batch, { permissions: state.permissions });
-        // Les résultats portent un identifiant de serveur ; l'écran seul connaît son nom.
-        action.labelServers?.(serverLabel);
-        state.done += batch.length;
-      } catch (err) {
-        echecs.push({ server, message: err.message });
-        // Le reste de CE serveur est perdu ; la progression en tient compte.
-        state.done += domains.length - i;
-        render();
-        break;
-      }
+/** Entre deux relevés. Assez court pour que l'écran vive, assez long pour ne pas peser. */
+const SUIVI_MS = 1500;
+
+/**
+ * Suit une tournée jusqu'à son terme, en absorbant les lots au fur et à mesure.
+ *
+ * Reprendre une tournée d'hier, c'est exactement la même chose en repartant du lot zéro :
+ * l'écran se remplit en quelques secondes avec tout ce que le serveur a déjà trouvé.
+ */
+async function suivre(id) {
+  state.phase = 'running';
+  const echecs = new Map();
+
+  for (;;) {
+    if (!state.open) return; // l'agent a quitté l'écran : le serveur, lui, continue
+    let out;
+    try {
+      out = await api(`/api/jobs/${id}/results?after=${state.lastSeq}&limit=50`);
+    } catch (err) {
+      state.phase = 'done';
       render();
+      return toastError(err);
     }
-    if (state.cancel || !state.open) break;
-  }
 
-  state.phase = 'done';
-  render();
-  for (const e of echecs) toast(t('actions.server_failed', { server: serverLabel(e.server) }), 'error', e.message);
-  if (!state.cancel && echecs.length < groups.size) action.finished?.();
+    state.job = out.job;
+    state.total = out.job.total;
+    state.done = out.job.done;
+
+    for (const lot of out.results) {
+      state.lastSeq = lot.seq;
+      if (lot.payload?.error) {
+        // Un lot perdu est COMPTÉ et NOMMÉ : l'agent doit savoir quels sites n'ont pas
+        // été vus, et sur quelle machine. Un trou silencieux serait pire que l'échec.
+        const cle = lot.server ?? '—';
+        echecs.set(cle, (echecs.get(cle) ?? 0) + (lot.count ?? 0));
+        continue;
+      }
+      state.action.absorb?.(lot.server, lot.payload);
+    }
+    // Les résultats portent un identifiant de serveur ; l'écran seul connaît son nom.
+    if (out.results.length) state.action.labelServers?.(serverLabel);
+    render();
+
+    if (TERMINEES.includes(out.job.status)) {
+      state.phase = 'done';
+      render();
+      for (const [server, n] of echecs) {
+        toast(t('actions.server_failed', { server: serverLabel(server) }), 'error', t('actions.lost_targets', { count: fmtNum(n) }));
+      }
+      if (out.job.status === 'done' && !echecs.size) state.action.finished?.();
+      // Le bandeau porte encore l'etat d'avant : sans ce rappel, il proposerait de
+      // suivre une tournee deja terminee, et l'historique l'ignorerait.
+      rafraichirTournees();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, SUIVI_MS));
+  }
+}
+
+/** Une tournée dans l'un de ces états ne bougera plus. */
+const TERMINEES = ['done', 'failed', 'cancelled'];
+
+/**
+ * Reprend la tournée en cours de ce traitement, s'il y en a une.
+ *
+ * C'est ce qui permet de fermer son navigateur : en revenant, l'écran retrouve la
+ * tournée, absorbe tout ce qui a été fait pendant l'absence, et continue de suivre.
+ */
+async function reprendre(job) {
+  state.action.reset();
+  Object.assign(state, { job, total: job.total, done: job.done, lastSeq: -1, cancel: false });
+  await state.action.before?.([]);
+  await suivre(job.id);
+}
+
+/** Demande l'arrêt de la tournée en cours. Le serveur s'arrête entre deux lots. */
+async function arreter() {
+  if (!state.job) { state.cancel = true; return; }
+  try {
+    await api(`/api/jobs/${state.job.id}/cancel`, { method: 'POST' });
+    toast(t('actions.stopping'));
+  } catch (err) {
+    toastError(err);
+  }
 }
 
 // ───────────────────────── Rendu ─────────────────────────
@@ -405,6 +522,8 @@ function render() {
         h('div', { class: 'grid items-start gap-4 xl:grid-cols-3' }, formulaire, perimetre))
       : perimetre,
     runBar(),
+    // Ce que le serveur mene ou a mene : l'agent qui revient le retrouve ici.
+    bandeauTournees(),
     statsRow(),
     // En-tête de section plutôt qu'une carte : la vérification n'est pas une saisie.
     results || vide ? h('div', { class: 'px-1 pt-2' }, stepTitle(etape.results, t('actions.step_result'), t('actions.step_result_hint'))) : null,
@@ -514,7 +633,7 @@ function runBar() {
           : null,
       ),
       running
-        ? h('button', { type: 'button', class: 'btn btn-outline', onclick: () => { state.cancel = true; } }, t('actions.stop'))
+        ? h('button', { type: 'button', class: 'btn btn-outline', onclick: arreter }, t('actions.stop'))
         : h(
             'button',
             {
@@ -698,6 +817,55 @@ function byServer(found) {
   const counts = new Map();
   for (const f of found) counts.set(f.server, (counts.get(f.server) ?? 0) + 1);
   return [...counts].map(([id, n]) => `${fmtNum(n)} · ${serverLabel(id)}`).join(' — ');
+}
+
+/**
+ * Le bandeau des tournées.
+ *
+ * Il ne s'affiche que s'il a quelque chose à dire : une tournée en cours qu'on ne suit
+ * pas, ou des tournées passées qu'on peut rouvrir. Le reste du temps il disparaît — un
+ * écran qui montre en permanence ce qui ne sert pas finit par ne plus être lu.
+ */
+function bandeauTournees() {
+  const suitDeja = state.phase === 'running' && state.job;
+  const encours = !suitDeja && state.encours ? state.encours : null;
+  const passees = state.historique.filter((j) => TERMINEES.includes(j.status) && j.done > 0).slice(0, 4);
+  if (!encours && !passees.length) return null;
+
+  const ligne = (job, bouton) =>
+    h(
+      'div',
+      { class: 'flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm' },
+      h('span', { class: 'font-medium' }, job.label || job.kind),
+      h('span', { class: 'text-ink-400' }, t(`actions.job_status_${job.status}`)),
+      h('span', { class: 'text-ink-400' }, t('actions.progress', { done: fmtNum(job.done), total: fmtNum(job.total) })),
+      job.failed ? h('span', { class: 'text-red-600' }, t('actions.lost_targets', { count: fmtNum(job.failed) })) : null,
+      h('span', { class: 'text-ink-300' }, job.by?.name || '—'),
+      h('span', { class: 'flex-1' }),
+      bouton,
+    );
+
+  return h(
+    'div',
+    { class: 'card px-5 py-3' },
+    encours
+      ? ligne(
+        encours,
+        h('button', { type: 'button', class: 'btn btn-primary px-4 py-1.5', onclick: () => rouvrir(encours) }, icon('refresh'), t('actions.job_follow')),
+      )
+      : null,
+    passees.length
+      ? h(
+        'details',
+        { class: encours ? 'mt-2 border-t border-ink-100 pt-2' : '' },
+        h('summary', { class: 'cursor-pointer text-sm text-ink-500' }, t('actions.job_history', { count: passees.length })),
+        h('div', { class: 'mt-1 divide-y divide-ink-100' }, passees.map((job) => ligne(
+          job,
+          h('button', { type: 'button', class: 'btn btn-ghost px-3 py-1', onclick: () => rouvrir(job) }, t('actions.job_reopen')),
+        ))),
+      )
+      : null,
+  );
 }
 
 function progress() {

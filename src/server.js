@@ -22,6 +22,8 @@ import { SearchService } from './services/searchService.js';
 import { CloudflareService } from './services/cloudflareService.js';
 import { createAudit } from './services/audit.js';
 import { startBackupSchedule } from './services/backupSchedule.js';
+import { buildJobKinds } from './services/jobKinds.js';
+import { startJobRunner } from './services/jobRunner.js';
 import { purgeOlderThan } from './db/audit.js';
 import { attachUser, csrfGuard, errorHandler, langMiddleware, requireAuth, requirePasswordChanged } from './middleware/index.js';
 import { authRouter } from './routes/auth.js';
@@ -37,6 +39,7 @@ import { categoriesRouter } from './routes/categories.js';
 import { redirectsRouter } from './routes/redirects.js';
 import { searchRouter } from './routes/search.js';
 import { cloudflareRouter } from './routes/cloudflare.js';
+import { jobsRouter } from './routes/jobs.js';
 
 let servers;
 try {
@@ -75,6 +78,13 @@ const audit = createAudit(config.auditLog);
 // est reellement eprouvee de temps en temps : une sauvegarde jamais rejouee est un
 // fichier dont on espere quelque chose.
 const sauvegardes = startBackupSchedule({ config, audit });
+
+// LES TOURNEES. La boucle d'un traitement de masse vivait dans l'onglet du navigateur :
+// le fermer arretait une tournee de 7 733 sites en plein milieu, sans rien pour dire ou
+// elle en etait. Elle est desormais menee ici, ecrite apres chaque lot, et reprise au
+// bon endroit si le serveur redemarre.
+const jobKinds = buildJobKinds({ translation, categories, redirects, cloudflare });
+const jobs = startJobRunner({ kinds: jobKinds, audit, retentionDays: config.jobRetentionDays });
 
 const purges = await purgeOlderThan(config.auditRetentionDays);
 if (purges) console.log(`[audit] ${purges} événement(s) de plus de ${config.auditRetentionDays} jours effacés`);
@@ -142,6 +152,7 @@ app.use('/api/servers/:id/categories', categoriesRouter({ ssh, categories, audit
 app.use('/api/servers/:id/redirects', redirectsRouter({ ssh, redirects, audit }));
 app.use('/api/search', searchRouter({ ssh, search }));
 app.use('/api/cloudflare', cloudflareRouter({ cloudflare, audit }));
+app.use('/api/jobs', jobsRouter({ kinds: jobKinds, runner: jobs, audit }));
 app.use('/api/servers/:id/domains/:domain/files', filesRouter({ ssh, files, audit, uploadLimit: config.files.maxUploadBytes }));
 app.use('/api/servers', serversRouter({ ssh, domains, audit }));
 app.use('/api/domains', domainsRouter({ ssh, domains }));
@@ -158,6 +169,8 @@ function shutdown() {
   console.log('\nArrêt : fermeture des sessions SSH…');
   ssh.closeAll();
   sauvegardes.stop();
+  // Le moteur s'arrete entre deux lots : la tournee reprendra au redemarrage.
+  jobs.stop();
   // Le groupe de connexions MySQL se ferme : sinon le processus s'attarde.
   closeMysql().catch(() => {});
   server.close(() => process.exit(0));

@@ -440,8 +440,11 @@ export const templateAction = {
     state.doneSites.clear();
   },
 
-  async run(server, domains) {
-    const { sites } = await api(`/api/servers/${enc(server)}/translation/templates`, { method: 'POST', body: { domains } });
+  jobKind: 'templates.scan',
+  jobParams: () => ({}),
+
+  absorb(server, out) {
+    const { sites } = out ?? {};
     for (const site of sites ?? []) {
       if (site.skip === 'source') state.skipped += 1;
       else if (site.skip === 'lexicon') state.noLexicon += 1;

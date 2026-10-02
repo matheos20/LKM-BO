@@ -276,7 +276,11 @@
     "password_change_required": "Cambi la password provvisoria prima di usare l’applicazione.",
     "auth_unknown_user": "Nessun account corrisponde a «{login}». Verifichi il nome utente o l’indirizzo e-mail.",
     "auth_wrong_password": "Password errata. Le restano {remaining} tentativo/i prima del blocco dell’account.",
-    "auth_email_ambiguous": "Più account condividono questo indirizzo e-mail. Acceda con il suo nome utente."
+    "auth_email_ambiguous": "Più account condividono questo indirizzo e-mail. Acceda con il suo nome utente.",
+    "job_unknown": "Elaborazione introvabile: {id}",
+    "job_kind_unknown": "Trattamento sconosciuto: {kind}",
+    "job_no_target": "Nessun dominio da trattare.",
+    "job_too_many": "Troppi domini in una volta: {max} al massimo."
   },
   "files": {
     "title": "File",
@@ -827,7 +831,18 @@
     "unsearched": "{count} dominio/i non cercati, per mancanza di connessione:",
     "connect_done": "Server connessi.",
     "connect_partial": "Ancora fuori linea: {servers}.",
-    "redirects": "Reindirizzamenti 301"
+    "redirects": "Reindirizzamenti 301",
+    "lost_targets": "{count} sito/i non trattati",
+    "stopping": "Arresto richiesto: l’elaborazione si fermerà dopo il lotto in corso.",
+    "job_follow": "Seguire questa elaborazione",
+    "job_reopen": "Riaprire",
+    "job_history": "{count} elaborazione/i recente/i",
+    "job_other_kind": "Questa elaborazione riguarda un altro trattamento.",
+    "job_status_pending": "in attesa",
+    "job_status_running": "in corso",
+    "job_status_done": "terminata",
+    "job_status_failed": "fallita",
+    "job_status_cancelled": "interrotta"
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
@@ -1354,6 +1369,9 @@
     "lookup_show_missing": "Quali?",
     "lookup_missing_title": "Domini non trovati",
     "lookup_missing_body": "{count} dominio/i del tuo elenco non sono nell’applicazione.",
-    "lookup_clear": "Tornare all’elenco completo"
+    "lookup_clear": "Tornare all’elenco completo",
+    "job_background": "Questa operazione è affidata al server. Può chiudere questa finestra, e anche il browser: proseguirà.",
+    "job_waiting": "In attesa del server…",
+    "job_progress": "{done} su {total} domini ({pct} %)"
   }
 }

@@ -276,7 +276,11 @@
     "password_change_required": "Cambie su contraseña provisional antes de usar la aplicación.",
     "auth_unknown_user": "Ninguna cuenta coincide con «{login}». Compruebe su usuario o su correo electrónico.",
     "auth_wrong_password": "Contraseña incorrecta. Le quedan {remaining} intento(s) antes de que se bloquee la cuenta.",
-    "auth_email_ambiguous": "Varias cuentas comparten este correo electrónico. Inicie sesión con su usuario."
+    "auth_email_ambiguous": "Varias cuentas comparten este correo electrónico. Inicie sesión con su usuario.",
+    "job_unknown": "Tarea no encontrada: {id}",
+    "job_kind_unknown": "Tratamiento desconocido: {kind}",
+    "job_no_target": "Ningún dominio que tratar.",
+    "job_too_many": "Demasiados dominios a la vez: {max} como máximo."
   },
   "files": {
     "title": "Archivos",
@@ -827,7 +831,18 @@
     "unsearched": "{count} dominio(s) no buscados, por falta de conexión:",
     "connect_done": "Servidores conectados.",
     "connect_partial": "Siguen sin conexión: {servers}.",
-    "redirects": "Redirecciones 301"
+    "redirects": "Redirecciones 301",
+    "lost_targets": "{count} sitio(s) sin tratar",
+    "stopping": "Parada solicitada: la tarea se detendrá tras el lote en curso.",
+    "job_follow": "Seguir esta tarea",
+    "job_reopen": "Reabrir",
+    "job_history": "{count} tarea(s) reciente(s)",
+    "job_other_kind": "Esa tarea corresponde a otro tratamiento.",
+    "job_status_pending": "en espera",
+    "job_status_running": "en curso",
+    "job_status_done": "terminada",
+    "job_status_failed": "fallida",
+    "job_status_cancelled": "detenida"
   },
   "translate": {
     "explain": "El back-office lee la página de inicio de los sitios elegidos y detecta los textos escritos en un idioma distinto al del sitio. Nada se modifica durante el análisis.",
@@ -1354,6 +1369,9 @@
     "lookup_show_missing": "¿Cuáles?",
     "lookup_missing_title": "Dominios no encontrados",
     "lookup_missing_body": "{count} dominio(s) de su lista no están en la aplicación.",
-    "lookup_clear": "Volver a la lista completa"
+    "lookup_clear": "Volver a la lista completa",
+    "job_background": "Esta operación se confía al servidor. Puede cerrar esta ventana, e incluso el navegador: continuará.",
+    "job_waiting": "Esperando al servidor…",
+    "job_progress": "{done} de {total} dominios ({pct} %)"
   }
 }

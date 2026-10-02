@@ -195,6 +195,55 @@ export const MYSQL_MIGRATIONS = [
   ALTER TABLE cf_zones MODIFY domain VARCHAR(253) NOT NULL COMMENT 'nom de domaine complet, jusqu''à la limite DNS';
   ALTER TABLE cf_accounts MODIFY email VARCHAR(320) NOT NULL DEFAULT '' COMMENT 'exigé par Cloudflare avec une clé globale ; déduit du domaine';
   `,
+
+  // v7 — les tournées : un traitement de masse confié au serveur
+  //
+  // La boucle vivait dans l'onglet du navigateur : fermer l'onglet arrêtait une tournée
+  // de 7 733 sites en plein milieu, sans rien pour dire où elle en était. Elle est
+  // désormais ÉCRITE : la liste des cibles est figée au départ, l'avancement est inscrit
+  // après chaque lot, et les résultats s'accumulent au fur et à mesure. L'agent peut
+  // fermer son navigateur et revenir le lendemain ; le serveur, lui, continue — et s'il
+  // redémarre, il reprend là où il s'était arrêté.
+  `
+  CREATE TABLE jobs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    kind VARCHAR(40) NOT NULL COMMENT 'quel traitement : translate.scan, categories.plan…',
+    label VARCHAR(190) NOT NULL DEFAULT '' COMMENT 'ce que l''agent lit dans l''historique',
+    params LONGTEXT NOT NULL COMMENT 'les options du traitement, en JSON',
+    targets LONGTEXT NOT NULL COMMENT 'la liste des cibles, FIGÉE au départ : [{server, domain}]',
+    total INT NOT NULL DEFAULT 0,
+    done_count INT NOT NULL DEFAULT 0 COMMENT 'cibles traitées — c''est le point de reprise',
+    ok_count INT NOT NULL DEFAULT 0,
+    fail_count INT NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending, running, done, failed, cancelled',
+    error VARCHAR(400) NULL,
+    created_by INT NULL,
+    created_by_name VARCHAR(120) NOT NULL DEFAULT '' COMMENT 'recopié : la tournée survit à la suppression du compte',
+    created_at BIGINT NOT NULL,
+    started_at BIGINT NULL,
+    finished_at BIGINT NULL,
+    heartbeat_at BIGINT NULL COMMENT 'dernier signe de vie : une tournée sans battement a été interrompue',
+    INDEX idx_jobs_status (status),
+    INDEX idx_jobs_created (created_at),
+    CONSTRAINT fk_job_user FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Traitements de masse confiés au serveur';
+
+  CREATE TABLE job_results (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    job_id INT NOT NULL,
+    seq INT NOT NULL COMMENT 'numéro du lot, dans l''ordre de traitement',
+    server_id VARCHAR(60) NOT NULL DEFAULT '',
+    -- Le nombre de cibles du lot et son issue vivent ICI, et non dans un compteur tenu
+    -- en mémoire : le total se calcule alors sur ce qui est ÉCRIT, et reste juste même
+    -- quand une tournée est reprise par un autre processus que celui qui l'a commencée.
+    count INT NOT NULL DEFAULT 0 COMMENT 'cibles du lot',
+    ok TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'le lot a-t-il abouti',
+    payload LONGTEXT NOT NULL COMMENT 'ce que le lot a rendu, en JSON — l''écran le relit tel quel',
+    at BIGINT NOT NULL,
+    UNIQUE KEY uq_job_seq (job_id, seq),
+    CONSTRAINT fk_result_job FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Résultats d''une tournée, lot par lot';
+  `,
 ];
 
 /**

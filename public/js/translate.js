@@ -635,14 +635,23 @@ export const translateAction = {
   },
 
   /** Analyse un lot de domaines d'un même serveur. Ne modifie rien. */
-  async run(server, domains) {
-    if (!state.machine.has(server)) {
+  jobKind: 'translate.scan',
+  jobParams: () => ({}),
+
+  /** Avant la tournée : de quoi l'écran a besoin et que la tournée ne rend pas. */
+  async before(servers) {
+    for (const server of servers) {
+      if (state.machine.has(server)) continue;
       const status = await api(`/api/servers/${enc(server)}/translation/status`).catch(() => ({ machine: false }));
       state.machine.set(server, Boolean(status.machine));
       state.provider ??= status.provider ?? null;
     }
+  },
+
+  /** Ce que le lot a rendu entre dans l'état de l'écran. Le serveur a fait l'appel. */
+  absorb(server, out) {
     const label = server;
-    const { sites } = await api(`/api/servers/${enc(server)}/translation/scan`, { method: 'POST', body: { domains } });
+    const { sites } = out ?? {};
     for (const site of sites ?? []) {
       const entry = { ...site, server, serverLabel: label };
       if (site.error) state.failed.push(entry);

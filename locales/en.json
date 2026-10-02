@@ -276,7 +276,11 @@
     "password_change_required": "Change your temporary password before using the application.",
     "auth_unknown_user": "No account matches “{login}”. Check your username or email address.",
     "auth_wrong_password": "Wrong password. You have {remaining} attempt(s) left before the account is locked.",
-    "auth_email_ambiguous": "Several accounts share this email address. Please sign in with your username."
+    "auth_email_ambiguous": "Several accounts share this email address. Please sign in with your username.",
+    "job_unknown": "Run not found: {id}",
+    "job_kind_unknown": "Unknown treatment: {kind}",
+    "job_no_target": "No domain to process.",
+    "job_too_many": "Too many domains at once: {max} maximum."
   },
   "files": {
     "title": "Files",
@@ -827,7 +831,18 @@
     "unsearched": "{count} domain(s) not searched, for want of a connection:",
     "connect_done": "Servers connected.",
     "connect_partial": "Still offline: {servers}.",
-    "redirects": "301 redirects"
+    "redirects": "301 redirects",
+    "lost_targets": "{count} site(s) not processed",
+    "stopping": "Stop requested: the run will halt after the current batch.",
+    "job_follow": "Follow this run",
+    "job_reopen": "Reopen",
+    "job_history": "{count} recent run(s)",
+    "job_other_kind": "That run belongs to a different treatment.",
+    "job_status_pending": "queued",
+    "job_status_running": "running",
+    "job_status_done": "finished",
+    "job_status_failed": "failed",
+    "job_status_cancelled": "stopped"
   },
   "translate": {
     "explain": "The back office reads the home page of the selected sites and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",
@@ -1354,6 +1369,9 @@
     "lookup_show_missing": "Which ones?",
     "lookup_missing_title": "Domains not found",
     "lookup_missing_body": "{count} domain(s) from your list are not in the application. They received no command.",
-    "lookup_clear": "Back to the full list"
+    "lookup_clear": "Back to the full list",
+    "job_background": "This operation now runs on the server. You can close this window, and even your browser: it will carry on.",
+    "job_waiting": "Waiting for the server…",
+    "job_progress": "{done} of {total} domains ({pct}%)"
   }
 }

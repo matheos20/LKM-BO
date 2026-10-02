@@ -777,6 +777,72 @@ server-scripts/del-site     script serveur de référence pour la suppression
 server-scripts/traduire-homepage.sh  même travail en ligne de commande (voir § 13)
 ```
 
+## 11 bis. Les tournées : un traitement de masse confié au serveur
+
+La boucle d'un traitement de masse vivait dans **l'onglet du navigateur** : il envoyait
+les domaines par lots de cent. Fermer l'onglet, couper le Wi-Fi, et la tournée s'arrêtait
+au milieu — sans que rien ne dise où elle en était. Sur 7 733 sites, ou sur les 37 930
+domaines Cloudflare, c'était intenable.
+
+Une tournée est désormais **menée par le serveur et écrite en base**. L'agent la lance,
+ferme son navigateur, se déconnecte, revient le lendemain : elle a continué, et l'écran
+la retrouve. Si le serveur redémarre en route, il **reprend au bon lot**.
+
+### Ce qui rend la reprise possible
+
+| | |
+| --- | --- |
+| La liste des cibles est **figée** au départ | une tournée d'une heure ne dépend pas de ce que l'écran avait en tête au moment du clic |
+| Le découpage est **stable** | au redémarrage on refait le même, et on saute les lots déjà écrits |
+| Le point de reprise se lit dans **ce qui est écrit** | le nombre de lots enregistrés, pas un compteur qui pourrait mentir après un arrêt brutal |
+| Les totaux s'**additionnent** depuis les lots | le processus qui termine n'a pas vu ce qu'a fait celui qui avait commencé |
+
+**Une seule tournée à la fois.** Deux balayages du parc en parallèle doubleraient la
+charge SSH sur les mêmes machines, et les deux iraient deux fois moins vite.
+
+**Un serveur qui tombe n'emporte pas les autres.** Une session SSH peut lâcher au milieu
+d'une tournée de dix minutes : les lots de cette machine sont écrits **en échec, avec la
+liste des domaines non traités**, et la tournée continue ailleurs. Un trou silencieux
+serait pire que l'échec — l'agent ne saurait pas quels sites n'ont pas été vus.
+
+**On peut l'arrêter**, et elle s'arrête *entre* deux lots : interrompre un lot en plein
+travail laisserait des sites à moitié traités.
+
+### Ce que l'agent voit
+
+Un bandeau annonce la tournée en cours — son avancement, qui l'a lancée — avec un bouton
+pour la suivre, et replie l'historique des dernières, qu'on peut rouvrir. Il disparaît
+quand il n'a rien à dire. `job.start` et `job.finish` entrent au **journal d'audit** :
+qui a lancé quoi, sur combien de sites, avec quel résultat.
+
+### Cloudflare
+
+Une opération sur plus de **200 domaines** devient une tournée. En dessous, la réponse
+immédiate vaut mieux : vider le cache de trois sites et attendre deux secondes est plus
+simple à comprendre. Au-dessus, une seule requête pour 37 930 domaines tiendrait une
+heure et demie — le navigateur, le relais et la patience de l'agent abandonneraient bien
+avant.
+
+### API
+
+| | | |
+| --- | --- | --- |
+| `POST` | `/api/jobs` | lance une tournée `{ kind, label, params, targets[] }` |
+| `GET` | `/api/jobs` | l'historique `?kind= ?status= ?mine=1 ?limit=` |
+| `GET` | `/api/jobs/:id` | l'état d'une tournée |
+| `GET` | `/api/jobs/:id/results?after=` | ses résultats, lot par lot |
+| `POST` | `/api/jobs/:id/cancel` | demande l'arrêt |
+
+Le droit exigé est **celui du traitement**, pas un droit « tournée » générique : confier
+un travail au serveur ne doit pas permettre de faire ce qu'on n'aurait pas le droit de
+faire soi-même. Les tournées terminées partent avec leurs résultats au bout de
+`JOB_RETENTION_DAYS` jours (30 par défaut).
+
+**Ajouter un traitement**, c'est ajouter une entrée dans `src/services/jobKinds.js` —
+le droit exigé, la taille du lot, et l'appel. Le reste appartient au moteur.
+
+---
+
 ## 12. L'écran « Actions »
 
 Les traitements de masse du parc vivent dans un écran unique, accessible depuis la barre

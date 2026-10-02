@@ -276,7 +276,11 @@
     "password_change_required": "Changez votre mot de passe provisoire avant d’utiliser l’application.",
     "auth_unknown_user": "Aucun compte ne correspond à « {login} ». Vérifiez votre identifiant ou votre adresse e-mail.",
     "auth_wrong_password": "Mot de passe incorrect. Il vous reste {remaining} essai(s) avant le verrouillage du compte.",
-    "auth_email_ambiguous": "Cette adresse e-mail est partagée par plusieurs comptes. Connectez-vous avec votre identifiant."
+    "auth_email_ambiguous": "Cette adresse e-mail est partagée par plusieurs comptes. Connectez-vous avec votre identifiant.",
+    "job_unknown": "Tournée introuvable : {id}",
+    "job_kind_unknown": "Traitement inconnu : {kind}",
+    "job_no_target": "Aucun domaine à traiter.",
+    "job_too_many": "Trop de domaines d’un coup : {max} au maximum."
   },
   "files": {
     "title": "Fichiers",
@@ -827,7 +831,18 @@
     "unsearched": "{count} domaine(s) non cherché(s), faute de connexion :",
     "connect_done": "Serveurs connectés.",
     "connect_partial": "Toujours hors ligne : {servers}.",
-    "redirects": "Redirections 301"
+    "redirects": "Redirections 301",
+    "lost_targets": "{count} site(s) non traités",
+    "stopping": "Arrêt demandé : la tournée s’arrêtera après le lot en cours.",
+    "job_follow": "Suivre cette tournée",
+    "job_reopen": "Rouvrir",
+    "job_history": "{count} tournée(s) récente(s)",
+    "job_other_kind": "Cette tournée relève d’un autre traitement.",
+    "job_status_pending": "en attente",
+    "job_status_running": "en cours",
+    "job_status_done": "terminée",
+    "job_status_failed": "échouée",
+    "job_status_cancelled": "arrêtée"
   },
   "translate": {
     "explain": "Le back-office lit la page d'accueil des sites choisis et repère les textes rédigés dans une autre langue que celle du site. Rien n'est modifié pendant l'analyse.",
@@ -1354,6 +1369,9 @@
     "lookup_show_missing": "Lesquels ?",
     "lookup_missing_title": "Domaines introuvables",
     "lookup_missing_body": "{count} domaine(s) de votre liste ne sont pas dans l’application. Ils n’ont donc reçu aucune commande.",
-    "lookup_clear": "Revenir à la liste complète"
+    "lookup_clear": "Revenir à la liste complète",
+    "job_background": "Cette opération est confiée au serveur. Vous pouvez fermer cette fenêtre, et même votre navigateur : elle se poursuivra.",
+    "job_waiting": "En attente du serveur…",
+    "job_progress": "{done} sur {total} domaines ({pct} %)"
   }
 }

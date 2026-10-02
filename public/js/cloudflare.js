@@ -543,6 +543,27 @@ function confirmerMasse(kind) {
         valider.disabled = true;
         valider.textContent = t('action.working');
         try {
+          // PETITE SÉLECTION : on répond tout de suite. GRANDE : on confie au serveur.
+          //
+          // Une seule requête pour 37 930 domaines tiendrait une heure et demie — le
+          // navigateur, le relais et la patience de l'agent abandonneraient bien avant.
+          // Au-delà du seuil, l'opération devient une tournée : le serveur la mène, et
+          // fermer l'onglet ne l'arrête plus.
+          if (domaines.length > SEUIL_TOURNEE) {
+            const job = await api('/api/jobs', {
+              method: 'POST',
+              body: {
+                kind: 'cloudflare.bulk',
+                label: `${t(`cf.confirm_${kind}`)} · ${fmtNum(domaines.length)}`,
+                params: { op: kind, options },
+                targets: domaines.map((domain) => ({ domain })),
+              },
+            });
+            closeModal();
+            state.selected.clear();
+            suivreTournee(kind, job.id);
+            return;
+          }
           const out = await api('/api/cloudflare/bulk', { method: 'POST', body: { kind, domains: domaines, options } });
           closeModal();
           montrerReleve(kind, out);
@@ -642,6 +663,89 @@ function purgeCollee() {
 }
 
 /** Le relevé d'une opération de masse : ce qui a marché, ce qui a échoué, et pourquoi. */
+/**
+ * Au-delà de ce nombre de domaines, l'opération est confiée au serveur.
+ *
+ * En dessous, la réponse immédiate vaut mieux : vider le cache de trois sites et
+ * attendre un relevé deux secondes plus tard est plus simple à comprendre qu'une
+ * tournée à suivre. Le seuil sépare le geste courant du chantier.
+ */
+const SEUIL_TOURNEE = 200;
+
+/** Les états d'une tournée qui ne bougera plus. */
+const TERMINEES = ['done', 'failed', 'cancelled'];
+
+/**
+ * Suit une tournée Cloudflare et montre son avancement.
+ *
+ * FERMER CETTE FENÊTRE N'ARRÊTE RIEN, et c'est écrit dessus : le serveur continue. Une
+ * purge sur le parc entier demande une heure et demie ; personne ne doit rester devant.
+ */
+function suivreTournee(kind, id) {
+  const barre = h('div', { class: 'h-2 rounded-full bg-accent transition-all', style: 'width: 0%' });
+  const compte = h('p', { class: 'mt-2 text-sm text-ink-500' }, t('cf.job_waiting'));
+  const fermer = h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.close'));
+  let vivant = true;
+
+  openModal(
+    h(
+      'div',
+      {},
+      modalHeader(t(`cf.confirm_${kind}`), 'bg-accent-50 text-accent-700', 'refresh'),
+      h('p', { class: 'mb-4 rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600' }, t('cf.job_background')),
+      h('div', { class: 'h-2 overflow-hidden rounded-full bg-ink-100' }, barre),
+      compte,
+      h('div', { class: 'mt-5 flex justify-end' }, fermer),
+    ),
+    'max-w-md',
+  );
+
+  (async () => {
+    const lots = [];
+    let apres = -1;
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 2000));
+      let out;
+      try {
+        out = await api(`/api/jobs/${id}/results?after=${apres}&limit=100`);
+      } catch {
+        return; // l'agent s'est déconnecté : la tournée, elle, continue
+      }
+      for (const lot of out.results) { apres = lot.seq; lots.push(lot); }
+      const { job } = out;
+      const pct = job.total ? Math.round((job.done / job.total) * 100) : 0;
+      if (vivant) {
+        barre.style.width = `${pct}%`;
+        compte.textContent = t('cf.job_progress', { done: fmtNum(job.done), total: fmtNum(job.total), pct });
+      }
+      if (TERMINEES.includes(job.status)) {
+        // Les lots sont recousus en un seul relevé : l'agent voit le résultat d'ensemble,
+        // pas quarante tableaux séparés.
+        const releve = lots.reduce(
+          (acc, l) => {
+            const x = l.payload ?? {};
+            acc.total += x.total ?? 0;
+            acc.succeeded += x.succeeded ?? 0;
+            acc.failed += x.failed ?? 0;
+            acc.results.push(...(x.results ?? []));
+            acc.skipped.push(...(x.skipped ?? []));
+            return acc;
+          },
+          { total: 0, succeeded: 0, failed: 0, results: [], skipped: [], requested: job.total },
+        );
+        if (vivant) { closeModal(); montrerReleve(kind, releve); }
+        await rafraichirStats();
+        await load();
+        return;
+      }
+    }
+  })();
+
+  // Si l'agent ferme, on cesse de toucher à l'écran — mais on va jusqu'au bout du suivi
+  // pour rafraîchir la liste à la fin.
+  fermer.addEventListener('click', () => { vivant = false; });
+}
+
 function montrerReleve(kind, out) {
   const rates = [...(out.results ?? []).filter((r) => !r.ok), ...(out.skipped ?? []).map((s) => ({ domain: s.domain, error: t(s.reason, {}, s.reason) }))];
   const tout = rates.length === 0;
