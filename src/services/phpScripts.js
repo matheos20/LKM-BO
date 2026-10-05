@@ -1484,18 +1484,27 @@ foreach ($domaines as $domain) {
     $site = ['domain' => $domain, 'items' => []];
     if (!is_file($doc . '/config.php')) { $site['error'] = 'missing'; $sites[] = $site; continue; }
 
-    $lu = (function ($f) {
-        ob_start();
-        include $f;
-        ob_end_clean();
-        return [
-            'cats' => $categories ?? [],
-            'nom' => $site_name ?? null,
-            // L'agencement de la page d'accueil : il dit si le site est bien monte sur ce
-            // moteur, sans qu'on ait a lire le fichier a la main.
-            'secs' => $homepage_sections ?? [],
-        ];
-    })($doc . '/config.php');
+    // L'INCLUSION EST SOUS GARDE : avec les erreurs en sourdine, un config.php au PHP
+    // casse provoque une erreur fatale, le processus rend 255 SANS AUCUNE SORTIE, et tout
+    // le lot est perdu — cent sites pour un seul fichier abime.
+    try {
+        $lu = (function ($f) {
+            ob_start();
+            include $f;
+            ob_end_clean();
+            return [
+                'cats' => $categories ?? [],
+                'nom' => $site_name ?? null,
+                // L'agencement de la page d'accueil : il dit si le site est bien monte sur
+                // ce moteur, sans qu'on ait a lire le fichier a la main.
+                'secs' => $homepage_sections ?? [],
+            ];
+        })($doc . '/config.php');
+    } catch (\Throwable $e) {
+        $site['error'] = 'config';
+        $sites[] = $site;
+        continue;
+    }
 
     $cats = is_array($lu['cats']) ? $lu['cats'] : [];
     $site['name'] = (string) ($lu['nom'] ?? '');
