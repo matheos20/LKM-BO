@@ -244,6 +244,51 @@ export const MYSQL_MIGRATIONS = [
     CONSTRAINT fk_result_job FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Résultats d''une tournée, lot par lot';
   `,
+
+  // v8 — les thématiques, en base plutôt qu'en fichiers
+  //
+  // Le dossier `thematiques/` porte sept CSV, un par langue, qui donnent le SUJET et son
+  // MENU : « SANTE » → ACTU, BIEN-ÊTRE, GROSSESSE, MALADIE, MINCEUR, PROFESSIONNELS,
+  // SANTÉ, SENIORS. Ils ne servent plus qu'à l'import : la liste vit ici, où elle se
+  // corrige sans toucher au code et se lit sans relire sept fichiers à chaque écran.
+  //
+  // DEUX CHOSES MANQUENT AUX CSV, et la mesure du parc l'a montré. Chaque rubrique d'un
+  // site porte aussi une ICÔNE et une DESCRIPTION : relevé sur 60 sites de vps-004,
+  // l'icône est la même d'un site à l'autre dans 100 % des cas pour la plupart des
+  // rubriques (88 à 92 % pour deux d'entre elles). La description, elle, dépend de la
+  // THÉMATIQUE et non de la seule rubrique : « actu » en a douze variantes, une par
+  // sujet — « L'actualité santé et médecine », « L'actualité du tourisme et du voyage »…
+  //
+  // C'est pourquoi la clé est (thématique, langue, rubrique) et non la rubrique seule.
+  // Poser une thématique avec des icônes et des descriptions vides dégraderait les sites,
+  // puisque tous les sites du parc les ont remplies.
+  `
+  CREATE TABLE thematiques (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    \`key\` VARCHAR(60) NOT NULL COMMENT 'identifiant stable, déduit du libellé : sante, mode-femme…',
+    lang VARCHAR(5) NOT NULL COMMENT 'FR, EN, ES, IT, DE, NL, PT — les sept langues des CSV',
+    label VARCHAR(190) NOT NULL COMMENT 'ce que l''agent lit : SANTE, MODE / FEMME…',
+    position INT NOT NULL DEFAULT 0 COMMENT 'ordre d''affichage, celui du fichier d''origine',
+    source VARCHAR(20) NOT NULL DEFAULT 'csv' COMMENT 'csv (importée) ou manual (ajoutée à la main)',
+    updated_at BIGINT NOT NULL,
+    UNIQUE KEY uq_thematique (\`key\`, lang),
+    INDEX idx_thematique_lang (lang)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Les thématiques et leurs langues';
+
+  CREATE TABLE thematique_rubriques (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    thematique_id INT NOT NULL,
+    position INT NOT NULL DEFAULT 0 COMMENT 'ordre dans le menu du site',
+    slug VARCHAR(60) NOT NULL COMMENT 'l''adresse servie : /bien-etre/',
+    name VARCHAR(190) NOT NULL COMMENT 'le nom affiché au menu',
+    -- Une icône est un emoji, parfois composé de plusieurs caractères reliés : « 👨‍⚕️ »
+    -- en compte quatre. D'où la largeur, et d'où utf8mb4 qui seul sait les stocker.
+    icon VARCHAR(32) NOT NULL DEFAULT '' COMMENT 'emoji affiché devant le nom',
+    description VARCHAR(400) NOT NULL DEFAULT '' COMMENT 'propre au couple (thématique, rubrique)',
+    UNIQUE KEY uq_thematique_slug (thematique_id, slug),
+    CONSTRAINT fk_rubrique_thematique FOREIGN KEY (thematique_id) REFERENCES thematiques(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Le menu d''une thématique, rubrique par rubrique';
+  `,
 ];
 
 /**

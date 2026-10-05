@@ -21,7 +21,8 @@
     "migrate:mysql": "node scripts/migrate-to-mysql.js",
     "backup": "node scripts/backup.js",
     "serve": "node scripts/supervise.js",
-    "service": "node scripts/service.js"
+    "service": "node scripts/service.js",
+    "thematiques": "node scripts/thematiques.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

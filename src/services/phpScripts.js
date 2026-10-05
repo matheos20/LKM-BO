@@ -1456,3 +1456,72 @@ foreach ($demande as $domain => $entree) {
 
 echo json_encode(['sites' => $sites, 'mode' => $mode, 'op' => $op], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 `;
+
+/**
+ * Les rubriques d'un site, AVEC leur icône et leur description.
+ *
+ * `CATEGORY_LIST` rend le nom et le nombre d'articles — assez pour ajouter ou retirer une
+ * rubrique, pas assez pour une thématique. Mesuré le 05/10/2026 : chaque rubrique du parc
+ * porte aussi un emoji et une phrase, et poser une thématique sans eux dégraderait les
+ * sites, puisque tous les autres les ont.
+ *
+ * C'est `config.php` qui fait foi, et non la liste des dossiers : un site a aussi
+ * « contact », « mentions-legales », « parts », « fonts » et « images », qui ne sont pas
+ * des rubriques. Le fichier est donc lu par PHP lui-même.
+ *
+ * LECTURE SEULE, de bout en bout.
+ */
+export const CATEGORY_DETAILS = String.raw`<?php
+error_reporting(0);
+$root = rtrim((string) getenv('LKM_ROOT'), '/');
+$domaines = json_decode((string) base64_decode((string) getenv('LKM_B64'), true), true) ?: [];
+
+$sites = [];
+foreach ($domaines as $domain) {
+    $domain = (string) $domain;
+    if (!preg_match('/^[a-z0-9][a-z0-9.-]{1,252}$/i', $domain)) continue;
+    $doc = $root . '/' . $domain . '/public_html';
+    $site = ['domain' => $domain, 'items' => []];
+    if (!is_file($doc . '/config.php')) { $site['error'] = 'missing'; $sites[] = $site; continue; }
+
+    $lu = (function ($f) {
+        ob_start();
+        include $f;
+        ob_end_clean();
+        return [
+            'cats' => $categories ?? [],
+            'nom' => $site_name ?? null,
+            // L'agencement de la page d'accueil : il dit si le site est bien monte sur ce
+            // moteur, sans qu'on ait a lire le fichier a la main.
+            'secs' => $homepage_sections ?? [],
+        ];
+    })($doc . '/config.php');
+
+    $cats = is_array($lu['cats']) ? $lu['cats'] : [];
+    $site['name'] = (string) ($lu['nom'] ?? '');
+    $site['sections'] = is_array($lu['secs']) ? count($lu['secs']) : 0;
+    // Sans category.php, une rubrique posee n'aurait rien pour s'afficher.
+    $site['engine'] = is_file($doc . '/category.php');
+
+    $total = 0;
+    foreach ($cats as $cle => $val) {
+        $cle = (string) $cle;
+        if (!preg_match('/^[a-z0-9][a-z0-9-]{0,60}$/', $cle)) continue;
+        $dossier = $doc . '/' . $cle;
+        $restes = is_dir($dossier) ? array_values(array_diff(scandir($dossier) ?: [], ['.', '..', 'index.php'])) : [];
+        $total += count($restes);
+        $site['items'][] = [
+            'slug' => $cle,
+            'name' => html_entity_decode((string) (is_array($val) ? ($val['name'] ?? $cle) : $val), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'icon' => (string) (is_array($val) ? ($val['icon'] ?? '') : ''),
+            'description' => html_entity_decode((string) (is_array($val) ? ($val['description'] ?? '') : ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+            'articles' => count($restes),
+            'dir' => is_file($dossier . '/index.php'),
+        ];
+    }
+    $site['articles'] = $total;
+    $sites[] = $site;
+}
+
+echo json_encode(['sites' => $sites], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+`;
