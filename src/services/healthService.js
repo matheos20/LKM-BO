@@ -1,5 +1,6 @@
 import { AppError } from '../errors.js';
 import { isValidDomain, shq } from '../ssh/shell.js';
+import { ATTENTE_MAX, CHARGE_MAX, MARGE_CHARGE, PRESSION_MAX, ServerLoad } from './serverLoad.js';
 
 /**
  * Santé du parc : un site répond-il, et répond-il correctement ?
@@ -34,64 +35,25 @@ import { isValidDomain, shq } from '../ssh/shell.js';
 export const PORT_DEFAUT = 8080;
 
 /**
- * CE QUI SUIT EST UN FREIN, ET IL A ÉTÉ PAYÉ CHER.
+ * LE FREIN VIT DANS `serverLoad.js`, et il est partagé.
  *
- * Le 02/10/2026, une mesure de 300 sites à dix sondes en parallèle a fait passer la
- * charge moyenne de vps-001 de 6 à 138 sur 8 cœurs : 1 276 connexions ouvertes,
- * 653 processus php-fpm, et de vrais visiteurs servis en 8,8 s au lieu de 2. La machine
- * est revenue d'elle-même en quatre minutes, sans dégât — mais la leçon est acquise.
+ * Il y est expliqué, avec les mesures qui l'ont imposé — notamment l'analyse de 300 sites
+ * qui a fait passer vps-001 de 6 à 138 de charge moyenne le 02/10/2026. Deux barrières :
+ * la charge par cœur, calée sur ce que la machine fait d'habitude, et la pression disque,
+ * qui est la vraie contrainte de ce parc.
  *
- * LA CAUSE N'EST PAS LE NOMBRE DE SONDES SIMULTANÉES, c'est le nombre de sites NOUVEAUX
- * touchés par minute. Chaque site a son propre pool php-fpm, endormi la plupart du
- * temps ; la première requête doit le réveiller, et ce réveil coûte bien plus que la page
- * elle-même. Réveiller 5 246 pools en 80 secondes revient à démarrer 5 246 interpréteurs
- * d'un coup.
- *
- * Le même travail étalé sur une demi-heure ne prend qu'une fraction de la machine. D'où
- * ces trois garde-fous, et non un seul :
- *
- *   1. peu de sondes à la fois (`PARALLELE_DEFAUT`) ;
- *   2. un débit visé (`SITES_PAR_SECONDE`) : un lot plus rapide attend avant de rendre ;
- *   3. un plafond de charge (`CHARGE_MAX`) : au-dessus, le lot patiente, et s'il patiente
- *      trop longtemps il renonce en le DISANT plutôt que d'ajouter à la peine.
+ * Ne restent ici que les réglages propres à CETTE analyse : combien de sondes à la fois,
+ * et à quel rythme.
  */
 export const PARALLELE_DEFAUT = 2;
 
 /** Le débit visé, par serveur. 3/s : les 5 246 sites d'une machine en une demi-heure. */
 export const SITES_PAR_SECONDE = 3;
 
-/**
- * Charge moyenne par cœur au-delà de laquelle on n'ajoute rien.
- *
- * Les machines du parc vivent entre 0,7 et 1,5 par cœur en temps normal (mesuré : 6 à 11
- * sur 8 cœurs). À 2 par cœur elles servent déjà mal ; une analyse n'a aucune raison
- * d'aggraver cela.
- */
-export const CHARGE_MAX = 2;
+// Les seuils du frein restent lisibles depuis ici : c'est par cette analyse qu'on arrive
+// à eux, et les renvoyer évite d'avoir à savoir dans quel fichier ils ont été rangés.
+export { ATTENTE_MAX, CHARGE_MAX, MARGE_CHARGE, PRESSION_MAX } from './serverLoad.js';
 
-/**
- * LA MARGE, ET POURQUOI LE PLAFOND NE PEUT PAS ÊTRE UN NOMBRE FIXE.
- *
- * Mesure du 02/10/2026 : au repos, vps-002 affiche déjà 1,78 par cœur et vps-001 entre
- * 0,75 et 1,4. Un plafond fixe à 2 serait franchi avant la première sonde sur l'une et
- * jamais atteint sur l'autre — il ne protégerait ni l'une ni l'autre.
- *
- * Le frein se cale donc sur ce que la machine fait D'HABITUDE : la première charge vue
- * sur un serveur devient sa référence, et l'analyse s'autorise cette référence plus la
- * marge ci-dessous. Une machine déjà à la peine est ménagée ; une machine tranquille
- * n'est pas bridée pour rien.
- */
-export const MARGE_CHARGE = 0.75;
-
-/** Combien de temps un lot accepte d'attendre que la machine se calme, en millisecondes. */
-export const ATTENTE_MAX = 120000;
-
-/**
- * Le temps laissé à une page.
- *
- * Quinze secondes, c'était trop : une sonde qui patiente immobilise le pool du site tout
- * ce temps, et le site était de toute façon à signaler. Huit secondes suffisent à trancher.
- */
 export const DELAI_SONDE = 8;
 
 /**
@@ -320,65 +282,20 @@ export const ETATS_GRAVES = ['unreachable', 'no_answer', 'server_error', 'php_er
 export const estSain = (state) => state === 'ok';
 
 export class HealthService {
-  constructor(ssh) {
+  /**
+   * `load` est le frein, et il se PARTAGE avec les autres analyses de masse : c'est lui
+   * qui retient en mémoire le train de vie de chaque machine. Deux services qui auraient
+   * chacun le leur apprendraient deux fois la même chose, et la première analyse de la
+   * journée se tromperait de référence.
+   */
+  constructor(ssh, load = new ServerLoad(ssh)) {
     this.ssh = ssh;
-    // Ce que chaque machine fait quand on ne lui demande rien. Rempli au premier lot, et
-    // perdu au redémarrage — ce qui n'est pas grave : il sera remesuré.
-    this.repos = new Map();
+    this.load = load;
   }
 
-  /**
-   * Le plafond propre à une machine : son train de vie habituel, plus la marge.
-   *
-   * Tant qu'aucune référence n'a été prise, c'est `CHARGE_MAX` qui sert — la première
-   * lecture de charge l'établira, et c'est elle qui comptera ensuite.
-   */
-  #plafond(serverId) {
-    const repos = this.repos.get(serverId);
-    return repos === undefined ? CHARGE_MAX : Math.min(4, repos + MARGE_CHARGE);
-  }
-
-  /**
-   * La charge de la machine, ramenée au nombre de cœurs.
-   *
-   * Une charge de 8 ne veut rien dire seule : elle est confortable sur 16 cœurs et
-   * critique sur 2. C'est le rapport qui compte, et c'est lui qui est rendu.
-   */
-  async charge(serverId) {
-    const { stdout } = await this.ssh.exec(serverId, "awk '{print $1}' /proc/loadavg; nproc", { timeout: 30000 });
-    const [load, cores] = String(stdout).trim().split(/\s+/);
-    const coeurs = Number(cores) || 1;
-    const valeur = Number(load) || 0;
-    return { load: valeur, cores: coeurs, parCoeur: valeur / coeurs };
-  }
-
-  /**
-   * Attend que la machine redescende sous le plafond, et renonce plutôt que d'insister.
-   *
-   * Renoncer n'est pas un échec de l'analyse : c'est un résultat. L'écran affiche « le
-   * serveur était trop chargé », l'agent recommence plus tard, et aucun site n'a été
-   * déclaré en panne à tort.
-   */
-  async #attendre(serverId, { plafond, attenteMax }) {
-    const debut = Date.now();
-    let vue = await this.charge(serverId);
-    // La toute première lecture sur un serveur fait référence : c'est son état au repos,
-    // avant que nos sondes n'y aient rien ajouté.
-    if (!this.repos.has(serverId)) {
-      this.repos.set(serverId, vue.parCoeur);
-      plafond = Math.min(4, vue.parCoeur + MARGE_CHARGE);
-    }
-    while (vue.parCoeur > plafond) {
-      if (Date.now() - debut >= attenteMax) {
-        throw new AppError('errors.health_server_busy', {
-          status: 503,
-          vars: { server: this.ssh.server(serverId).label ?? serverId, load: vue.load.toFixed(2), cores: String(vue.cores) },
-        });
-      }
-      await new Promise((r) => setTimeout(r, 5000));
-      vue = await this.charge(serverId);
-    }
-    return vue;
+  /** L'état d'une machine : charge par cœur et pression disque. */
+  charge(serverId) {
+    return this.load.lire(serverId);
   }
 
   /**
@@ -405,6 +322,7 @@ export class HealthService {
       minBytes = SEUIL_VIDE,
       rate = SITES_PAR_SECONDE,
       loadCeiling = null,
+      ioCeiling = PRESSION_MAX,
       maxWait = ATTENTE_MAX,
     } = {},
   ) {
@@ -418,7 +336,7 @@ export class HealthService {
     let charge = null;
 
     if (sondables.length) {
-      charge = await this.#attendre(serverId, { plafond: loadCeiling ?? this.#plafond(serverId), attenteMax: maxWait });
+      charge = await this.load.attendre(serverId, { plafond: loadCeiling, pression: ioCeiling, attenteMax: maxWait });
 
       const debut = Date.now();
       const utilise = port ?? server.httpPort ?? PORT_DEFAUT;

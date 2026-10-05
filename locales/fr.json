@@ -284,7 +284,9 @@
     "cf_token_unusable": "Le jeton créé n’est pas utilisable pour {domain} (état : {status}). La clé globale n’a pas été touchée.",
     "health_no_target": "Aucun site à vérifier.",
     "health_probe_unreachable": "La sonde n'atteint pas le serveur web sur {server} (port {port}). Aucun site n'a été déclaré en panne : c'est la mesure qui a échoué, pas les sites.",
-    "health_server_busy": "{server} est trop chargé en ce moment ({load} sur {cores} cœurs). L'analyse s'est arrêtée pour ne pas aggraver la situation ; reprenez-la plus tard, elle repartira où elle en était."
+    "health_server_busy": "{server} est trop chargé en ce moment ({load} sur {cores} cœurs). L'analyse s'est arrêtée pour ne pas aggraver la situation ; reprenez-la plus tard, elle repartira où elle en était.",
+    "urls_none": "Aucune adresse à tester. Collez-en au moins une.",
+    "health_server_io": "{server} n’arrive pas à suivre son disque en ce moment ({io} % du temps avec une tâche en attente). L’analyse s’est arrêtée pour ne pas aggraver la situation ; reprenez-la plus tard, elle repartira où elle en était."
   },
   "files": {
     "title": "Fichiers",
@@ -847,7 +849,8 @@
     "job_status_done": "terminée",
     "job_status_failed": "échouée",
     "job_status_cancelled": "arrêtée",
-    "health": "Santé du parc"
+    "health": "Santé du parc",
+    "urls": "Scanner 404"
   },
   "translate": {
     "explain": "Le back-office lit la page d'accueil des sites choisis et repère les textes rédigés dans une autre langue que celle du site. Rien n'est modifié pendant l'analyse.",
@@ -1415,5 +1418,39 @@
     "col_proto": "Adresse que le site se donne",
     "col_modified": "Dernière modification",
     "col_file": "Dernier fichier modifié"
+  },
+  "urls": {
+    "title": "Scanner 404",
+    "explain": "Collez les adresses à tester, choisissez les sites, et le back-office demande chaque adresse à chaque site depuis le serveur lui-même. Rien n’est modifié. Les adresses mortes peuvent ensuite partir vers la redirection 301 en un clic.",
+    "step_what": "Les adresses à tester",
+    "step_what_hint": "Une par ligne. Une adresse complète convient : seule la partie après le domaine est retenue, car ce sont les sites choisis ci-contre qui décident où tester.",
+    "paste_hint": "Aucune adresse pour l’instant.",
+    "kept": "{count} adresse(s) retenue(s).",
+    "rejected": "{count} refusée(s) :",
+    "state_missing": "adresse morte",
+    "state_soft_missing": "page absente, serveur muet",
+    "state_server_error": "erreur serveur",
+    "state_php_error": "erreur PHP",
+    "state_unreachable": "ne répond pas",
+    "state_no_answer": "sonde perdue",
+    "state_refused": "accès refusé",
+    "state_redirect": "déjà redirigée",
+    "state_ok": "en ordre",
+    "soft_missing_hint": "le serveur répond 200 mais sert la page d’accueil",
+    "stat_checked": "Vérifications",
+    "stat_dead": "Adresses mortes",
+    "stat_alive": "En ordre",
+    "stat_sites": "Sites concernés",
+    "col_path": "Adresse",
+    "col_code": "Code",
+    "col_size": "Poids",
+    "none_dead": "Aucune des adresses testées n’est morte.",
+    "nothing_measured": "Aucune adresse n’a pu être mesurée. Ce n’est pas un signe que les adresses sont bonnes : c’est le scan qui n’a rien rapporté. Regardez le détail de la tournée, puis recommencez.",
+    "dead_count": "{count} adresse(s) distincte(s) à rediriger, sur {sites} site(s).",
+    "not_redirectable": "Dont {count} non redirigeable(s) : seules les adresses finissant par « .php » peuvent recevoir une redirection.",
+    "not_redirectable_hint": "Aucune des adresses retenues ne finit par « .php ». Une redirection se pose en déposant un petit fichier à l’ancienne adresse, ce qui n’est possible que pour une adresse en « .php ». Les autres demandent une règle sur le serveur, donc votre administrateur.",
+    "to_redirect": "Rediriger en 301",
+    "handed_over": "{count} adresse(s) et {sites} site(s) repris dans la redirection 301. Indiquez maintenant où envoyer les visiteurs.",
+    "busy_note": "{server} manquait de disque pendant le scan ({io} % du temps en attente) : des adresses peuvent y paraître absentes sans l’être."
   }
 }

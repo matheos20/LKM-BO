@@ -284,7 +284,9 @@
     "cf_token_unusable": "O token criado para {domain} não é utilizável (estado: {status}). A chave global não foi tocada.",
     "health_no_target": "Nenhum site a verificar.",
     "health_probe_unreachable": "A sonda não alcança o servidor web em {server} (porta {port}). Nenhum site foi declarado em baixo: falhou a medição, não os sites.",
-    "health_server_busy": "{server} está demasiado carregado neste momento ({load} em {cores} núcleos). A análise parou para não agravar a situação; retome-a mais tarde e continuará de onde ficou."
+    "health_server_busy": "{server} está demasiado carregado neste momento ({load} em {cores} núcleos). A análise parou para não agravar a situação; retome-a mais tarde e continuará de onde ficou.",
+    "urls_none": "Nenhum endereço a testar. Cole pelo menos um.",
+    "health_server_io": "{server} não consegue acompanhar o seu disco neste momento ({io} % do tempo com uma tarefa em espera). A análise parou para não agravar a situação; retome-a mais tarde e continuará de onde ficou."
   },
   "files": {
     "title": "Ficheiros",
@@ -847,7 +849,8 @@
     "job_status_done": "terminado",
     "job_status_failed": "falhado",
     "job_status_cancelled": "interrompido",
-    "health": "Saúde do parque"
+    "health": "Saúde do parque",
+    "urls": "Scanner 404"
   },
   "translate": {
     "explain": "O back-office lê a página inicial dos sites escolhidos e assinala os textos escritos noutra língua que não a do site. Nada é alterado durante a análise.",
@@ -1415,5 +1418,39 @@
     "col_proto": "Endereço que o site se atribui",
     "col_modified": "Última modificação",
     "col_file": "Último ficheiro modificado"
+  },
+  "urls": {
+    "title": "Scanner 404",
+    "explain": "Cole os endereços a testar, escolha os sites, e o back-office pede cada endereço a cada site a partir do próprio servidor. Nada é alterado. Os endereços mortos podem depois seguir para a redireção 301 com um clique.",
+    "step_what": "Endereços a testar",
+    "step_what_hint": "Um por linha. Um endereço completo serve: só a parte depois do domínio é guardada, pois são os sites escolhidos ao lado que decidem onde testar.",
+    "paste_hint": "Ainda nenhum endereço.",
+    "kept": "{count} endereço(s) guardado(s).",
+    "rejected": "{count} recusado(s):",
+    "state_missing": "endereço morto",
+    "state_soft_missing": "página ausente, servidor calado",
+    "state_server_error": "erro do servidor",
+    "state_php_error": "erro PHP",
+    "state_unreachable": "não responde",
+    "state_no_answer": "sonda perdida",
+    "state_refused": "acesso recusado",
+    "state_redirect": "já redirecionado",
+    "state_ok": "em ordem",
+    "soft_missing_hint": "o servidor responde 200 mas serve a página inicial",
+    "stat_checked": "Verificações",
+    "stat_dead": "Endereços mortos",
+    "stat_alive": "Em ordem",
+    "stat_sites": "Sites envolvidos",
+    "col_path": "Endereço",
+    "col_code": "Código",
+    "col_size": "Tamanho",
+    "none_dead": "Nenhum dos endereços testados está morto.",
+    "nothing_measured": "Nenhum endereço pôde ser medido. Isso não indica que os endereços estejam bons: foi a análise que não devolveu nada. Veja o detalhe da ronda e tente novamente.",
+    "dead_count": "{count} endereço(s) distinto(s) a redirecionar, em {sites} site(s).",
+    "not_redirectable": "Dos quais {count} não podem ser redirecionados: só os endereços terminados em «.php» aceitam uma redireção.",
+    "not_redirectable_hint": "Nenhum dos endereços escolhidos termina em «.php». Uma redireção coloca-se deixando um pequeno ficheiro no endereço antigo, o que só é possível para um endereço «.php». Os outros exigem uma regra no servidor, portanto o seu administrador.",
+    "to_redirect": "Redirecionar com 301",
+    "handed_over": "{count} endereço(s) e {sites} site(s) passados para a redireção 301. Indique agora para onde enviar os visitantes.",
+    "busy_note": "{server} estava com falta de disco durante a análise ({io} % do tempo em espera): aí os endereços podem parecer ausentes sem o serem."
   }
 }

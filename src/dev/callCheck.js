@@ -141,7 +141,12 @@ function knownNames(source, code) {
   for (const m of code.matchAll(/[({,]\s*(?:\.\.\.)?([\w$]+)\s*(?=[,)}=])/g)) known.add(m[1]);
   // Les méthodes abrégées et les accesseurs : « stats() { … } », « get cle() { … } »
   // sont des DÉCLARATIONS, pas des appels.
-  for (const m of code.matchAll(/(?:^|[,{;])\s*(?:(?:async|get|set|static)\s+)*\*?\s*([\w$]+)\s*\([^()]*\)\s*\{/gm)) known.add(m[1]);
+  //
+  // UN NIVEAU DE PARENTHÈSES EST ADMIS DANS LES PARAMÈTRES, parce qu'une valeur par
+  // défaut peut en contenir : « constructor(ssh, load = new ServerLoad(ssh)) ». Avec
+  // « [^()]* », cette déclaration n'était pas reconnue, et le nom passait ensuite pour un
+  // appel non déclaré — premier faux positif de ce contrôle, le 05/10/2026.
+  for (const m of code.matchAll(/(?:^|[,{;])\s*(?:(?:async|get|set|static)\s+)*\*?\s*([\w$]+)\s*\((?:[^()]|\([^()]*\))*\)\s*\{/gm)) known.add(m[1]);
   for (const m of code.matchAll(/\b([\w$]+)\s*:/g)) known.add(m[1]);
   for (const m of code.matchAll(/catch\s*\(\s*([\w$]+)/g)) known.add(m[1]);
   return known;

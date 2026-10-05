@@ -31,7 +31,7 @@ const part = (request, domains) => {
   return Object.fromEntries(domains.filter((d) => tout[d] !== undefined).map((d) => [d, tout[d]]));
 };
 
-export function buildJobKinds({ translation, categories, redirects, cloudflare, health }) {
+export function buildJobKinds({ translation, categories, redirects, cloudflare, health, urls }) {
   return Object.fromEntries([
     // ── Analyse : rien n'est modifié sur les sites.
     parServeur('translate.scan', {
@@ -46,6 +46,15 @@ export function buildJobKinds({ translation, categories, redirects, cloudflare, 
       permission: 'bulk.read',
       batch: 50,
       appel: ({ serverId, domains, params }) => health.scan(serverId, domains, params ?? {}),
+    }),
+    // SCANNER 404. Le lot est petit parce qu'il se multiplie : vingt lots de domaines
+    // fois cinquante adresses font mille requêtes. Le frein de `serverLoad.js` compte en
+    // DOMAINES, ce qui est la bonne unité — mesuré le 05/10/2026, une adresse de plus sur
+    // un site déjà visité coûte 0,029 s contre 0,050 s pour un site neuf.
+    parServeur('urls.scan', {
+      permission: 'bulk.read',
+      batch: 20,
+      appel: ({ serverId, domains, params }) => urls.check(serverId, domains, params?.paths ?? [], params ?? {}),
     }),
     parServeur('templates.scan', {
       permission: 'bulk.read',

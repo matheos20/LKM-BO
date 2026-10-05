@@ -284,7 +284,9 @@
     "cf_token_unusable": "Das für {domain} erstellte Token ist nicht nutzbar (Status: {status}). Der globale Schlüssel blieb unangetastet.",
     "health_no_target": "Keine Website zu prüfen.",
     "health_probe_unreachable": "Die Messung erreicht den Webserver auf {server} (Port {port}) nicht. Keine Website wurde als ausgefallen gemeldet: die Messung ist fehlgeschlagen, nicht die Websites.",
-    "health_server_busy": "{server} ist derzeit zu stark belastet ({load} auf {cores} Kernen). Die Prüfung wurde abgebrochen, um die Lage nicht zu verschlimmern; setzen Sie sie später fort, sie macht dort weiter, wo sie war."
+    "health_server_busy": "{server} ist derzeit zu stark belastet ({load} auf {cores} Kernen). Die Prüfung wurde abgebrochen, um die Lage nicht zu verschlimmern; setzen Sie sie später fort, sie macht dort weiter, wo sie war.",
+    "urls_none": "Keine Adresse zu prüfen. Fügen Sie mindestens eine ein.",
+    "health_server_io": "{server} kommt derzeit mit seiner Platte nicht nach ({io} % der Zeit mit einer wartenden Aufgabe). Die Prüfung wurde abgebrochen, um die Lage nicht zu verschlimmern; setzen Sie sie später fort, sie macht dort weiter, wo sie war."
   },
   "files": {
     "title": "Dateien",
@@ -847,7 +849,8 @@
     "job_status_done": "abgeschlossen",
     "job_status_failed": "fehlgeschlagen",
     "job_status_cancelled": "gestoppt",
-    "health": "Zustand des Bestands"
+    "health": "Zustand des Bestands",
+    "urls": "404-Prüfung"
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",
@@ -1415,5 +1418,39 @@
     "col_proto": "Adresse, die die Website für sich angibt",
     "col_modified": "Zuletzt geändert",
     "col_file": "Zuletzt geänderte Datei"
+  },
+  "urls": {
+    "title": "404-Prüfung",
+    "explain": "Fügen Sie die zu prüfenden Adressen ein, wählen Sie die Websites, und das Back-Office ruft jede Adresse bei jeder Website vom Server selbst ab. Nichts wird geändert. Tote Adressen gehen danach mit einem Klick zur 301-Weiterleitung.",
+    "step_what": "Zu prüfende Adressen",
+    "step_what_hint": "Eine pro Zeile. Eine vollständige Adresse ist in Ordnung: nur der Teil nach der Domain wird übernommen, denn die daneben gewählten Websites entscheiden, wo geprüft wird.",
+    "paste_hint": "Noch keine Adresse.",
+    "kept": "{count} Adresse(n) übernommen.",
+    "rejected": "{count} abgelehnt:",
+    "state_missing": "tote Adresse",
+    "state_soft_missing": "Seite fehlt, Server schweigt",
+    "state_server_error": "Serverfehler",
+    "state_php_error": "PHP-Fehler",
+    "state_unreachable": "keine Antwort",
+    "state_no_answer": "Messung verloren",
+    "state_refused": "Zugriff verweigert",
+    "state_redirect": "bereits weitergeleitet",
+    "state_ok": "in Ordnung",
+    "soft_missing_hint": "der Server antwortet 200, liefert aber die Startseite",
+    "stat_checked": "Prüfungen",
+    "stat_dead": "Tote Adressen",
+    "stat_alive": "In Ordnung",
+    "stat_sites": "Betroffene Websites",
+    "col_path": "Adresse",
+    "col_code": "Code",
+    "col_size": "Größe",
+    "none_dead": "Keine der geprüften Adressen ist tot.",
+    "nothing_measured": "Keine Adresse konnte gemessen werden. Das heißt nicht, dass die Adressen in Ordnung sind: die Prüfung selbst hat nichts gemeldet. Sehen Sie sich die Einzelheiten des Durchgangs an und versuchen Sie es erneut.",
+    "dead_count": "{count} unterschiedliche Adresse(n) weiterzuleiten, auf {sites} Website(s).",
+    "not_redirectable": "Davon {count} nicht weiterleitbar: nur Adressen, die auf „.php“ enden, können eine erhalten.",
+    "not_redirectable_hint": "Keine der ausgewählten Adressen endet auf „.php“. Eine Weiterleitung entsteht, indem eine kleine Datei an der alten Adresse abgelegt wird, was nur bei einer „.php“-Adresse möglich ist. Die übrigen brauchen eine Serverregel, also Ihren Administrator.",
+    "to_redirect": "Mit 301 weiterleiten",
+    "handed_over": "{count} Adresse(n) und {sites} Website(s) in die 301-Weiterleitung übernommen. Geben Sie nun an, wohin die Besucher sollen.",
+    "busy_note": "{server} hatte während der Prüfung zu wenig Platte ({io} % der Zeit im Wartezustand): Adressen können dort fehlend wirken, ohne es zu sein."
   }
 }

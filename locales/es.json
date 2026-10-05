@@ -284,7 +284,9 @@
     "cf_token_unusable": "El token creado para {domain} no es utilizable (estado: {status}). La clave global no se ha tocado.",
     "health_no_target": "Ningún sitio que revisar.",
     "health_probe_unreachable": "La sonda no alcanza el servidor web en {server} (puerto {port}). Ningún sitio ha sido declarado caído: ha fallado la medición, no los sitios.",
-    "health_server_busy": "{server} está demasiado cargado ahora mismo ({load} en {cores} núcleos). El análisis se detuvo para no empeorar la situación; reanúdelo más tarde y continuará donde lo dejó."
+    "health_server_busy": "{server} está demasiado cargado ahora mismo ({load} en {cores} núcleos). El análisis se detuvo para no empeorar la situación; reanúdelo más tarde y continuará donde lo dejó.",
+    "urls_none": "Ninguna dirección que probar. Pegue al menos una.",
+    "health_server_io": "{server} no consigue seguir el ritmo de su disco ahora mismo ({io} % del tiempo con una tarea esperando). El análisis se detuvo para no empeorar la situación; reanúdelo más tarde y continuará donde lo dejó."
   },
   "files": {
     "title": "Archivos",
@@ -847,7 +849,8 @@
     "job_status_done": "terminada",
     "job_status_failed": "fallida",
     "job_status_cancelled": "detenida",
-    "health": "Salud del parque"
+    "health": "Salud del parque",
+    "urls": "Escáner 404"
   },
   "translate": {
     "explain": "El back-office lee la página de inicio de los sitios elegidos y detecta los textos escritos en un idioma distinto al del sitio. Nada se modifica durante el análisis.",
@@ -1415,5 +1418,39 @@
     "col_proto": "Dirección que el sitio se atribuye",
     "col_modified": "Última modificación",
     "col_file": "Último archivo modificado"
+  },
+  "urls": {
+    "title": "Escáner 404",
+    "explain": "Pegue las direcciones a probar, elija los sitios, y el back-office pide cada dirección a cada sitio desde el propio servidor. No se modifica nada. Las direcciones muertas pueden pasar luego a la redirección 301 con un clic.",
+    "step_what": "Direcciones a probar",
+    "step_what_hint": "Una por línea. Una dirección completa sirve: solo se conserva la parte posterior al dominio, ya que son los sitios elegidos al lado los que deciden dónde probar.",
+    "paste_hint": "Todavía ninguna dirección.",
+    "kept": "{count} dirección(es) conservada(s).",
+    "rejected": "{count} rechazada(s):",
+    "state_missing": "dirección muerta",
+    "state_soft_missing": "página ausente, servidor callado",
+    "state_server_error": "error del servidor",
+    "state_php_error": "error PHP",
+    "state_unreachable": "no responde",
+    "state_no_answer": "sonda perdida",
+    "state_refused": "acceso denegado",
+    "state_redirect": "ya redirigida",
+    "state_ok": "en orden",
+    "soft_missing_hint": "el servidor responde 200 pero sirve la página de inicio",
+    "stat_checked": "Comprobaciones",
+    "stat_dead": "Direcciones muertas",
+    "stat_alive": "En orden",
+    "stat_sites": "Sitios afectados",
+    "col_path": "Dirección",
+    "col_code": "Código",
+    "col_size": "Tamaño",
+    "none_dead": "Ninguna de las direcciones probadas está muerta.",
+    "nothing_measured": "No se pudo medir ninguna dirección. Eso no indica que las direcciones estén bien: es el escaneo el que no ha devuelto nada. Revise el detalle de la ronda y vuelva a intentarlo.",
+    "dead_count": "{count} dirección(es) distinta(s) a redirigir, en {sites} sitio(s).",
+    "not_redirectable": "De las cuales {count} no se pueden redirigir: solo las direcciones terminadas en «.php» admiten una redirección.",
+    "not_redirectable_hint": "Ninguna de las direcciones seleccionadas termina en «.php». Una redirección se coloca dejando un pequeño archivo en la dirección antigua, lo que solo es posible para una dirección «.php». Las demás requieren una regla en el servidor, es decir, su administrador.",
+    "to_redirect": "Redirigir con 301",
+    "handed_over": "{count} dirección(es) y {sites} sitio(s) trasladados a la redirección 301. Indique ahora adónde enviar a los visitantes.",
+    "busy_note": "{server} andaba escaso de disco durante el escaneo ({io} % del tiempo esperando): allí las direcciones pueden parecer ausentes sin estarlo."
   }
 }

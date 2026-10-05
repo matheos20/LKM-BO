@@ -284,7 +284,9 @@
     "cf_token_unusable": "The token created for {domain} is not usable (status: {status}). The global key was left untouched.",
     "health_no_target": "No site to check.",
     "health_probe_unreachable": "The probe cannot reach the web server on {server} (port {port}). No site has been declared down: the measurement failed, not the sites.",
-    "health_server_busy": "{server} is too busy right now ({load} across {cores} cores). The scan stopped so as not to make things worse; resume it later and it will pick up where it left off."
+    "health_server_busy": "{server} is too busy right now ({load} across {cores} cores). The scan stopped so as not to make things worse; resume it later and it will pick up where it left off.",
+    "urls_none": "No address to test. Paste at least one.",
+    "health_server_io": "{server} cannot keep up with its disk right now ({io}% of the time with a task waiting). The scan stopped so as not to make things worse; resume it later and it will pick up where it left off."
   },
   "files": {
     "title": "Files",
@@ -847,7 +849,8 @@
     "job_status_done": "finished",
     "job_status_failed": "failed",
     "job_status_cancelled": "stopped",
-    "health": "Fleet health"
+    "health": "Fleet health",
+    "urls": "404 scanner"
   },
   "translate": {
     "explain": "The back office reads the home page of the selected sites and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",
@@ -1415,5 +1418,39 @@
     "col_proto": "Address the site claims for itself",
     "col_modified": "Last modified",
     "col_file": "Last modified file"
+  },
+  "urls": {
+    "title": "404 scanner",
+    "explain": "Paste the addresses to test, pick the sites, and the back-office requests each address from each site on the server itself. Nothing is changed. Dead addresses can then go to the 301 redirect in one click.",
+    "step_what": "Addresses to test",
+    "step_what_hint": "One per line. A full address works: only the part after the domain is kept, since the sites chosen alongside decide where to test.",
+    "paste_hint": "No address yet.",
+    "kept": "{count} address(es) kept.",
+    "rejected": "{count} rejected:",
+    "state_missing": "dead address",
+    "state_soft_missing": "page gone, server silent",
+    "state_server_error": "server error",
+    "state_php_error": "PHP error",
+    "state_unreachable": "no response",
+    "state_no_answer": "probe lost",
+    "state_refused": "access refused",
+    "state_redirect": "already redirected",
+    "state_ok": "fine",
+    "soft_missing_hint": "the server answers 200 but serves the homepage",
+    "stat_checked": "Checks",
+    "stat_dead": "Dead addresses",
+    "stat_alive": "Fine",
+    "stat_sites": "Sites involved",
+    "col_path": "Address",
+    "col_code": "Code",
+    "col_size": "Size",
+    "none_dead": "None of the tested addresses is dead.",
+    "nothing_measured": "No address could be measured. That is not a sign the addresses are fine: the scan itself reported nothing. Check the run’s details, then try again.",
+    "dead_count": "{count} distinct address(es) to redirect, across {sites} site(s).",
+    "not_redirectable": "Of which {count} cannot be redirected: only addresses ending in “.php” can take one.",
+    "not_redirectable_hint": "None of the selected addresses ends in “.php”. A redirect works by placing a small file at the old address, which is only possible for a “.php” address. The others need a server rule, so your administrator.",
+    "to_redirect": "Redirect with 301",
+    "handed_over": "{count} address(es) and {sites} site(s) carried over to the 301 redirect. Now say where to send visitors.",
+    "busy_note": "{server} was short of disk during the scan ({io}% of the time waiting): addresses there may look gone without being gone."
   }
 }

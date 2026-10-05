@@ -23,6 +23,8 @@ import { CloudflareService } from './services/cloudflareService.js';
 import { createAudit } from './services/audit.js';
 import { startBackupSchedule } from './services/backupSchedule.js';
 import { HealthService } from './services/healthService.js';
+import { ServerLoad } from './services/serverLoad.js';
+import { UrlCheckService } from './services/urlCheckService.js';
 import { buildJobKinds } from './services/jobKinds.js';
 import { startJobRunner } from './services/jobRunner.js';
 import { purgeOlderThan } from './db/audit.js';
@@ -67,7 +69,11 @@ const sites = new SiteService(ssh);
 const translation = new TranslationService(ssh, sites, config.translate);
 const categories = new CategoryService(ssh, sites);
 const redirects = new RedirectService(ssh, sites);
-const health = new HealthService(ssh);
+// UN SEUL frein pour toutes les analyses de masse : c'est lui qui retient le train de vie
+// de chaque machine, et deux exemplaires l'apprendraient deux fois.
+const serverLoad = new ServerLoad(ssh);
+const health = new HealthService(ssh, serverLoad);
+const urls = new UrlCheckService(ssh, serverLoad);
 const search = new SearchService(ssh, domains, sites);
 // Cloudflare : la base porte les comptes et les zones ; aucun acces SSH n'intervient ici.
 const cloudflare = new CloudflareService();
@@ -85,7 +91,7 @@ const sauvegardes = startBackupSchedule({ config, audit });
 // le fermer arretait une tournee de 7 733 sites en plein milieu, sans rien pour dire ou
 // elle en etait. Elle est desormais menee ici, ecrite apres chaque lot, et reprise au
 // bon endroit si le serveur redemarre.
-const jobKinds = buildJobKinds({ translation, categories, redirects, cloudflare, health });
+const jobKinds = buildJobKinds({ translation, categories, redirects, cloudflare, health, urls });
 const jobs = startJobRunner({ kinds: jobKinds, audit, retentionDays: config.jobRetentionDays });
 
 const purges = await purgeOlderThan(config.auditRetentionDays);

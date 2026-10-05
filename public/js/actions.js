@@ -3,8 +3,9 @@ import { t } from './i18n.js';
 import { $, enc, fmtNum, folderButton, h, icon, stepTitle, toast, toastError } from './ui.js';
 import { categoryAction } from './categories.js';
 import { templateAction } from './templates.js';
-import { redirectAction } from './redirects.js';
+import { prefillRedirects, redirectAction } from './redirects.js';
 import { healthAction } from './health.js';
+import { urlAction } from './urls.js';
 import { translateAction } from './translate.js';
 
 /**
@@ -38,7 +39,7 @@ import { translateAction } from './translate.js';
  */
 // L'ordre est celui du menu. La santé du parc vient en tête : c'est par elle qu'on
 // commence une journée, et c'est la seule qui ne modifie rien.
-const ACTIONS = [healthAction, translateAction, templateAction, categoryAction, redirectAction];
+const ACTIONS = [healthAction, urlAction, translateAction, templateAction, categoryAction, redirectAction];
 
 const state = {
   open: false,
@@ -497,6 +498,32 @@ async function arreter() {
 
 // ───────────────────────── Rendu ─────────────────────────
 
+/**
+ * DU SCANNER 404 VERS LA REDIRECTION 301, sans rien recopier à la main.
+ *
+ * Le scanner vient de mesurer quelles adresses sont mortes et sur quels sites. Les faire
+ * ressaisir une par une serait une perte de temps et une source de fautes de frappe —
+ * dans des adresses de soixante caractères, une faute ne se voit pas.
+ *
+ * Trois choses passent : les adresses de départ, les sites concernés, et le changement
+ * d'action. La DESTINATION reste vide : c'est à l'agent de décider où envoyer le visiteur,
+ * et personne d'autre ne peut le savoir à sa place.
+ */
+async function versRedirection({ paths = [], domains = [] } = {}) {
+  if (!paths.length) return;
+  prefillRedirects(paths);
+  state.action = redirectAction;
+  state.phase = 'idle';
+  // Le périmètre devient la liste des sites où l'adresse est morte, et non tout le
+  // serveur : rediriger ailleurs poserait un fichier sur des sites qui n'ont rien.
+  state.scope = 'list';
+  state.text = domains.join('\n');
+  majZoneListe();
+  render();
+  await resolveList();
+  toast(t('urls.handed_over', { count: String(paths.length), sites: String(domains.length) }), 'info');
+}
+
 function render() {
   if (!state.open) return;
   $('#page-title').textContent = t('actions.title');
@@ -508,7 +535,7 @@ function render() {
   // choix des sites. L'agent suit 1, 2, 3 sans qu'on lui explique.
   const avecForm = Boolean(state.action.form);
   const etape = { form: 1, scope: avecForm ? 2 : 1, results: avecForm ? 3 : 2 };
-  const results = state.action.results({ permissions: state.permissions, openFiles: openFilesFor });
+  const results = state.action.results({ permissions: state.permissions, openFiles: openFilesFor, handover: versRedirection });
   const vide = !results && state.phase === 'done' ? state.action.emptyState?.() : null;
   // Le formulaire a besoin des sites : supprimer une rubrique suppose de savoir
   // lesquelles sont en place, et cela se lit sur les sites choisis.
@@ -687,6 +714,18 @@ function listInput() {
   });
   listArea.disabled = state.phase === 'running';
   return listArea;
+}
+
+/**
+ * Recopie `state.text` dans le champ quand c'est le CODE qui l'a changé.
+ *
+ * Le champ garde normalement sa valeur tout seul, puisque c'est le même élément d'un rendu
+ * à l'autre. Mais quand le scanner 404 remplit la liste des sites à notre place, rien ne
+ * la porte à l'écran : l'agent verrait un champ vide et un décompte qui annonce douze
+ * domaines. À n'appeler que dans ce sens-là.
+ */
+function majZoneListe() {
+  if (listArea) listArea.value = state.text;
 }
 
 /**

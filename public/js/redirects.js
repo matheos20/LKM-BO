@@ -624,6 +624,25 @@ async function retirer(site, regle) {
 
 // ───────────────────────── L'action, telle que l'écran la voit ─────────────────────────
 
+/**
+ * Les règles posées d'avance, quand une autre analyse les a trouvées.
+ *
+ * LE SCANNER 404 ARRIVE AVEC LES ADRESSES MORTES : il serait absurde de les faire
+ * recopier à la main, une par une, alors qu'elles viennent d'être mesurées. Seul le
+ * départ est rempli — la destination reste vide, parce que c'est à l'agent de décider où
+ * envoyer le visiteur, et que personne d'autre ne peut le savoir.
+ *
+ * `operation` revient à « add » : on arrive ici pour poser une redirection, pas pour en
+ * retirer une, même si l'écran était resté sur un retrait.
+ */
+export function prefillRedirects(departs) {
+  const liste = [...new Set((Array.isArray(departs) ? departs : []).map((d) => String(d ?? '').trim()).filter(Boolean))].slice(0, MAX_REGLES);
+  state.operation = 'add';
+  state.regles = liste.length ? liste.map((from) => ({ from, to: '' })) : [{ from: '', to: '' }];
+  redirectAction.reset();
+  return state.regles.length;
+}
+
 export const redirectAction = {
   key: 'redirects',
   icon: 'link',

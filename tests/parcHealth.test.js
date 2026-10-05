@@ -44,7 +44,7 @@ const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
  * `reponses` reçoit, pour chaque commande attendue, ce que le serveur rendrait. La charge
  * est servie telle quelle ; la sonde, ligne par ligne.
  */
-function fauxSsh({ charge = '1.0\n8', lignes = [], retouches = [], httpPort, surRetouche } = {}) {
+function fauxSsh({ charge = '1.0\n8\n0', lignes = [], retouches = [], httpPort, surRetouche } = {}) {
   const vues = [];
   return {
     vues,
@@ -341,17 +341,17 @@ test('santé : aucune cible, aucun appel au serveur', async () => {
 // ─────────────────────────── le frein ───────────────────────────
 
 test('santé : la charge est lue AVANT la première sonde', async () => {
-  const ssh = fauxSsh({ charge: '4.0\n8', lignes: [sonde(TEMOIN, 404), sonde('a.fr', 200)] });
+  const ssh = fauxSsh({ charge: '4.0\n8\n0', lignes: [sonde(TEMOIN, 404), sonde('a.fr', 200)] });
   const out = await new HealthService(ssh).scan('vps-001', ['a.fr'], { rate: 1e6 });
   assert.match(ssh.vues[0], /\/proc\/loadavg/, 'la charge d’abord, la sonde ensuite');
   assert.match(ssh.vues[1], /curl/);
-  assert.deepEqual(out.load, { load: 4, cores: 8, parCoeur: 0.5 });
+  assert.deepEqual(out.load, { load: 4, cores: 8, parCoeur: 0.5, io: 0 });
 });
 
 test('santé : une machine à genoux fait RENONCER l’analyse, elle ne l’aggrave pas', async () => {
   // 138 de charge moyenne sur 8 cœurs : c'est ce qu'une analyse trop pressée a provoqué
   // le 02/10/2026. Au-delà du plafond, le lot patiente, puis abandonne en le disant.
-  const ssh = fauxSsh({ charge: '138.0\n8', lignes: [sonde(TEMOIN, 404)] });
+  const ssh = fauxSsh({ charge: '138.0\n8\n0', lignes: [sonde(TEMOIN, 404)] });
   const health = new HealthService(ssh);
   await assert.rejects(
     () => health.scan('vps-001', ['a.fr'], { maxWait: 0, loadCeiling: CHARGE_MAX, rate: 1e6 }),
@@ -363,14 +363,14 @@ test('santé : une machine à genoux fait RENONCER l’analyse, elle ne l’aggr
 test('santé : le plafond se cale sur ce que la machine fait D’HABITUDE', async () => {
   // Mesuré : vps-002 vit à 1,78 par cœur au repos, vps-001 à 0,75. Un plafond fixe
   // bloquerait l'une et laisserait l'autre libre — il ne protégerait ni l'une ni l'autre.
-  const ssh = fauxSsh({ charge: '14.24\n8', lignes: [sonde(TEMOIN, 404), sonde('a.fr', 200)] });
+  const ssh = fauxSsh({ charge: '14.24\n8\n0', lignes: [sonde(TEMOIN, 404), sonde('a.fr', 200)] });
   const health = new HealthService(ssh);
   // 14,24 / 8 = 1,78 par cœur : au-dessus de CHARGE_MAX, et pourtant accepté, parce que
   // c'est l'état normal de cette machine.
   assert.ok(1.78 > CHARGE_MAX - 0.25, 'la mesure doit bien être proche du plafond fixe');
   const out = await health.scan('vps-001', ['a.fr'], { rate: 1e6 });
   assert.equal(out.summary.ok, 1);
-  assert.equal(health.repos.get('vps-001').toFixed(2), '1.78');
+  assert.equal(health.load.repos.get('vps-001').toFixed(2), '1.78');
   // Et le second lot s'autorise cette référence plus la marge, pas davantage.
   assert.ok(MARGE_CHARGE > 0 && MARGE_CHARGE < 2);
 });

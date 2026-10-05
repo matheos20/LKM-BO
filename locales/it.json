@@ -284,7 +284,9 @@
     "cf_token_unusable": "Il token creato per {domain} non è utilizzabile (stato: {status}). La chiave globale non è stata toccata.",
     "health_no_target": "Nessun sito da controllare.",
     "health_probe_unreachable": "La sonda non raggiunge il server web su {server} (porta {port}). Nessun sito è stato dichiarato fuori servizio: è la misura che non è riuscita, non i siti.",
-    "health_server_busy": "{server} è troppo carico in questo momento ({load} su {cores} core). L’analisi si è fermata per non aggravare la situazione; riprendetela più tardi, ripartirà da dove era arrivata."
+    "health_server_busy": "{server} è troppo carico in questo momento ({load} su {cores} core). L’analisi si è fermata per non aggravare la situazione; riprendetela più tardi, ripartirà da dove era arrivata.",
+    "urls_none": "Nessun indirizzo da provare. Incollatene almeno uno.",
+    "health_server_io": "{server} non riesce a stare dietro al suo disco in questo momento ({io} % del tempo con un compito in attesa). L’analisi si è fermata per non aggravare la situazione; riprendetela più tardi, ripartirà da dove era arrivata."
   },
   "files": {
     "title": "File",
@@ -847,7 +849,8 @@
     "job_status_done": "terminata",
     "job_status_failed": "fallita",
     "job_status_cancelled": "interrotta",
-    "health": "Salute del parco"
+    "health": "Salute del parco",
+    "urls": "Scanner 404"
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
@@ -1415,5 +1418,39 @@
     "col_proto": "Indirizzo che il sito si attribuisce",
     "col_modified": "Ultima modifica",
     "col_file": "Ultimo file modificato"
+  },
+  "urls": {
+    "title": "Scanner 404",
+    "explain": "Incollate gli indirizzi da provare, scegliete i siti, e il back-office chiede ogni indirizzo a ogni sito dal server stesso. Nulla viene modificato. Gli indirizzi morti possono poi passare alla redirezione 301 con un clic.",
+    "step_what": "Indirizzi da provare",
+    "step_what_hint": "Uno per riga. Un indirizzo completo va bene: si conserva solo la parte dopo il dominio, perché sono i siti scelti accanto a decidere dove provare.",
+    "paste_hint": "Ancora nessun indirizzo.",
+    "kept": "{count} indirizzo(i) conservato(i).",
+    "rejected": "{count} rifiutato(i):",
+    "state_missing": "indirizzo morto",
+    "state_soft_missing": "pagina assente, server muto",
+    "state_server_error": "errore del server",
+    "state_php_error": "errore PHP",
+    "state_unreachable": "non risponde",
+    "state_no_answer": "sonda perduta",
+    "state_refused": "accesso rifiutato",
+    "state_redirect": "già rinviato",
+    "state_ok": "in ordine",
+    "soft_missing_hint": "il server risponde 200 ma serve la pagina iniziale",
+    "stat_checked": "Verifiche",
+    "stat_dead": "Indirizzi morti",
+    "stat_alive": "In ordine",
+    "stat_sites": "Siti interessati",
+    "col_path": "Indirizzo",
+    "col_code": "Codice",
+    "col_size": "Peso",
+    "none_dead": "Nessuno degli indirizzi provati è morto.",
+    "nothing_measured": "Nessun indirizzo ha potuto essere misurato. Non è un segno che gli indirizzi siano buoni: è la scansione che non ha riportato nulla. Guardate il dettaglio del giro, poi riprovate.",
+    "dead_count": "{count} indirizzo(i) distinto(i) da rinviare, su {sites} sito(i).",
+    "not_redirectable": "Di cui {count} non rinviabile(i) : solo gli indirizzi che finiscono in «.php» possono riceverne una.",
+    "not_redirectable_hint": "Nessuno degli indirizzi scelti finisce in «.php». Una redirezione si posa depositando un piccolo file al vecchio indirizzo, cosa possibile solo per un indirizzo «.php». Gli altri richiedono una regola sul server, quindi il vostro amministratore.",
+    "to_redirect": "Rinviare con 301",
+    "handed_over": "{count} indirizzo(i) e {sites} sito(i) ripresi nella redirezione 301. Indicate ora dove mandare i visitatori.",
+    "busy_note": "{server} era a corto di disco durante la scansione ({io} % del tempo in attesa): gli indirizzi possono sembrarvi assenti senza esserlo."
   }
 }
