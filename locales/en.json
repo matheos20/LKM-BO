@@ -1557,6 +1557,9 @@
     "state_locked": "locked",
     "err_locked": "site locked: unlock it first",
     "locked_count": "{count} site(s) locked: unlock them from the domain list, then run the analysis again.",
-    "after_note": "Two things to know after applying. The new sections may look broken for a few minutes: the server and Cloudflare keep the old pages in memory. And the former sections now answer “access refused” — their articles are still on disk, but their page is gone."
+    "after_note": "Two things to know after applying. The new sections may look broken for a few minutes: the server and Cloudflare keep the old pages in memory. And the former sections now answer “access refused” — their articles are still on disk, but their page is gone.",
+    "load_failed": "The theme list could not be read. Check that the server has been restarted.",
+    "retry": "Try again",
+    "none_in_db": "No theme in the database. Run the import on the server: “npm run thematiques import”, then “npm run thematiques harvest <server>” for icons and descriptions."
   }
 }

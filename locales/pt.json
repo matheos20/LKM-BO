@@ -1557,6 +1557,9 @@
     "state_locked": "bloqueado",
     "err_locked": "site bloqueado: desbloqueie-o primeiro",
     "locked_count": "{count} site(s) bloqueados: desbloqueie-os na lista de domínios e volte a analisar.",
-    "after_note": "Duas coisas a saber depois de aplicar. As novas secções podem parecer avariadas durante alguns minutos: o servidor e a Cloudflare guardam as páginas antigas em memória. E as secções anteriores respondem agora «acesso recusado» — os seus artigos continuam no disco, mas a sua página desapareceu."
+    "after_note": "Duas coisas a saber depois de aplicar. As novas secções podem parecer avariadas durante alguns minutos: o servidor e a Cloudflare guardam as páginas antigas em memória. E as secções anteriores respondem agora «acesso recusado» — os seus artigos continuam no disco, mas a sua página desapareceu.",
+    "load_failed": "A lista de temáticas não pôde ser lida. Verifique se o servidor foi reiniciado.",
+    "retry": "Tentar de novo",
+    "none_in_db": "Nenhuma temática na base. Lance a importação no servidor: «npm run thematiques import» e depois «npm run thematiques harvest <servidor>» para os ícones e as descrições."
   }
 }

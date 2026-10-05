@@ -50,6 +50,12 @@ const state = {
   /** Les thématiques venues de la base, chargées une fois. */
   liste: [],
   stats: null,
+  /** La demande en cours, pour ne pas la lancer dix fois pendant qu'elle voyage. */
+  chargement: null,
+  /** Ce qui a empeche la liste d'arriver, garde pour etre montre dans le formulaire. */
+  erreur: null,
+  /** La liste a-t-elle ete demandee au moins une fois ? Distingue « en cours » de « vide ». */
+  lue: false,
   langue: '',
   thematiqueId: null,
   /** L'analyse : ce que la tournée a rapporté. */
@@ -64,6 +70,77 @@ const state = {
   sauvegardes: new Map(),
   occupe: false,
 };
+
+/**
+ * Va chercher la liste en base, une fois, et redessine l'écran quand elle arrive.
+ *
+ * Le garde `state.chargement` empêche dix appels pendant que le premier voyage : `form()`
+ * est rappelé à chaque rendu, et l'écran se redessine souvent.
+ */
+function chargerListe({ force = false } = {}) {
+  if (state.liste.length || state.chargement) return state.chargement ?? Promise.resolve();
+  // UNE FOIS LUE, ON NE RELIT PAS SANS QU'ON LE DEMANDE. Sans cette reserve, chaque
+  // redessin relancait la demande : apres un echec l'erreur etait remise a zero avant
+  // d'avoir pu s'afficher, et avec une base vide le serveur etait sollicite en boucle.
+  if (state.lue && !force) return Promise.resolve();
+  state.erreur = null;
+  state.chargement = api('/api/thematiques')
+    .then((out) => {
+      state.liste = out.thematiques ?? [];
+      state.stats = out.stats ?? null;
+      if (!state.thematiqueId && state.liste.length) state.thematiqueId = state.liste[0].id;
+    })
+    .catch((err) => {
+      // L'erreur est GARDÉE et montrée dans le formulaire : une notification passagère
+      // disparaît, et l'agent reste devant un écran qui dit « lecture en cours » sans fin.
+      state.erreur = err.message ?? String(err);
+      toastError(err);
+    })
+    .finally(() => {
+      state.chargement = null;
+      // On sait maintenant si la base est vide, ce qui n'est pas une erreur mais demande
+      // un geste : lancer l'import des thematiques.
+      state.lue = true;
+      themeAction.onChange?.();
+    });
+  return state.chargement;
+}
+
+/** Ce qui s'affiche tant que la liste n'est pas là — ou si elle n'a pas pu venir. */
+function attente() {
+  if (state.erreur) {
+    return h(
+      'div',
+      { class: 'flex flex-wrap items-start gap-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800' },
+      h(
+        'p',
+        { class: 'flex flex-1 items-start gap-2' },
+        icon('alert', 'size-4 shrink-0 mt-0.5'),
+        h('span', {}, t('themes.load_failed'), ' ', h('span', { class: 'font-mono text-xs' }, state.erreur)),
+      ),
+      h(
+        'button',
+        { type: 'button', class: 'btn-outline px-2 py-1 text-xs', onclick: () => { chargerListe({ force: true }); themeAction.onChange?.(); } },
+        t('themes.retry'),
+      ),
+    );
+  }
+  // LA BASE EST VIDE, ce qui n'est pas une panne : l'import n'a simplement pas ete lance.
+  // Le bouton sert alors a relire une fois l'import fait, sans recharger la page.
+  if (state.lue) {
+    return h(
+      'div',
+      { class: 'flex flex-wrap items-start gap-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900' },
+      h('p', { class: 'flex flex-1 items-start gap-2' }, icon('alert', 'size-4 shrink-0 mt-0.5'), t('themes.none_in_db')),
+      h(
+        'button',
+        { type: 'button', class: 'btn-outline px-2 py-1 text-xs', onclick: () => { chargerListe({ force: true }); themeAction.onChange?.(); } },
+        t('themes.retry'),
+      ),
+    );
+  }
+  return h('p', { class: 'text-sm text-ink-400' }, t('themes.loading'));
+}
 
 const choisie = () => state.liste.find((x) => x.id === state.thematiqueId) ?? null;
 const langues = () => [...new Set(state.liste.map((x) => x.lang))].sort();
@@ -90,24 +167,20 @@ export const themeAction = {
   },
 
   /** La liste des thématiques vit en base : on va la chercher une fois, au premier usage. */
-  async before() {
-    if (state.liste.length) return;
-    try {
-      const out = await api('/api/thematiques');
-      state.liste = out.thematiques ?? [];
-      state.stats = out.stats ?? null;
-      if (!state.thematiqueId && state.liste.length) state.thematiqueId = state.liste[0].id;
-    } catch (err) {
-      toastError(err);
-    }
-  },
+  /** Appelé juste avant une analyse : la liste doit être là, même si l'écran l'a ratée. */
+  before: () => chargerListe(),
 
   form({ step = 1 } = {}) {
+    // LA LISTE SE CHARGE EN OUVRANT L'ÉCRAN, et non au moment de lancer l'analyse.
+    // Elle ne se chargeait qu'avant une analyse, c'est-à-dire jamais : le bouton reste
+    // gris tant qu'aucune thématique n'est choisie, et aucune ne pouvait l'être tant que
+    // la liste n'était pas là. L'écran affichait « Lecture des thématiques… » sans fin.
+    chargerListe();
     return h(
       'div',
       { class: 'card p-5' },
       stepTitle(step, t('themes.step_what'), t('themes.step_what_hint')),
-      state.liste.length ? selecteur() : h('p', { class: 'text-sm text-ink-400' }, t('themes.loading')),
+      state.liste.length ? selecteur() : attente(),
       apercu(),
     );
   },

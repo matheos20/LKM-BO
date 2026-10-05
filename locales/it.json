@@ -1557,6 +1557,9 @@
     "state_locked": "bloccato",
     "err_locked": "sito bloccato: sbloccatelo prima",
     "locked_count": "{count} sito(i) bloccati: sbloccateli dalla lista dei domini, poi rilanciate l’analisi.",
-    "after_note": "Due cose da sapere dopo la posa. Le nuove rubriche possono sembrare rotte per alcuni minuti: il server e Cloudflare tengono in memoria le vecchie pagine. E le rubriche precedenti rispondono ora «accesso rifiutato» — i loro articoli sono ancora sul disco, ma la loro pagina è scomparsa."
+    "after_note": "Due cose da sapere dopo la posa. Le nuove rubriche possono sembrare rotte per alcuni minuti: il server e Cloudflare tengono in memoria le vecchie pagine. E le rubriche precedenti rispondono ora «accesso rifiutato» — i loro articoli sono ancora sul disco, ma la loro pagina è scomparsa.",
+    "load_failed": "La lista delle tematiche non ha potuto essere letta. Verificate che il server sia stato riavviato.",
+    "retry": "Riprovare",
+    "none_in_db": "Nessuna tematica in base. Lanciate l’importazione sul server: «npm run thematiques import», poi «npm run thematiques harvest <server>» per le icone e le descrizioni."
   }
 }

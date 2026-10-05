@@ -223,7 +223,7 @@ test('thème : tous les états et messages existent dans les six langues', () =>
     'col_now', 'col_change', 'col_orphans', 'no_change', 'unknown_theme',
     'stat_sites', 'stat_tochange', 'stat_already', 'stat_orphans',
     'err_missing', 'err_engine', 'err_config', 'err_empty', 'err_no_answer', 'err_backup',
-    'err_locked', 'locked_count', 'after_note',
+    'err_locked', 'locked_count', 'after_note', 'load_failed', 'none_in_db', 'retry',
   ];
   const erreurs = [
     'theme_no_target', 'theme_unknown', 'theme_empty', 'theme_backup_unknown',
@@ -240,6 +240,36 @@ test('thème : tous les états et messages existent dans les six langues', () =>
     }
     for (const e of erreurs) assert.equal(typeof tout.errors?.[e], 'string', `${langue} : « errors.${e} » manque`);
   }
+});
+
+test('thème : LA LISTE SE CHARGE EN OUVRANT L’ÉCRAN, pas au moment de lancer', () => {
+  // Elle ne se chargeait qu'avant une analyse, c'est-a-dire JAMAIS : le bouton reste gris
+  // tant qu'aucune thematique n'est choisie, et aucune ne pouvait l'etre tant que la liste
+  // n'etait pas la. L'ecran affichait « Lecture des thématiques… » sans fin — constate par
+  // l'agent le 05/10/2026.
+  assert.match(ECRAN, /form\(\{ step = 1 \} = \{\}\) \{[\s\S]{0,400}?chargerListe\(\);/);
+  assert.match(ECRAN, /function chargerListe/);
+});
+
+test('thème : une liste déjà lue n’est pas redemandée à chaque redessin', () => {
+  // `form()` est rappelé a chaque rendu, et l'ecran se redessine souvent. Sans garde,
+  // l'erreur etait remise a zero avant d'avoir pu s'afficher, et une base vide faisait
+  // solliciter le serveur en boucle.
+  assert.match(ECRAN, /if \(state\.liste\.length \|\| state\.chargement\) return/);
+  assert.match(ECRAN, /if \(state\.lue && !force\) return/);
+  // Et l'agent garde un moyen de relire quand il a corrige la cause.
+  assert.match(ECRAN, /chargerListe\(\{ force: true \}\)/);
+  assert.match(ECRAN, /themes\.retry/);
+});
+
+test('thème : une base VIDE le dit, et dit quoi faire', () => {
+  // Ce n'est pas une panne : l'import n'a simplement pas ete lance. Le message doit nommer
+  // la commande, sinon l'agent reste devant un ecran muet.
+  assert.match(ECRAN, /themes\.none_in_db/);
+  assert.match(ECRAN, /themes\.load_failed/);
+  const { themes } = JSON.parse(readFileSync(join(RACINE, 'locales/fr.json'), 'utf8'));
+  assert.match(themes.none_in_db, /thematiques import/);
+  assert.match(themes.load_failed, /redémarr/i);
 });
 
 test('thème : l’écran prévient de ce qui N’EST PAS une panne après une pose', () => {
