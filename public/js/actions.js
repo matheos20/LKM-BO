@@ -7,6 +7,7 @@ import { prefillRedirects, redirectAction } from './redirects.js';
 import { healthAction } from './health.js';
 import { urlAction } from './urls.js';
 import { themeAction } from './themes.js';
+import { duplicateAction } from './duplicates.js';
 import { translateAction } from './translate.js';
 
 /**
@@ -40,7 +41,7 @@ import { translateAction } from './translate.js';
  */
 // L'ordre est celui du menu. La santé du parc vient en tête : c'est par elle qu'on
 // commence une journée, et c'est la seule qui ne modifie rien.
-const ACTIONS = [healthAction, urlAction, translateAction, templateAction, categoryAction, themeAction, redirectAction];
+const ACTIONS = [healthAction, urlAction, duplicateAction, translateAction, templateAction, categoryAction, themeAction, redirectAction];
 
 const state = {
   open: false,

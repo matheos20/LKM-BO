@@ -31,7 +31,7 @@ const part = (request, domains) => {
   return Object.fromEntries(domains.filter((d) => tout[d] !== undefined).map((d) => [d, tout[d]]));
 };
 
-export function buildJobKinds({ translation, categories, redirects, cloudflare, health, urls, themes }) {
+export function buildJobKinds({ translation, categories, redirects, cloudflare, health, urls, themes, duplicates }) {
   return Object.fromEntries([
     // ── Analyse : rien n'est modifié sur les sites.
     parServeur('translate.scan', {
@@ -71,6 +71,15 @@ export function buildJobKinds({ translation, categories, redirects, cloudflare, 
       // qui signe l'écriture de config.php dans le journal du site.
       appel: ({ serverId, domains, params, job }) =>
         themes.apply(serverId, domains, params?.thematiqueId, job?.by?.id ?? null, { allowOrphans: params?.allowOrphans === true }),
+    }),
+    // ARTICLES EN DOUBLON. Lecture seule, et peu coûteuse : les fichiers sont lus comme
+    // du texte par PHP en ligne de commande, sans passer par le serveur web ni réveiller
+    // un seul moteur de site. Mesuré le 05/10/2026 sur vps-004 : 262 articles par seconde,
+    // soit un site médian en un quart de seconde. Le lot peut donc être large.
+    parServeur('duplicates.scan', {
+      permission: 'bulk.read',
+      batch: 60,
+      appel: ({ serverId, domains, params }) => duplicates.scan(serverId, domains, params ?? {}),
     }),
     parServeur('templates.scan', {
       permission: 'bulk.read',

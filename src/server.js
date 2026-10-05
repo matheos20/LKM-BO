@@ -27,6 +27,7 @@ import { ServerLoad } from './services/serverLoad.js';
 import { ServerStateService } from './services/serverStateService.js';
 import { UrlCheckService } from './services/urlCheckService.js';
 import { ThemeService } from './services/themeService.js';
+import { DuplicateService } from './services/duplicateService.js';
 import { buildJobKinds } from './services/jobKinds.js';
 import { startJobRunner } from './services/jobRunner.js';
 import { purgeOlderThan } from './db/audit.js';
@@ -79,6 +80,7 @@ const serverState = new ServerStateService(ssh);
 const health = new HealthService(ssh, serverLoad);
 const urls = new UrlCheckService(ssh, serverLoad);
 const themes = new ThemeService(ssh, sites, serverLoad);
+const duplicates = new DuplicateService(ssh, sites, serverLoad);
 const search = new SearchService(ssh, domains, sites);
 // Cloudflare : la base porte les comptes et les zones ; aucun acces SSH n'intervient ici.
 const cloudflare = new CloudflareService();
@@ -96,7 +98,7 @@ const sauvegardes = startBackupSchedule({ config, audit });
 // le fermer arretait une tournee de 7 733 sites en plein milieu, sans rien pour dire ou
 // elle en etait. Elle est desormais menee ici, ecrite apres chaque lot, et reprise au
 // bon endroit si le serveur redemarre.
-const jobKinds = buildJobKinds({ translation, categories, redirects, cloudflare, health, urls, themes });
+const jobKinds = buildJobKinds({ translation, categories, redirects, cloudflare, health, urls, themes, duplicates });
 const jobs = startJobRunner({ kinds: jobKinds, audit, retentionDays: config.jobRetentionDays });
 
 const purges = await purgeOlderThan(config.auditRetentionDays);

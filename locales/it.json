@@ -296,7 +296,8 @@
     "theme_restore_syntax": "Il config.php salvato di {domain} non è valido: nulla è stato sostituito. {detail}",
     "theme_restore_invalid": "Richiesta di ripristino errata.",
     "theme_restore_copy": "Impossibile copiare il salvataggio di {domain}: nulla è stato toccato.",
-    "theme_restore_write": "Impossibile scrivere il config.php di {domain}: nulla è stato sostituito."
+    "theme_restore_write": "Impossibile scrivere il config.php di {domain}: nulla è stato sostituito.",
+    "dup_no_target": "Nessun sito da analizzare."
   },
   "files": {
     "title": "File",
@@ -861,7 +862,8 @@
     "job_status_cancelled": "interrotta",
     "health": "Salute del parco",
     "urls": "Scanner 404",
-    "themes": "Cambiare tematica"
+    "themes": "Cambiare tematica",
+    "duplicates": "Articoli doppioni"
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
@@ -1561,5 +1563,26 @@
     "load_failed": "La lista delle tematiche non ha potuto essere letta. Verificate che il server sia stato riavviato.",
     "retry": "Riprovare",
     "none_in_db": "Nessuna tematica in base. Lanciate l’importazione sul server: «npm run thematiques import», poi «npm run thematiques harvest <server>» per le icone e le descrizioni."
+  },
+  "duplicates": {
+    "explain": "Il back-office legge gli articoli di ogni sito sul server e ne confronta il testo. Segnala i contenuti identici, poi quelli che si assomigliano da vicino. Nulla viene modificato: la lettura non passa nemmeno dal server web.",
+    "scan": "Cercare i doppioni",
+    "nothing": "Nessun sito analizzato.",
+    "none": "Nessun doppione sui {count} articoli analizzati.",
+    "found": "{groups} gruppo(i) di doppioni, di cui {cross} a cavallo di piu siti.",
+    "cross_only": "Solo tra siti diversi",
+    "no_cross": "Nessun gruppo si estende su piu siti.",
+    "kind_exact": "identici",
+    "kind_near": "somiglianti",
+    "distance": "{n} bit di scarto",
+    "members": "{count} articoli",
+    "cross": "{count} siti",
+    "words": "{count} parole",
+    "skipped": "Non confrontati: {body} senza corpo d’articolo, {short} troppo corti, {errors} sito(i) illeggibili.",
+    "near_per_site": "Oltre qualche migliaio di articoli, le somiglianze sono cercate solo all’interno di ciascun sito — i contenuti identici, invece, sono trovati ovunque.",
+    "stat_articles": "Articoli analizzati",
+    "stat_groups": "Gruppi",
+    "stat_affected": "Articoli doppioni",
+    "stat_sites": "Siti interessati"
   }
 }

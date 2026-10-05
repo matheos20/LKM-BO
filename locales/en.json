@@ -296,7 +296,8 @@
     "theme_restore_syntax": "The saved config.php of {domain} is invalid: nothing was replaced. {detail}",
     "theme_restore_invalid": "Malformed restore request.",
     "theme_restore_copy": "Could not copy the backup of {domain}: nothing was touched.",
-    "theme_restore_write": "Could not write the config.php of {domain}: nothing was replaced."
+    "theme_restore_write": "Could not write the config.php of {domain}: nothing was replaced.",
+    "dup_no_target": "No site to analyse."
   },
   "files": {
     "title": "Files",
@@ -861,7 +862,8 @@
     "job_status_cancelled": "stopped",
     "health": "Fleet health",
     "urls": "404 scanner",
-    "themes": "Change theme"
+    "themes": "Change theme",
+    "duplicates": "Duplicate articles"
   },
   "translate": {
     "explain": "The back office reads the home page of the selected sites and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",
@@ -1561,5 +1563,26 @@
     "load_failed": "The theme list could not be read. Check that the server has been restarted.",
     "retry": "Try again",
     "none_in_db": "No theme in the database. Run the import on the server: “npm run thematiques import”, then “npm run thematiques harvest <server>” for icons and descriptions."
+  },
+  "duplicates": {
+    "explain": "The back-office reads each site’s articles on the server and compares their text. It reports identical content, then content that is merely close. Nothing is changed: the reading does not even go through the web server.",
+    "scan": "Find duplicates",
+    "nothing": "No site analysed.",
+    "none": "No duplicate among the {count} articles analysed.",
+    "found": "{groups} duplicate group(s), {cross} of them spanning several sites.",
+    "cross_only": "Across different sites only",
+    "no_cross": "No group spans several sites.",
+    "kind_exact": "identical",
+    "kind_near": "close",
+    "distance": "{n} bit(s) apart",
+    "members": "{count} articles",
+    "cross": "{count} sites",
+    "words": "{count} words",
+    "skipped": "Not compared: {body} without an article body, {short} too short, {errors} unreadable site(s).",
+    "near_per_site": "Beyond a few thousand articles, closeness is only looked for within each site — identical content is still found everywhere.",
+    "stat_articles": "Articles analysed",
+    "stat_groups": "Groups",
+    "stat_affected": "Duplicate articles",
+    "stat_sites": "Sites involved"
   }
 }

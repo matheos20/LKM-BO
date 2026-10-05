@@ -296,7 +296,8 @@
     "theme_restore_syntax": "Die gesicherte config.php von {domain} ist ungültig: nichts wurde ersetzt. {detail}",
     "theme_restore_invalid": "Fehlerhafte Rücksetz-Anfrage.",
     "theme_restore_copy": "Die Sicherung von {domain} konnte nicht kopiert werden: nichts wurde angetastet.",
-    "theme_restore_write": "Die config.php von {domain} konnte nicht geschrieben werden: nichts wurde ersetzt."
+    "theme_restore_write": "Die config.php von {domain} konnte nicht geschrieben werden: nichts wurde ersetzt.",
+    "dup_no_target": "Keine Website zu prüfen."
   },
   "files": {
     "title": "Dateien",
@@ -861,7 +862,8 @@
     "job_status_cancelled": "gestoppt",
     "health": "Zustand des Bestands",
     "urls": "404-Prüfung",
-    "themes": "Thema wechseln"
+    "themes": "Thema wechseln",
+    "duplicates": "Doppelte Artikel"
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",
@@ -1561,5 +1563,26 @@
     "load_failed": "Die Themenliste konnte nicht gelesen werden. Prüfen Sie, ob der Server neu gestartet wurde.",
     "retry": "Erneut versuchen",
     "none_in_db": "Kein Thema in der Datenbank. Führen Sie den Import auf dem Server aus: „npm run thematiques import“, dann „npm run thematiques harvest <Server>“ für Symbole und Beschreibungen."
+  },
+  "duplicates": {
+    "explain": "Das Back-Office liest die Artikel jeder Website auf dem Server und vergleicht ihren Text. Es meldet gleiche Inhalte und danach solche, die sich stark ähneln. Nichts wird geändert: das Lesen geht nicht einmal über den Webserver.",
+    "scan": "Doppelte suchen",
+    "nothing": "Keine Website geprüft.",
+    "none": "Kein Doppel unter den {count} geprüften Artikeln.",
+    "found": "{groups} Doppel-Gruppe(n), davon {cross} über mehrere Websites hinweg.",
+    "cross_only": "Nur zwischen verschiedenen Websites",
+    "no_cross": "Keine Gruppe erstreckt sich über mehrere Websites.",
+    "kind_exact": "gleich",
+    "kind_near": "ähnlich",
+    "distance": "{n} Bit Unterschied",
+    "members": "{count} Artikel",
+    "cross": "{count} Websites",
+    "words": "{count} Wörter",
+    "skipped": "Nicht verglichen: {body} ohne Artikelkörper, {short} zu kurz, {errors} unlesbare Website(s).",
+    "near_per_site": "Ab einigen tausend Artikeln wird Ähnlichkeit nur noch innerhalb jeder Website gesucht — gleiche Inhalte werden weiterhin überall gefunden.",
+    "stat_articles": "Geprüfte Artikel",
+    "stat_groups": "Gruppen",
+    "stat_affected": "Doppelte Artikel",
+    "stat_sites": "Betroffene Websites"
   }
 }

@@ -296,7 +296,8 @@
     "theme_restore_syntax": "El config.php guardado de {domain} no es válido: no se sustituyó nada. {detail}",
     "theme_restore_invalid": "Petición de restauración incorrecta.",
     "theme_restore_copy": "No se pudo copiar la copia de {domain}: no se tocó nada.",
-    "theme_restore_write": "No se pudo escribir el config.php de {domain}: no se sustituyó nada."
+    "theme_restore_write": "No se pudo escribir el config.php de {domain}: no se sustituyó nada.",
+    "dup_no_target": "Ningún sitio que analizar."
   },
   "files": {
     "title": "Archivos",
@@ -861,7 +862,8 @@
     "job_status_cancelled": "detenida",
     "health": "Salud del parque",
     "urls": "Escáner 404",
-    "themes": "Cambiar de temática"
+    "themes": "Cambiar de temática",
+    "duplicates": "Artículos duplicados"
   },
   "translate": {
     "explain": "El back-office lee la página de inicio de los sitios elegidos y detecta los textos escritos en un idioma distinto al del sitio. Nada se modifica durante el análisis.",
@@ -1561,5 +1563,26 @@
     "load_failed": "No se pudo leer la lista de temáticas. Compruebe que el servidor se ha reiniciado.",
     "retry": "Reintentar",
     "none_in_db": "Ninguna temática en la base. Ejecute la importación en el servidor: «npm run thematiques import» y luego «npm run thematiques harvest <servidor>» para los iconos y las descripciones."
+  },
+  "duplicates": {
+    "explain": "El back-office lee los artículos de cada sitio en el servidor y compara su texto. Señala los contenidos idénticos y luego los que se parecen mucho. No se modifica nada: la lectura ni siquiera pasa por el servidor web.",
+    "scan": "Buscar duplicados",
+    "nothing": "Ningún sitio analizado.",
+    "none": "Ningún duplicado entre los {count} artículos analizados.",
+    "found": "{groups} grupo(s) de duplicados, de los cuales {cross} abarcan varios sitios.",
+    "cross_only": "Solo entre sitios distintos",
+    "no_cross": "Ningún grupo abarca varios sitios.",
+    "kind_exact": "idénticos",
+    "kind_near": "parecidos",
+    "distance": "{n} bit(s) de diferencia",
+    "members": "{count} artículos",
+    "cross": "{count} sitios",
+    "words": "{count} palabras",
+    "skipped": "No comparados: {body} sin cuerpo de artículo, {short} demasiado cortos, {errors} sitio(s) ilegibles.",
+    "near_per_site": "Más allá de unos miles de artículos, los parecidos solo se buscan dentro de cada sitio — los contenidos idénticos se siguen encontrando en todas partes.",
+    "stat_articles": "Artículos analizados",
+    "stat_groups": "Grupos",
+    "stat_affected": "Artículos duplicados",
+    "stat_sites": "Sitios afectados"
   }
 }
