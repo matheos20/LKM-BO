@@ -31,7 +31,7 @@ const part = (request, domains) => {
   return Object.fromEntries(domains.filter((d) => tout[d] !== undefined).map((d) => [d, tout[d]]));
 };
 
-export function buildJobKinds({ translation, categories, redirects, cloudflare, health, urls }) {
+export function buildJobKinds({ translation, categories, redirects, cloudflare, health, urls, themes }) {
   return Object.fromEntries([
     // ── Analyse : rien n'est modifié sur les sites.
     parServeur('translate.scan', {
@@ -55,6 +55,22 @@ export function buildJobKinds({ translation, categories, redirects, cloudflare, 
       permission: 'bulk.read',
       batch: 20,
       appel: ({ serverId, domains, params }) => urls.check(serverId, domains, params?.paths ?? [], params ?? {}),
+    }),
+    // THEMATIQUES. L'analyse est une lecture ; la pose écrit, et exige donc le droit
+    // d'appliquer. Les lots sont courts parce qu'une pose touche plusieurs fichiers par
+    // site et sauvegarde avant chacun.
+    parServeur('theme.analyze', {
+      permission: 'bulk.read',
+      batch: 40,
+      appel: ({ serverId, domains, params }) => themes.analyze(serverId, domains, { thematiqueId: params?.thematiqueId ?? null }),
+    }),
+    parServeur('theme.apply', {
+      permission: 'bulk.apply',
+      batch: 20,
+      // Le moteur ne passe pas d'utilisateur, mais la tournée porte son auteur : c'est lui
+      // qui signe l'écriture de config.php dans le journal du site.
+      appel: ({ serverId, domains, params, job }) =>
+        themes.apply(serverId, domains, params?.thematiqueId, job?.by?.id ?? null, { allowOrphans: params?.allowOrphans === true }),
     }),
     parServeur('templates.scan', {
       permission: 'bulk.read',

@@ -26,6 +26,7 @@ import { HealthService } from './services/healthService.js';
 import { ServerLoad } from './services/serverLoad.js';
 import { ServerStateService } from './services/serverStateService.js';
 import { UrlCheckService } from './services/urlCheckService.js';
+import { ThemeService } from './services/themeService.js';
 import { buildJobKinds } from './services/jobKinds.js';
 import { startJobRunner } from './services/jobRunner.js';
 import { purgeOlderThan } from './db/audit.js';
@@ -35,6 +36,7 @@ import { i18nRouter } from './routes/i18n.js';
 import { healthRouter } from './routes/health.js';
 import { adminRouter } from './routes/admin.js';
 import { serversRouter } from './routes/servers.js';
+import { thematiquesRouter } from './routes/thematiques.js';
 import { domainsRouter } from './routes/domains.js';
 import { filesRouter } from './routes/files.js';
 import { designCatalogRouter, designRouter } from './routes/design.js';
@@ -76,6 +78,7 @@ const serverLoad = new ServerLoad(ssh);
 const serverState = new ServerStateService(ssh);
 const health = new HealthService(ssh, serverLoad);
 const urls = new UrlCheckService(ssh, serverLoad);
+const themes = new ThemeService(ssh, sites, serverLoad);
 const search = new SearchService(ssh, domains, sites);
 // Cloudflare : la base porte les comptes et les zones ; aucun acces SSH n'intervient ici.
 const cloudflare = new CloudflareService();
@@ -93,7 +96,7 @@ const sauvegardes = startBackupSchedule({ config, audit });
 // le fermer arretait une tournee de 7 733 sites en plein milieu, sans rien pour dire ou
 // elle en etait. Elle est desormais menee ici, ecrite apres chaque lot, et reprise au
 // bon endroit si le serveur redemarre.
-const jobKinds = buildJobKinds({ translation, categories, redirects, cloudflare, health, urls });
+const jobKinds = buildJobKinds({ translation, categories, redirects, cloudflare, health, urls, themes });
 const jobs = startJobRunner({ kinds: jobKinds, audit, retentionDays: config.jobRetentionDays });
 
 const purges = await purgeOlderThan(config.auditRetentionDays);
@@ -163,6 +166,7 @@ app.use('/api/servers/:id/redirects', redirectsRouter({ ssh, redirects, audit })
 app.use('/api/search', searchRouter({ ssh, search }));
 app.use('/api/cloudflare', cloudflareRouter({ cloudflare, audit }));
 app.use('/api/jobs', jobsRouter({ kinds: jobKinds, runner: jobs, audit }));
+app.use('/api/thematiques', thematiquesRouter({ ssh, themes, audit }));
 app.use('/api/servers/:id/domains/:domain/files', filesRouter({ ssh, files, audit, uploadLimit: config.files.maxUploadBytes }));
 app.use('/api/servers', serversRouter({ ssh, domains, serverState, audit }));
 app.use('/api/domains', domainsRouter({ ssh, domains }));

@@ -659,6 +659,49 @@ export class SiteService {
    * relu. Ce qui disparaît ici, c'est l'entrée du menu — les articles de la rubrique
    * vivent dans son dossier, et leurs adresses viennent de `permalinks.php`.
    */
+  /**
+   * REMPLACE le menu de rubriques par celui d'une thématique.
+   *
+   * Pourquoi un remplacement et non un ajout suivi d'un retrait : un changement de
+   * thématique touche presque toutes les rubriques, et deux écritures de config.php
+   * laisseraient le site dans un état intermédiaire entre les deux — menu de l'ancienne
+   * thématique privé de la moitié de ses entrées. Une seule écriture, par le circuit de
+   * publication, et le site passe d'un état complet à l'autre.
+   *
+   * L'ORDRE DU MENU EST CELUI DE LA THÉMATIQUE. L'objet JSON conserve l'ordre
+   * d'insertion, et c'est lui que le moteur du site suit pour afficher la barre.
+   */
+  async setCategories(serverId, domain, rubriques, userId) {
+    this.context(serverId, domain);
+    const site = await this.readSite(serverId, domain);
+    const config = structuredClone(site.config);
+    if (!config.categories || typeof config.categories !== 'object' || Array.isArray(config.categories)) {
+      throw new AppError('errors.category_block_missing', { status: 400, vars: { domain } });
+    }
+
+    const menu = {};
+    for (const r of Array.isArray(rubriques) ? rubriques : []) {
+      const slug = String(r?.slug ?? '');
+      const name = String(r?.name ?? '').trim();
+      if (!/^[a-z0-9][a-z0-9-]{0,60}$/.test(slug) || !name) continue;
+      if (Object.hasOwn(menu, slug)) continue;
+      // Les bornes sont celles de `validateConfig`, et non celles de la base : c'est
+      // config.php qui commande ici. Tronquer en silence vaut mieux qu'un refus, car la
+      // description est un ornement et la rubrique, elle, doit exister.
+      menu[slug] = {
+        name: name.slice(0, 120),
+        icon: String(r?.icon ?? '').slice(0, 16),
+        description: String(r?.description ?? '').slice(0, 300),
+      };
+    }
+    if (!Object.keys(menu).length) throw new AppError('errors.theme_empty', { status: 400, vars: { domain } });
+
+    config.categories = menu;
+    const validated = validateConfig(config, { available: site.sections });
+    const { stamp } = await this.#commitConfig(serverId, domain, { site, config: validated });
+    return { domain, slugs: Object.keys(menu), stamp };
+  }
+
   async removeCategories(serverId, domain, slugs, userId) {
     this.context(serverId, domain);
     const site = await this.readSite(serverId, domain);
