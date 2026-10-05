@@ -5,6 +5,8 @@ import { queryItems } from '../services/domainService.js';
 
 /**
  *  GET    /api/servers                          liste + état des connexions
+ *  GET    /api/servers/state                     état des MACHINES (disque, mémoire, charge)
+ *  GET    /api/servers/:id/state                 l'état d'une seule machine
  *  POST   /api/servers/:id/connect              ouvre la session SSH
  *  POST   /api/servers/:id/disconnect           ferme la session SSH
  *  GET    /api/servers/:id/domains              Read   (liste paginée : q, status, sort, page, size, refresh)
@@ -13,7 +15,7 @@ import { queryItems } from '../services/domainService.js';
  *  PATCH  /api/servers/:id/domains/:domain      Update { action: lock | unlock | fixPerms }
  *  DELETE /api/servers/:id/domains/:domain      Delete { confirm: <domaine> }
  */
-export function serversRouter({ ssh, domains, audit }) {
+export function serversRouter({ ssh, domains, audit, serverState }) {
   const r = Router();
   const conn = requireConnection(ssh);
   const access = requireServerAccess(ssh);
@@ -64,6 +66,22 @@ export function serversRouter({ ssh, domains, audit }) {
 
   r.get('/', (req, res) => {
     res.json({ servers: visibleServers(req.user, ssh.list()).map((s) => view(req, s)) });
+  });
+
+  /**
+   * L'ETAT DES MACHINES. Lecture seule, et le droit exige est celui de se connecter : qui
+   * peut ouvrir une session sur un serveur peut savoir s'il va bien. Inventer un droit
+   * supplementaire n'aurait fait qu'une case de plus a cocher, jamais cochee.
+   *
+   * `?fresh=1` passe outre le cache de quelques secondes : c'est le bouton « Actualiser ».
+   */
+  r.get('/state', canConnect, async (req, res) => {
+    const vus = visibleServers(req.user, ssh.list()).map((s) => s.id);
+    res.json({ servers: await serverState.many(vus, { fresh: req.query.fresh === '1' }) });
+  });
+
+  r.get('/:id/state', canConnect, access, async (req, res) => {
+    res.json(await serverState.one(req.params.id, { fresh: req.query.fresh === '1' }));
   });
 
   r.post('/:id/connect', canConnect, access, async (req, res) => {

@@ -24,6 +24,7 @@ import { createAudit } from './services/audit.js';
 import { startBackupSchedule } from './services/backupSchedule.js';
 import { HealthService } from './services/healthService.js';
 import { ServerLoad } from './services/serverLoad.js';
+import { ServerStateService } from './services/serverStateService.js';
 import { UrlCheckService } from './services/urlCheckService.js';
 import { buildJobKinds } from './services/jobKinds.js';
 import { startJobRunner } from './services/jobRunner.js';
@@ -72,6 +73,7 @@ const redirects = new RedirectService(ssh, sites);
 // UN SEUL frein pour toutes les analyses de masse : c'est lui qui retient le train de vie
 // de chaque machine, et deux exemplaires l'apprendraient deux fois.
 const serverLoad = new ServerLoad(ssh);
+const serverState = new ServerStateService(ssh);
 const health = new HealthService(ssh, serverLoad);
 const urls = new UrlCheckService(ssh, serverLoad);
 const search = new SearchService(ssh, domains, sites);
@@ -162,7 +164,7 @@ app.use('/api/search', searchRouter({ ssh, search }));
 app.use('/api/cloudflare', cloudflareRouter({ cloudflare, audit }));
 app.use('/api/jobs', jobsRouter({ kinds: jobKinds, runner: jobs, audit }));
 app.use('/api/servers/:id/domains/:domain/files', filesRouter({ ssh, files, audit, uploadLimit: config.files.maxUploadBytes }));
-app.use('/api/servers', serversRouter({ ssh, domains, audit }));
+app.use('/api/servers', serversRouter({ ssh, domains, serverState, audit }));
 app.use('/api/domains', domainsRouter({ ssh, domains }));
 app.use('/api', () => {
   throw new AppError('errors.not_found', { status: 404 });

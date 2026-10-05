@@ -6,6 +6,7 @@ import { accountDialog, closeAdmin, isAdminOpen, openAdmin, rerenderAdmin } from
 import { closeDesign, isDesignOpen, openDesign, rerenderDesign } from './design.js';
 import { closeActions, isActionsOpen, isActionsSuspended, openActions, rerenderActions } from './actions.js';
 import { closeCloudflare, openCloudflare } from './cloudflare.js';
+import { closeServerState, isServerStateOpen, openServerState } from './serverState.js';
 import { $, closeModal, enc, fmtDate, fmtNum, fmtSize, formError, h, icon, modalHeader, openModal, store, toast, toastError } from './ui.js';
 
 // ───────────────────────── État ─────────────────────────
@@ -66,6 +67,11 @@ function renderSidebar() {
   // les 7 733 sites d'un VPS.
   $('#nav-actions').hidden = !can('bulk.read');
   $('#nav-cloudflare').hidden = !can('cloudflare.read');
+  // L'état des machines se lit avec le droit de s'y connecter : qui peut ouvrir une
+  // session peut savoir si le serveur va bien. Tous les rôles l'ont, et c'est voulu — un
+  // rédacteur qui voit un site lent doit pouvoir constater que la machine souffre.
+  $('#nav-health').hidden = !can('servers.connect');
+  $('#nav-health').setAttribute('aria-current', String(isServerStateOpen()));
   $('#nav-actions').setAttribute('aria-current', String(isActionsOpen()));
   $('#all-count').textContent = `${connectedServers().length}/${state.servers.length}`;
 }
@@ -354,6 +360,7 @@ const ECRANS = {
   design: closeDesign,
   actions: closeActions,
   cloudflare: closeCloudflare,
+  health: closeServerState,
 };
 const fermerEcrans = (sauf = null) => {
   for (const [nom, fermer] of Object.entries(ECRANS)) if (nom !== sauf) fermer();
@@ -786,6 +793,18 @@ function wireEvents() {
       onClose: () => {
         $('#nav-cloudflare').setAttribute('aria-current', 'false');
         $('#domains-view').hidden = false;
+        renderHeader();
+        renderNotice();
+      },
+    });
+  });
+  $('#nav-health').addEventListener('click', async () => {
+    fermerEcrans('health');
+    toggleSidebar(false);
+    $('#nav-health').setAttribute('aria-current', 'true');
+    await openServerState({
+      onClose: () => {
+        $('#nav-health').setAttribute('aria-current', 'false');
         renderHeader();
         renderNotice();
       },
