@@ -24,7 +24,16 @@ import { MARQUE, THEME_APPLY, THEME_BACKUPS, THEME_RESTORE } from '../src/servic
 const phpAbsent = spawnSync('php', ['-v'], { encoding: 'utf8' }).status !== 0;
 
 const CATEGORY_PHP = '<?php /* moteur de rubrique */\n';
-const INDEX_RUBRIQUE = "<?php require __DIR__ . '/../category.php';\n";
+/**
+ * Le contenu d'un `index.php` de rubrique, RELEVÉ SUR LE PARC et non imaginé.
+ *
+ * Une première version de ce fichier portait « <?php require __DIR__ .
+ * '/../category.php'; » — exactement ce que l'implémentation écrivait alors. Le test
+ * passait, et les sept rubriques posées sur coc-europe.com rendaient 404 : sans
+ * `$category`, le moteur ne sait pas quelle rubrique afficher. **Un témoin tiré de
+ * l'imagination ne valide que l'imagination.** Celui-ci vient d'une sauvegarde réelle.
+ */
+const indexRubrique = (slug) => `<?php\n$category = '${slug}';\ninclude __DIR__ . '/../category.php';\n`;
 
 /**
  * Un `config.php` de la forme exacte relevée sur le parc.
@@ -95,7 +104,7 @@ function parc({ rubriques = SANTE, articles = {}, avecMoteur = true, avecJson = 
   }
   for (const r of rubriques) {
     mkdirSync(join(doc, r.slug), { recursive: true });
-    writeFileSync(join(doc, r.slug, 'index.php'), INDEX_RUBRIQUE, 'utf8');
+    writeFileSync(join(doc, r.slug, 'index.php'), indexRubrique(r.slug), 'utf8');
   }
   // Des articles, là où l'essai en demande.
   for (const [slug, noms] of Object.entries(articles)) {
@@ -258,7 +267,7 @@ test('thème : les nouvelles rubriques reçoivent leur dossier et leur index', a
   try {
     p.poser(SPORT);
     for (const slug of ['foot', 'velo']) {
-      assert.equal(p.lire(`${slug}/index.php`), INDEX_RUBRIQUE, `${slug} doit être servi`);
+      assert.equal(p.lire(`${slug}/index.php`), indexRubrique(slug), `${slug} doit être servi`);
       // Le compte du site tourne sous son propre utilisateur : en 0640, PHP ne pourrait
       // pas lire le fichier, et la rubrique ne s'afficherait jamais.
       //
@@ -267,7 +276,31 @@ test('thème : les nouvelles rubriques reçoivent leur dossier et leur index', a
       // script appelle bien `chmod` est vérifié à part, sur son texte.
       if (process.platform !== 'win32') assert.equal(p.modeDe(`${slug}/index.php`), '644');
     }
-    assert.equal(p.lire('actu/index.php'), INDEX_RUBRIQUE, 'une rubrique gardée n’est pas touchée');
+    assert.equal(p.lire('actu/index.php'), indexRubrique('actu'), 'une rubrique gardée n’est pas touchée');
+  } finally {
+    p.fermer();
+  }
+});
+
+test('thème : l’index posé DECLARE la rubrique, sans quoi la page rend 404', async (t) => {
+  if (phpAbsent) return t.skip('PHP absent');
+  // C'est le défaut trouvé en direct sur coc-europe.com : les sept rubriques
+  // posées rendaient 404 quand l'accueil rendait 200, parce que le fichier n'écrivait
+  // que l'inclusion du moteur. Sans « $category », celui-ci ne sait rien afficher.
+  const p = parc();
+  try {
+    p.poser(SPORT);
+    for (const slug of ['foot', 'velo']) {
+      const lu = p.lire(`${slug}/index.php`);
+      // `includes` et non une expression régulière : le « $ » y serait une ancre de fin
+      // de chaîne, et l'assertion ne vérifierait rien du tout.
+      assert.ok(lu.includes(`$category = '${slug}';`), `« ${slug} » doit se nommer : ${JSON.stringify(lu)}`);
+      assert.ok(lu.includes("include __DIR__ . '/../category.php';"));
+      // Et c'est exactement la forme des fichiers du parc.
+      assert.equal(lu, indexRubrique(slug));
+    }
+    // Et une rubrique gardée n'est pas réécrite : son fichier d'origine reste.
+    assert.equal(p.lire('actu/index.php'), indexRubrique('actu'));
   } finally {
     p.fermer();
   }
@@ -374,7 +407,7 @@ test('thème : la restauration remet les rubriques d’avant et retire celles d�
     assert.ok(retour.restored.includes('wp_summary.json'));
     for (const slug of ['actu', 'bien-etre', 'grossesse']) {
       assert.ok(retour.restored.includes(`${slug}/index.php`), `${slug} doit revenir`);
-      assert.equal(p.lire(`${slug}/index.php`), INDEX_RUBRIQUE);
+      assert.equal(p.lire(`${slug}/index.php`), indexRubrique(slug));
     }
     assert.deepEqual(retour.removed.sort(), ['foot', 'velo']);
     assert.ok(!existsSync(join(p.doc, 'foot')));

@@ -1556,6 +1556,7 @@
     "err_backup": "cópia impossível",
     "state_locked": "bloqueado",
     "err_locked": "site bloqueado: desbloqueie-o primeiro",
-    "locked_count": "{count} site(s) bloqueados: desbloqueie-os na lista de domínios e volte a analisar."
+    "locked_count": "{count} site(s) bloqueados: desbloqueie-os na lista de domínios e volte a analisar.",
+    "after_note": "Duas coisas a saber depois de aplicar. As novas secções podem parecer avariadas durante alguns minutos: o servidor e a Cloudflare guardam as páginas antigas em memória. E as secções anteriores respondem agora «acesso recusado» — os seus artigos continuam no disco, mas a sua página desapareceu."
   }
 }

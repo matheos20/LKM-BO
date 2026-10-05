@@ -1556,6 +1556,7 @@
     "err_backup": "Sicherung fehlgeschlagen",
     "state_locked": "gesperrt",
     "err_locked": "Website gesperrt: erst entsperren",
-    "locked_count": "{count} Website(s) gesperrt: entsperren Sie sie in der Domainliste und prüfen Sie erneut."
+    "locked_count": "{count} Website(s) gesperrt: entsperren Sie sie in der Domainliste und prüfen Sie erneut.",
+    "after_note": "Zwei Dinge nach dem Anwenden. Die neuen Rubriken können einige Minuten lang kaputt wirken: Server und Cloudflare halten die alten Seiten im Speicher. Und die früheren Rubriken antworten jetzt „Zugriff verweigert“ — ihre Artikel liegen weiter auf der Platte, aber ihre Seite ist verschwunden."
   }
 }

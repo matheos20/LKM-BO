@@ -144,6 +144,9 @@ export const themeAction = {
       { class: 'space-y-4' },
       state.incomplete.length ? avertissementIncomplete() : null,
       noteTextes(),
+      // Apres une pose : ce que l'agent va constater et qui n'est pas une panne. Verifie
+      // en direct sur coc-europe.com le 05/10/2026.
+      [...state.poses.values()].some((p) => p.state === 'done') ? noteApres() : null,
       barre(permissions),
       tableau(permissions),
     );
@@ -222,6 +225,29 @@ function avertissementIncomplete() {
     { class: 'flex items-start gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900' },
     icon('alert', 'size-4 shrink-0 mt-0.5'),
     t('themes.incomplete_warn', { slugs: state.incomplete.slice(0, 6).join(', '), count: fmtNum(state.incomplete.length) }),
+  );
+}
+
+/**
+ * Ce que l'agent va constater apres une pose, et qui n'est pas une panne.
+ *
+ * DEUX CHOSES, toutes deux mesurées en direct sur coc-europe.com le 05/10/2026 :
+ *
+ *   - les nouvelles rubriques ont semblé rendre 404 pendant quelques minutes. Deux caches
+ *     en sont la cause : OPcache relit config.php toutes les deux secondes, et nginx garde
+ *     la réponse FastCGI trois cents secondes. Une fois ces délais passés, les sept
+ *     rubriques posées rendaient 200 avec leur propre titre ;
+ *   - les anciennes rubriques rendent « accès refusé » (403) et non 404 : leur dossier
+ *     existe toujours, avec ses articles, mais il n'a plus d'index à servir.
+ *
+ * Sans cette phrase, l'agent croit son changement raté et recommence.
+ */
+function noteApres() {
+  return h(
+    'p',
+    { class: 'flex items-start gap-2 rounded-lg bg-ink-50 px-4 py-3 text-sm text-ink-500' },
+    icon('alert', 'size-4 shrink-0 mt-0.5'),
+    t('themes.after_note'),
   );
 }
 

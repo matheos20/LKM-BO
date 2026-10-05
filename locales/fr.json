@@ -1556,6 +1556,7 @@
     "err_backup": "sauvegarde impossible",
     "state_locked": "verrouillé",
     "err_locked": "site verrouillé : déverrouillez-le d’abord",
-    "locked_count": "{count} site(s) verrouillés : déverrouillez-les depuis la liste des domaines, puis relancez l’analyse."
+    "locked_count": "{count} site(s) verrouillés : déverrouillez-les depuis la liste des domaines, puis relancez l’analyse.",
+    "after_note": "Deux choses à savoir après une pose. Les nouvelles rubriques peuvent sembler cassées pendant quelques minutes : le serveur et Cloudflare gardent les anciennes pages en mémoire. Et les anciennes rubriques répondent désormais « accès refusé » — leurs articles sont toujours sur le disque, mais leur page a disparu."
   }
 }

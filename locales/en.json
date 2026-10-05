@@ -1556,6 +1556,7 @@
     "err_backup": "backup failed",
     "state_locked": "locked",
     "err_locked": "site locked: unlock it first",
-    "locked_count": "{count} site(s) locked: unlock them from the domain list, then run the analysis again."
+    "locked_count": "{count} site(s) locked: unlock them from the domain list, then run the analysis again.",
+    "after_note": "Two things to know after applying. The new sections may look broken for a few minutes: the server and Cloudflare keep the old pages in memory. And the former sections now answer “access refused” — their articles are still on disk, but their page is gone."
   }
 }

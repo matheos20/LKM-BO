@@ -69,9 +69,19 @@ function rubriquesActuelles($fichier) {
     return is_array($c) ? $c : null;
 }
 
-/** Le contenu d'un index.php de rubrique, tel que le moteur du site l'attend. */
-function contenuIndex() {
-    return "<?php require __DIR__ . '/../category.php';\n";
+/**
+ * Le contenu d'un index.php de rubrique, tel que le moteur du site l'attend.
+ *
+ * LE NOM DE LA RUBRIQUE DOIT Y ETRE DECLARE. Une premiere version n'ecrivait que
+ * l'inclusion du moteur : celui-ci ne savait alors pas quelle rubrique afficher, et la
+ * page rendait 404. Verifie en direct sur coc-europe.com le 05/10/2026 — les sept
+ * rubriques posees repondaient toutes 404 quand l'accueil repondait 200.
+ *
+ * La forme ci-dessous est celle des fichiers DEJA EN PLACE sur le parc, relevee dans une
+ * sauvegarde, et celle qu'ecrit deja le script d'ajout de rubrique. On ne l'invente pas.
+ */
+function contenuIndex($slug) {
+    return "<?php\n" . '$category = ' . var_export($slug, true) . ";\n" . "include __DIR__ . '/../category.php';\n";
 }
 
 /** Ce qu'un dossier contient hors son index : ce sont les articles. */
@@ -173,7 +183,7 @@ foreach ($demande as $domain => $voulu) {
         $d = $doc . '/' . $slug;
         $i = $d . '/index.php';
         if (is_file($i)) { $site['done'][] = 'dir:' . $slug; continue; }
-        if ((is_dir($d) || @mkdir($d, 0755, true)) && @file_put_contents($i, contenuIndex()) !== false) {
+        if ((is_dir($d) || @mkdir($d, 0755, true)) && @file_put_contents($i, contenuIndex($slug)) !== false) {
             @chmod($i, 0644);
             $site['done'][] = 'dir:' . $slug;
         } else {

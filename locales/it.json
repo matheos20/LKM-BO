@@ -1556,6 +1556,7 @@
     "err_backup": "salvataggio impossibile",
     "state_locked": "bloccato",
     "err_locked": "sito bloccato: sbloccatelo prima",
-    "locked_count": "{count} sito(i) bloccati: sbloccateli dalla lista dei domini, poi rilanciate l’analisi."
+    "locked_count": "{count} sito(i) bloccati: sbloccateli dalla lista dei domini, poi rilanciate l’analisi.",
+    "after_note": "Due cose da sapere dopo la posa. Le nuove rubriche possono sembrare rotte per alcuni minuti: il server e Cloudflare tengono in memoria le vecchie pagine. E le rubriche precedenti rispondono ora «accesso rifiutato» — i loro articoli sono ancora sul disco, ma la loro pagina è scomparsa."
   }
 }

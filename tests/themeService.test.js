@@ -223,7 +223,7 @@ test('thème : tous les états et messages existent dans les six langues', () =>
     'col_now', 'col_change', 'col_orphans', 'no_change', 'unknown_theme',
     'stat_sites', 'stat_tochange', 'stat_already', 'stat_orphans',
     'err_missing', 'err_engine', 'err_config', 'err_empty', 'err_no_answer', 'err_backup',
-    'err_locked', 'locked_count',
+    'err_locked', 'locked_count', 'after_note',
   ];
   const erreurs = [
     'theme_no_target', 'theme_unknown', 'theme_empty', 'theme_backup_unknown',
@@ -240,6 +240,23 @@ test('thème : tous les états et messages existent dans les six langues', () =>
     }
     for (const e of erreurs) assert.equal(typeof tout.errors?.[e], 'string', `${langue} : « errors.${e} » manque`);
   }
+});
+
+test('thème : l’écran prévient de ce qui N’EST PAS une panne après une pose', () => {
+  // Mesuré en direct sur coc-europe.com le 05/10/2026 : les sept rubriques posées ont
+  // semblé rendre 404 pendant quelques minutes — OPcache relit config.php toutes les deux
+  // secondes, et nginx garde la réponse FastCGI trois cents secondes. Et les anciennes
+  // rubriques rendent 403, non 404 : leur dossier existe encore, sans index à servir.
+  // Sans cette phrase, l'agent croit son changement raté et recommence.
+  assert.match(ECRAN, /function noteApres\(/);
+  assert.match(ECRAN, /themes\.after_note/);
+  // Elle ne s'affiche QU'APRES une pose reussie : un avertissement permanent ne se lit plus.
+  assert.match(ECRAN, /state\.poses\.values\(\)\]\.some\(\(p\) => p\.state === 'done'\)/);
+  const { themes } = JSON.parse(readFileSync(join(RACINE, 'locales/fr.json'), 'utf8'));
+  // Elle doit nommer les deux faits, sinon elle ne sert a rien.
+  assert.match(themes.after_note, /minute/i);
+  assert.match(themes.after_note, /refus/i);
+  assert.match(themes.after_note, /disque/i);
 });
 
 test('thème : les messages nomment leurs variables, et disent le geste qui suit', () => {
