@@ -39,6 +39,7 @@ const ORDRE = ['error', 'rolled_back', 'orphans', 'done', 'already'];
 /** Classes écrites en entier : Tailwind lit ce fichier pour produire sa feuille. */
 const TEINTES = {
   error: 'bg-red-100 text-red-700',
+  locked: 'bg-amber-100 text-amber-800',
   rolled_back: 'bg-red-100 text-red-700',
   orphans: 'bg-amber-100 text-amber-800',
   done: 'bg-accent-50 text-accent-700',
@@ -238,8 +239,9 @@ function noteTextes() {
 function barre(permissions) {
   const peut = peutAppliquerEnMasse(permissions);
   const n = orphelins();
-  const bloques = aChanger().filter((s) => s.orphans > 0 && !state.autoriseOrphelins).length;
-  const posables = aChanger().filter((s) => s.engine && (state.autoriseOrphelins || !s.orphans)).length;
+  const bloques = aChanger().filter((s) => s.writable && s.orphans > 0 && !state.autoriseOrphelins).length;
+  const verrouilles = analyses().filter((s) => !s.writable).length;
+  const posables = aChanger().filter((s) => s.engine && s.writable && (state.autoriseOrphelins || !s.orphans)).length;
 
   return h(
     'div',
@@ -273,6 +275,9 @@ function barre(permissions) {
         { class: 'flex-1 text-sm text-ink-500' },
         t('themes.ready', { count: fmtNum(posables), total: fmtNum(aChanger().length) }),
         bloques ? h('span', { class: 'mt-0.5 block text-xs text-amber-700' }, t('themes.blocked', { count: fmtNum(bloques) })) : null,
+        // VERROUILLÉS : 217 sites sur 400 mesurés sur vps-004. Le dire ici, et non après
+        // un échec, c'est la différence entre un outil et une devinette.
+        verrouilles ? h('span', { class: 'mt-0.5 block text-xs text-amber-700' }, t('themes.locked_count', { count: fmtNum(verrouilles) })) : null,
       ),
       h(
         'button',
@@ -291,7 +296,7 @@ function barre(permissions) {
 
 /** Pose la thématique, serveur par serveur : chaque appel s'adresse à une session SSH. */
 async function poser() {
-  const cibles = aChanger().filter((s) => s.engine && (state.autoriseOrphelins || !s.orphans));
+  const cibles = aChanger().filter((s) => s.engine && s.writable && (state.autoriseOrphelins || !s.orphans));
   if (!cibles.length) return;
   state.occupe = true;
   themeAction.onChange?.();
@@ -382,7 +387,7 @@ function tableau(permissions) {
 
 function ligne(s, { multi, peut }) {
   const pose = state.poses.get(`${s.server}/${s.domain}`);
-  const etat = pose?.state ?? (s.error ? 'error' : s.already ? 'already' : s.orphans ? 'orphans' : null);
+  const etat = pose?.state ?? (s.error ? 'error' : !s.writable ? 'locked' : s.already ? 'already' : s.orphans ? 'orphans' : null);
 
   return h(
     'tr',
@@ -411,7 +416,9 @@ function ligne(s, { multi, peut }) {
       { class: 'px-3 py-2' },
       s.error
         ? h('span', { class: 'text-xs text-red-600' }, t(`themes.err_${s.error}`, {}) || s.error)
-        : s.already
+        : !s.writable
+          ? h('span', { class: 'text-xs text-amber-700' }, t('themes.err_locked'))
+          : s.already
           ? h('span', { class: 'text-xs text-ink-400' }, t('themes.no_change'))
           : h(
               'span',

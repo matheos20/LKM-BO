@@ -1553,6 +1553,9 @@
     "err_config": "config.php illisible",
     "err_empty": "thématique vide",
     "err_no_answer": "pas de réponse",
-    "err_backup": "sauvegarde impossible"
+    "err_backup": "sauvegarde impossible",
+    "state_locked": "verrouillé",
+    "err_locked": "site verrouillé : déverrouillez-le d’abord",
+    "locked_count": "{count} site(s) verrouillés : déverrouillez-les depuis la liste des domaines, puis relancez l’analyse."
   }
 }

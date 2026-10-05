@@ -1553,6 +1553,9 @@
     "err_config": "config.php unlesbar",
     "err_empty": "leeres Thema",
     "err_no_answer": "keine Antwort",
-    "err_backup": "Sicherung fehlgeschlagen"
+    "err_backup": "Sicherung fehlgeschlagen",
+    "state_locked": "gesperrt",
+    "err_locked": "Website gesperrt: erst entsperren",
+    "locked_count": "{count} Website(s) gesperrt: entsperren Sie sie in der Domainliste und prüfen Sie erneut."
   }
 }

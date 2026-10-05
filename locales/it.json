@@ -1553,6 +1553,9 @@
     "err_config": "config.php illeggibile",
     "err_empty": "tematica vuota",
     "err_no_answer": "nessuna risposta",
-    "err_backup": "salvataggio impossibile"
+    "err_backup": "salvataggio impossibile",
+    "state_locked": "bloccato",
+    "err_locked": "sito bloccato: sbloccatelo prima",
+    "locked_count": "{count} sito(i) bloccati: sbloccateli dalla lista dei domini, poi rilanciate l’analisi."
   }
 }

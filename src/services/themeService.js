@@ -163,6 +163,9 @@ export class ThemeService {
         error: null,
         name: lu.name ?? '',
         engine: Boolean(lu.engine),
+        // 217 sites sur 400 mesurés sur vps-004 sont verrouillés : sans ce renseignement,
+        // l'agent lance une pose qui ne pouvait pas aboutir.
+        writable: Boolean(lu.writable),
         articles: Number(lu.articles) || 0,
         current,
         detected: reconnue ? { id: reconnue.id, key: reconnue.key, lang: reconnue.lang, label: reconnue.label } : null,
@@ -207,6 +210,9 @@ export class ThemeService {
     for (const s of vu.sites) {
       if (s.error) { sites.push({ ...s, state: 'error' }); continue; }
       if (!s.engine) { sites.push({ ...s, state: 'error', error: 'engine' }); continue; }
+      // Un site verrouillé est écarté AVANT qu'on tente quoi que ce soit : la sauvegarde
+      // échouerait, et un échec annoncé vaut mieux qu'un échec constaté.
+      if (!s.writable) { sites.push({ ...s, state: 'error', error: 'locked' }); continue; }
       if (s.already) { sites.push({ ...s, state: 'already' }); continue; }
       if (s.orphans > 0 && !allowOrphans) { sites.push({ ...s, state: 'orphans' }); continue; }
       aFaire.push(s);

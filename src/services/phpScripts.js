@@ -1508,6 +1508,12 @@ foreach ($domaines as $domain) {
 
     $cats = is_array($lu['cats']) ? $lu['cats'] : [];
     $site['name'] = (string) ($lu['nom'] ?? '');
+    // PEUT-ON ÉCRIRE ICI ? La question ne se pose pas en théorie : 217 sites sur 400
+    // mesurés sur vps-004 portent l'attribut immuable, et 54 % du parc refuse toute
+    // écriture au compte SSH. Sans ce renseignement, l'agent voit une belle analyse,
+    // lance la pose, et récolte « sauvegarde impossible » sans savoir pourquoi.
+    // is_writable repond pour le compte qui ecrira vraiment, quelle que soit la cause.
+    $site['writable'] = is_writable($doc);
     $site['sections'] = is_array($lu['secs']) ? count($lu['secs']) : 0;
     // Sans category.php, une rubrique posee n'aurait rien pour s'afficher.
     $site['engine'] = is_file($doc . '/category.php');

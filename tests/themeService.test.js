@@ -160,6 +160,24 @@ test('thème : le service ne tronque qu’aux bornes de config.php', () => {
 
 // ─────────────────────────── droits, routes, écran ───────────────────────────
 
+test('thème : UN SITE VERROUILLÉ EST ÉCARTÉ AVANT qu’on tente la pose', () => {
+  // Mesuré le 05/10/2026 : 217 sites sur 400 de vps-004 portent l'attribut immuable, et
+  // 54 % du parc refuse toute écriture au compte SSH. Vérifié en direct sur
+  // coc-europe.com : la pose rend « error: backup » et le site reste intact octet pour
+  // octet — mais l'agent ne savait pas pourquoi. Un échec annoncé vaut mieux qu'un
+  // échec constaté.
+  assert.match(SERVICE, /writable: Boolean\(lu\.writable\)/);
+  assert.match(SERVICE, /if \(!s\.writable\) \{ sites\.push\(\{ \.\.\.s, state: 'error', error: 'locked' \}\)/);
+  const details = readFileSync(join(RACINE, 'src/services/phpScripts.js'), 'utf8');
+  // `is_writable` répond pour le compte qui écrira vraiment, quelle que soit la cause —
+  // verrou, ACL, ou autre chose qu'on n'a pas encore rencontrée.
+  assert.match(details, /\$site\['writable'\] = is_writable\(\$doc\);/);
+  // Et l'écran ne compte pas un site verrouillé parmi ceux qu'il va poser.
+  assert.match(ECRAN, /s\.engine && s\.writable &&/);
+  assert.match(ECRAN, /themes\.locked_count/);
+  assert.match(ECRAN, /themes\.err_locked/);
+});
+
 test('thème : la pose exige le droit d’APPLIQUER, l’analyse celui de lire', async () => {
   const { buildJobKinds } = await import('../src/services/jobKinds.js');
   const kinds = buildJobKinds({ translation: {}, categories: {}, redirects: {}, cloudflare: {}, health: {}, urls: {}, themes: {} });
@@ -195,7 +213,7 @@ test('thème : l’écran est branché dans la liste des traitements', () => {
 });
 
 test('thème : tous les états et messages existent dans les six langues', () => {
-  const etats = ['done', 'already', 'orphans', 'error', 'rolled_back', 'restored'];
+  const etats = ['done', 'already', 'orphans', 'error', 'rolled_back', 'restored', 'locked'];
   const cles = [
     'explain', 'step_what', 'step_what_hint', 'loading', 'lang', 'all_langs', 'choose',
     'analyze', 'apply', 'applying', 'nothing', 'no_description',
@@ -205,6 +223,7 @@ test('thème : tous les états et messages existent dans les six langues', () =>
     'col_now', 'col_change', 'col_orphans', 'no_change', 'unknown_theme',
     'stat_sites', 'stat_tochange', 'stat_already', 'stat_orphans',
     'err_missing', 'err_engine', 'err_config', 'err_empty', 'err_no_answer', 'err_backup',
+    'err_locked', 'locked_count',
   ];
   const erreurs = [
     'theme_no_target', 'theme_unknown', 'theme_empty', 'theme_backup_unknown',

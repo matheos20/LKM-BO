@@ -1553,6 +1553,9 @@
     "err_config": "config.php ilegível",
     "err_empty": "temática vazia",
     "err_no_answer": "sem resposta",
-    "err_backup": "cópia impossível"
+    "err_backup": "cópia impossível",
+    "state_locked": "bloqueado",
+    "err_locked": "site bloqueado: desbloqueie-o primeiro",
+    "locked_count": "{count} site(s) bloqueados: desbloqueie-os na lista de domínios e volte a analisar."
   }
 }

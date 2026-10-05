@@ -1553,6 +1553,9 @@
     "err_config": "config.php unreadable",
     "err_empty": "empty theme",
     "err_no_answer": "no answer",
-    "err_backup": "backup failed"
+    "err_backup": "backup failed",
+    "state_locked": "locked",
+    "err_locked": "site locked: unlock it first",
+    "locked_count": "{count} site(s) locked: unlock them from the domain list, then run the analysis again."
   }
 }
