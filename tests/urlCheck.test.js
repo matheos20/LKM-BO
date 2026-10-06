@@ -369,8 +369,10 @@ test('frein : le même frein sert les deux analyses', async () => {
   // première analyse de la journée se tromperait de référence.
   const serveur = readFileSync(join(RACINE, 'src/server.js'), 'utf8');
   assert.match(serveur, /const serverLoad = new ServerLoad\(ssh\);/);
-  assert.match(serveur, /new HealthService\(ssh, serverLoad\)/);
-  assert.match(serveur, /new UrlCheckService\(ssh, serverLoad\)/);
+  // Le frein est le DEUXIÈME argument ; ce qui suit ne regarde pas cet essai — la santé
+  // du parc y reçoit aussi le lecteur de réputation.
+  assert.match(serveur, /new HealthService\(ssh, serverLoad[,)]/);
+  assert.match(serveur, /new UrlCheckService\(ssh, serverLoad[,)]/);
 });
 
 // ─────────────────────────── le traitement et l'écran ───────────────────────────

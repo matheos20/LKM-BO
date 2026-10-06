@@ -24,6 +24,7 @@ import { createAudit } from './services/audit.js';
 import { startBackupSchedule } from './services/backupSchedule.js';
 import { HealthService } from './services/healthService.js';
 import { ServerLoad } from './services/serverLoad.js';
+import { ReputationService } from './services/reputationService.js';
 import { ServerStateService } from './services/serverStateService.js';
 import { UrlCheckService } from './services/urlCheckService.js';
 import { ThemeService } from './services/themeService.js';
@@ -77,7 +78,10 @@ const redirects = new RedirectService(ssh, sites);
 // de chaque machine, et deux exemplaires l'apprendraient deux fois.
 const serverLoad = new ServerLoad(ssh);
 const serverState = new ServerStateService(ssh);
-const health = new HealthService(ssh, serverLoad);
+// La reputation se lit chez Google, jamais sur une machine du parc : un site peut
+// repondre parfaitement et etre refuse par le navigateur du visiteur.
+const reputation = new ReputationService({ enabled: config.reputationCheck });
+const health = new HealthService(ssh, serverLoad, reputation);
 const urls = new UrlCheckService(ssh, serverLoad);
 const themes = new ThemeService(ssh, sites, serverLoad);
 const duplicates = new DuplicateService(ssh, sites, serverLoad);

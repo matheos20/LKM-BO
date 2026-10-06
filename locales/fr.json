@@ -1430,7 +1430,13 @@
     "nothing_measured": "Aucun site n’a pu être mesuré. Ce n’est pas un signe que les sites vont mal : c’est l’analyse qui n’a rien rapporté. Regardez le détail de la tournée, puis recommencez.",
     "col_proto": "Adresse que le site se donne",
     "col_modified": "Dernière modification",
-    "col_file": "Dernier fichier modifié"
+    "col_file": "Dernier fichier modifié",
+    "flagged_title": "Signalés comme dangereux par Google",
+    "flagged_note": "Le navigateur du visiteur affiche un avertissement pleine page à la place du site : ces sites ne perdent pas quelques visites, ils les perdent toutes. Le site lui-même peut très bien répondre normalement — c’est sa réputation qui est en cause. Ouvrez la page de Google pour en connaître la raison et demander un réexamen.",
+    "flagged_badge": "Signalé",
+    "flagged_why": "Voir la raison chez Google",
+    "flagged_seen": "vu le {date}",
+    "rep_unchecked": "Réputation non vérifiée pour {count} site(s) : la consultation n’a pas abouti. Aucun verdict n’est avancé pour eux."
   },
   "urls": {
     "title": "Scanner 404",

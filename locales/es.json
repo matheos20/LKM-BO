@@ -1430,7 +1430,13 @@
     "nothing_measured": "No se pudo medir ningún sitio. Eso no indica que los sitios estén mal: es el análisis el que no ha devuelto nada. Revise el detalle de la ronda y vuelva a intentarlo.",
     "col_proto": "Dirección que el sitio se atribuye",
     "col_modified": "Última modificación",
-    "col_file": "Último archivo modificado"
+    "col_file": "Último archivo modificado",
+    "flagged_title": "Señalados como peligrosos por Google",
+    "flagged_note": "El navegador del visitante muestra una advertencia a pantalla completa en lugar del sitio: estos sitios no pierden algunas visitas, las pierden todas. El sitio en sí puede responder con normalidad — lo que falla es su reputación. Abra la página de Google para conocer el motivo y pedir una revisión.",
+    "flagged_badge": "Señalado",
+    "flagged_why": "Ver el motivo en Google",
+    "flagged_seen": "visto el {date}",
+    "rep_unchecked": "Reputación no verificada en {count} sitio(s): la consulta no se completó. No se afirma ningún veredicto sobre ellos."
   },
   "urls": {
     "title": "Escáner 404",

@@ -1430,7 +1430,13 @@
     "nothing_measured": "Keine Website konnte gemessen werden. Das heißt nicht, dass es den Websites schlecht geht: die Prüfung selbst hat nichts gemeldet. Sehen Sie sich die Einzelheiten des Durchgangs an und versuchen Sie es erneut.",
     "col_proto": "Adresse, die die Website für sich angibt",
     "col_modified": "Zuletzt geändert",
-    "col_file": "Zuletzt geänderte Datei"
+    "col_file": "Zuletzt geänderte Datei",
+    "flagged_title": "Von Google als gefährlich gemeldet",
+    "flagged_note": "Der Browser des Besuchers zeigt statt der Website eine ganzseitige Warnung: diese Websites verlieren nicht einige Besuche, sie verlieren alle. Die Website selbst kann durchaus normal antworten — es ist ihr Ruf, der beanstandet wird. Öffnen Sie die Google-Seite, um den Grund zu erfahren und eine Überprüfung zu beantragen.",
+    "flagged_badge": "Gemeldet",
+    "flagged_why": "Grund bei Google ansehen",
+    "flagged_seen": "gesehen am {date}",
+    "rep_unchecked": "Ruf für {count} Website(s) nicht geprüft: die Abfrage kam nicht durch. Für sie wird kein Urteil behauptet."
   },
   "urls": {
     "title": "404-Prüfung",

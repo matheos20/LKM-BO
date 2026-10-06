@@ -62,6 +62,9 @@ const state = {
   // Masquer les sites sains : décidé à l'affichage, pas ici, pour que l'agent puisse
   // revenir à la liste entière.
   sainsMasques: true,
+  // Vrai dès qu'un verdict de réputation a manqué : l'écran le dit au lieu de laisser
+  // croire que tout le lot a été vérifié.
+  reputationIncomplete: false,
 };
 
 const parEtat = () => {
@@ -70,8 +73,21 @@ const parEtat = () => {
   return par;
 };
 
+/**
+ * UN SITE SIGNALÉ N'EST PAS UN SITE SAIN, même s'il répond parfaitement.
+ *
+ * Le 06/10/2026, `gkmtaxzone.com` affichait « site dangereux » dans le navigateur pendant
+ * que cet écran annonçait « tous les sites vérifiés répondent normalement » et « 0 à
+ * regarder ». Les deux mesures étaient justes : le site rendait bien une page de 57 ko en
+ * 0,14 s. Ce que la sonde ne voit pas, c'est la base de réputation que le navigateur
+ * consulte AVANT d'ouvrir la page. Elle est désormais lue, et elle compte.
+ */
+const signale = (s) => s.reputation?.state === 'flagged';
+const signales = () => state.sites.filter(signale);
+const nonVerifies = () => state.sites.filter((s) => !s.reputation || s.reputation.state === 'unchecked').length;
+
 const compte = (etat) => state.sites.reduce((n, s) => n + (s.state === etat ? 1 : 0), 0);
-const sains = () => compte('ok');
+const sains = () => state.sites.reduce((n, s) => n + (s.state === 'ok' && !signale(s) ? 1 : 0), 0);
 const aRegarder = () => state.sites.length - sains();
 
 export const healthAction = {
@@ -88,6 +104,7 @@ export const healthAction = {
     state.sites = [];
     state.charge = null;
     state.sainsMasques = true;
+    state.reputationIncomplete = false;
   },
 
   jobKind: 'health.scan',
@@ -99,6 +116,7 @@ export const healthAction = {
     if (out?.load && (!state.charge || out.load.parCoeur > state.charge.parCoeur)) {
       state.charge = { ...out.load, server };
     }
+    if (out?.reputationIncomplete) state.reputationIncomplete = true;
   },
 
   stats() {
@@ -135,6 +153,10 @@ export const healthAction = {
       'div',
       { class: 'space-y-4' },
       noteCharge(),
+      // LES SITES SIGNALÉS PASSENT DEVANT TOUT. Ce sont les seuls dont les visiteurs ne
+      // voient pas la page du tout : le navigateur affiche un avertissement à la place.
+      sectionSignales(),
+      noteReputation(),
       problemes === 0
         ? h(
             'p',
@@ -147,6 +169,100 @@ export const healthAction = {
     );
   },
 };
+
+/**
+ * L'adresse où Google explique son verdict, et où la levée se demande.
+ *
+ * C'est la seule page qui donne la RAISON du signalement, et l'agent n'a pas à la
+ * retrouver seul : le lien est à côté du site concerné.
+ */
+const pageGoogle = (domain) => `https://transparencyreport.google.com/safe-browsing/search?url=${encodeURIComponent(domain)}`;
+
+/**
+ * Les sites que le navigateur refuse d'ouvrir, en tête et en rouge.
+ *
+ * Un site signalé ne perd pas une visite sur dix : il les perd TOUTES, puisque le
+ * navigateur affiche un avertissement pleine page à la place du site. C'est, de tout ce
+ * que cet écran mesure, ce qui coûte le plus cher — d'où la place et la couleur.
+ */
+function sectionSignales() {
+  const liste = signales();
+  if (!liste.length) return null;
+  const multi = new Set(state.sites.map((s) => s.server)).size > 1;
+  return h(
+    'section',
+    { class: 'card overflow-hidden border-red-200' },
+    h(
+      'header',
+      { class: 'flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-red-100 bg-red-50 px-4 py-2.5' },
+      icon('alert', 'size-4 shrink-0 text-red-600'),
+      h('span', { class: 'text-sm font-semibold text-red-700' }, t('health.flagged_title')),
+      h('span', { class: 'rounded-md bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700' }, fmtNum(liste.length)),
+    ),
+    h('p', { class: 'border-b border-ink-50 px-4 py-2 text-xs text-ink-500' }, t('health.flagged_note')),
+    h(
+      'ul',
+      { class: 'divide-y divide-ink-50' },
+      liste.map((s) =>
+        h(
+          'li',
+          { class: 'flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm' },
+          h('a', { href: `https://${s.domain}/`, target: '_blank', rel: 'noopener', class: 'font-medium text-accent-700 hover:underline' }, s.domain),
+          multi ? h('span', { class: 'text-xs text-ink-400' }, s.server) : null,
+          h('span', { class: 'flex-1' }),
+          // La date du dernier passage de Google : elle dit si le verdict est frais.
+          s.reputation?.checkedAt
+            ? h('span', { class: 'text-xs whitespace-nowrap text-ink-400' }, t('health.flagged_seen', { date: fmtDate(s.reputation.checkedAt) }))
+            : null,
+          h(
+            'a',
+            { href: pageGoogle(s.domain), target: '_blank', rel: 'noopener', class: 'text-xs font-medium text-red-700 hover:underline' },
+            t('health.flagged_why'),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/**
+ * Ce qui n'a PAS pu être vérifié, dit platement.
+ *
+ * Un module de sécurité qui se tait quand il n'a rien pu lire laisse croire que tout va
+ * bien. La machine de déploiement prévue a ses ports sortants fermés : ce message y sera
+ * la règle, et il doit se comprendre sans explication.
+ */
+function noteReputation() {
+  const combien = nonVerifies();
+  if (!combien || !state.sites.length) return null;
+  return h(
+    'p',
+    { class: 'flex items-start gap-2 rounded-lg bg-ink-50 px-4 py-3 text-sm text-ink-500' },
+    icon('alert', 'size-4 shrink-0 mt-0.5'),
+    t('health.rep_unchecked', { count: fmtNum(combien) }),
+  );
+}
+
+/**
+ * La pastille rouge à côté du nom du site, pour que le lien se fasse.
+ *
+ * Le site reste dans son groupe d'état — il EST en ligne — et la pastille dit l'autre
+ * moitié de l'histoire là où l'agent la lit.
+ */
+function pastilleReputation(s) {
+  if (!signale(s)) return null;
+  return h(
+    'a',
+    {
+      href: pageGoogle(s.domain),
+      target: '_blank',
+      rel: 'noopener',
+      class: 'rounded bg-red-100 px-1 py-px text-[0.65rem] font-semibold tracking-wide text-red-700 uppercase hover:bg-red-200',
+      title: t('health.flagged_note'),
+    },
+    t('health.flagged_badge'),
+  );
+}
 
 /**
  * La charge, dite en une phrase et SEULEMENT quand elle explique quelque chose.
@@ -275,6 +391,7 @@ function groupe(etat, sites) {
                   // chose que fait l'agent après avoir lu une ligne rouge.
                   h('a', { href: `https://${s.domain}/`, target: '_blank', rel: 'noopener', class: 'text-accent-700 hover:underline' }, s.domain),
                   pastilleProtocole(s),
+                  pastilleReputation(s),
                 ),
               ),
               multi ? h('td', { class: 'px-3 py-1.5 text-ink-400' }, s.server) : null,

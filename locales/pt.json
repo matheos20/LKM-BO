@@ -1430,7 +1430,13 @@
     "nothing_measured": "Nenhum site pôde ser medido. Isso não indica que os sites estejam mal: foi a análise que não devolveu nada. Veja o detalhe da ronda e tente novamente.",
     "col_proto": "Endereço que o site se atribui",
     "col_modified": "Última modificação",
-    "col_file": "Último ficheiro modificado"
+    "col_file": "Último ficheiro modificado",
+    "flagged_title": "Assinalados como perigosos pelo Google",
+    "flagged_note": "O navegador do visitante mostra um aviso em página inteira em vez do site: estes sites não perdem algumas visitas, perdem-nas todas. O próprio site pode responder normalmente — o que está em causa é a sua reputação. Abra a página do Google para saber o motivo e pedir uma reanálise.",
+    "flagged_badge": "Assinalado",
+    "flagged_why": "Ver o motivo no Google",
+    "flagged_seen": "visto em {date}",
+    "rep_unchecked": "Reputação não verificada em {count} site(s): a consulta não se concluiu. Não se afirma qualquer veredicto sobre eles."
   },
   "urls": {
     "title": "Scanner 404",

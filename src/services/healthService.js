@@ -1,5 +1,6 @@
 import { AppError } from '../errors.js';
 import { isValidDomain, shq } from '../ssh/shell.js';
+import { ETATS as REPUTATION, ReputationService } from './reputationService.js';
 import { ATTENTE_MAX, CHARGE_MAX, MARGE_CHARGE, PRESSION_MAX, ServerLoad } from './serverLoad.js';
 
 /**
@@ -273,7 +274,20 @@ const VIDE = Object.freeze({
   scheme: null,
   modifiedAt: null,
   modifiedFile: null,
+  // La réputation est un AXE À PART, et non un état de plus. Un site peut répondre
+  // parfaitement et être refusé par le navigateur du visiteur : c'est exactement ce qui
+  // est arrivé à `gkmtaxzone.com` le 06/10/2026. Les mélanger aurait forcé à choisir
+  // lequel des deux renseignements taire.
+  reputation: null,
 });
+
+/**
+ * Un site signalé est un site à regarder, quel que soit son état par ailleurs.
+ *
+ * C'est la règle qui répare le défaut constaté : la sonde disait « en ligne », l'écran
+ * disait « 0 à regarder », et le navigateur refusait d'ouvrir la page.
+ */
+export const estSignale = (site) => site?.reputation?.state === REPUTATION.FLAGGED;
 
 /** Les états qui demandent un geste, du plus grave au plus bénin. */
 export const ETATS_GRAVES = ['unreachable', 'no_answer', 'server_error', 'php_error', 'empty', 'missing', 'refused', 'slow', 'redirect', 'invalid'];
@@ -288,9 +302,12 @@ export class HealthService {
    * chacun le leur apprendraient deux fois la même chose, et la première analyse de la
    * journée se tromperait de référence.
    */
-  constructor(ssh, load = new ServerLoad(ssh)) {
+  constructor(ssh, load = new ServerLoad(ssh), reputation = new ReputationService()) {
     this.ssh = ssh;
     this.load = load;
+    // La réputation ne touche AUCUNE machine du parc : elle se lit chez Google. Elle est
+    // injectée pour que la santé s'éprouve sans réseau.
+    this.reputation = reputation;
   }
 
   /** L'état d'une machine : charge par cœur et pression disque. */
@@ -334,6 +351,9 @@ export class HealthService {
     const refuses = voulus.filter((d) => !sondable(d));
     const sites = refuses.map((domain) => ({ ...VIDE, domain, state: 'invalid' }));
     let charge = null;
+    // Vrai dès qu'un verdict de réputation manque à l'appel : l'écran doit pouvoir le
+    // dire plutôt que de laisser croire que tout a été vérifié.
+    let reputationIncomplete = false;
 
     if (sondables.length) {
       charge = await this.load.attendre(serverId, { plafond: loadCeiling, pression: ioCeiling, attenteMax: maxWait });
@@ -368,13 +388,30 @@ export class HealthService {
         retouches = new Map();
       }
 
+      // LA RÉPUTATION, lue chez Google et non sur la machine. Ce que la sonde ne peut pas
+      // voir : un site qui répond parfaitement peut être refusé par le navigateur du
+      // visiteur. Aucun serveur du parc n'est sollicité, et un échec ne doit pas emporter
+      // l'analyse — la santé du site reste le renseignement principal.
+      let reputations = new Map();
+      try {
+        const vu = await this.reputation.check(sondables);
+        reputations = vu.results;
+        reputationIncomplete = vu.interrupted === true;
+      } catch {
+        reputations = new Map();
+        reputationIncomplete = true;
+      }
+
       const vus = new Map(lignes.filter((l) => l.domain !== TEMOIN).map((l) => [l.domain, l]));
       for (const domain of sondables) {
         const row = vus.get(domain);
         const retouche = retouches.get(domain) ?? { modifiedAt: null, modifiedFile: null };
+        // Faute de verdict, « non vérifié » — et surtout pas l'absence de verdict, qui se
+        // lirait comme un blanc-seing.
+        const reputation = reputations.get(domain) ?? { state: REPUTATION.UNCHECKED, code: null, checkedAt: null };
         // Une sonde dont la ligne manque n'est pas un site sain : elle est dite perdue.
-        if (!row) sites.push({ ...VIDE, ...retouche, domain, state: 'no_answer' });
-        else sites.push({ ...row, ...retouche, scheme: protocole(row), state: verdict(row, { slow, minBytes }) });
+        if (!row) sites.push({ ...VIDE, ...retouche, reputation, domain, state: 'no_answer' });
+        else sites.push({ ...row, ...retouche, reputation, scheme: protocole(row), state: verdict(row, { slow, minBytes }) });
       }
 
       // LE FREIN. Un lot trop rapide attend : c'est le débit qui protège la machine, et
@@ -383,7 +420,7 @@ export class HealthService {
       if (reste > 0) await new Promise((r) => setTimeout(r, Math.min(reste, 120000)));
     }
 
-    return { sites, summary: resume(sites), load: charge };
+    return { sites, summary: resume(sites), load: charge, reputationIncomplete };
   }
 }
 
@@ -393,5 +430,10 @@ export function resume(sites) {
   for (const s of sites ?? []) par[s.state] = (par[s.state] ?? 0) + 1;
   const total = (sites ?? []).length;
   const ok = par.ok ?? 0;
-  return { total, ok, problems: total - ok, byState: par };
+  const signales = (sites ?? []).filter(estSignale).length;
+  // « À regarder » compte les sites signalés, MÊME s'ils répondent parfaitement. Sans
+  // cela l'écran afficherait « 0 à regarder » sur un site que le navigateur refuse — le
+  // défaut exact qui a motivé cette mesure.
+  const sains = (sites ?? []).filter((s) => s.state === 'ok' && !estSignale(s)).length;
+  return { total, ok, flagged: signales, problems: total - sains, byState: par };
 }

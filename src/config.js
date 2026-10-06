@@ -110,6 +110,11 @@ export const config = {
   // Les tournees terminees partent avec leurs resultats au bout de N jours : un balayage
   // du parc entier laisse des dizaines de megaoctets que plus personne ne regardera.
   jobRetentionDays: int(env.JOB_RETENTION_DAYS, 30),
+  // LA REPUTATION DES DOMAINES, lue chez Google pendant la sante du parc. Elle ne
+  // touche aucune machine du parc, mais elle demande un acces sortant : la ou il est
+  // ferme, chaque site est rendu « non verifie », ce qui est dit a l ecran. A couper
+  // avec REPUTATION_CHECK=0 si cet acces n existe pas.
+  reputationCheck: bool(env.REPUTATION_CHECK, true),
 };
 
 /** Refuse de démarrer avec une configuration dangereuse ou incomplète. */

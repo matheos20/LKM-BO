@@ -283,8 +283,33 @@ test('santé : le passage en « www » n’est PAS une anomalie', () => {
 
 test('santé : le résumé compte ce qui est là, et rien de plus', () => {
   const r = resume([{ state: 'ok' }, { state: 'ok' }, { state: 'slow' }, { state: 'unreachable' }]);
-  assert.deepEqual(r, { total: 4, ok: 2, problems: 2, byState: { ok: 2, slow: 1, unreachable: 1 } });
-  assert.deepEqual(resume([]), { total: 0, ok: 0, problems: 0, byState: {} });
+  assert.deepEqual(r, { total: 4, ok: 2, flagged: 0, problems: 2, byState: { ok: 2, slow: 1, unreachable: 1 } });
+  assert.deepEqual(resume([]), { total: 0, ok: 0, flagged: 0, problems: 0, byState: {} });
+});
+
+test('santé : UN SITE SIGNALÉ EST À REGARDER, même s’il répond parfaitement', () => {
+  // LE DÉFAUT RÉPARÉ, en une ligne d'essai. Le 06/10/2026, `gkmtaxzone.com` affichait
+  // « site dangereux » dans le navigateur pendant que cet écran annonçait « 0 à
+  // regarder » : le site rendait bien une page de 57 ko en 0,14 s, et c'était vrai. Ce
+  // que la sonde ne voit pas, c'est la base de réputation que le navigateur consulte
+  // AVANT d'ouvrir la page.
+  const r = resume([
+    { state: 'ok', reputation: { state: 'clean' } },
+    { state: 'ok', reputation: { state: 'flagged' } },
+    { state: 'ok', reputation: { state: 'unchecked' } },
+    { state: 'slow', reputation: { state: 'flagged' } },
+  ]);
+  assert.equal(r.flagged, 2);
+  // Les deux signalés : celui qui répond parfaitement et celui qui est lent. Le site
+  // « sain mais non vérifié » n'en fait PAS partie — on ne sait pas, on n'invente pas.
+  assert.equal(r.problems, 2, 'le site en ligne mais signalé compte parmi ceux à regarder');
+  // `ok` continue de dire ce que la SONDE a vu : trois sites ont bien répondu. Les deux
+  // mesures restent lisibles séparément, c'est tout l'intérêt de ne pas les mélanger.
+  assert.equal(r.ok, 3);
+  assert.equal(r.byState.ok, 3);
+  // Un site sans verdict de réputation n'est pas un site signalé : on ne sait pas.
+  assert.equal(resume([{ state: 'ok' }]).flagged, 0);
+  assert.equal(resume([{ state: 'ok' }]).problems, 0);
 });
 
 // ─────────────────────────── l'analyse, de bout en bout ───────────────────────────

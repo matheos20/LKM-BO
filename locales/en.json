@@ -1430,7 +1430,13 @@
     "nothing_measured": "No site could be measured. That is not a sign the sites are in trouble: the scan itself reported nothing. Check the run’s details, then try again.",
     "col_proto": "Address the site claims for itself",
     "col_modified": "Last modified",
-    "col_file": "Last modified file"
+    "col_file": "Last modified file",
+    "flagged_title": "Flagged as dangerous by Google",
+    "flagged_note": "The visitor’s browser shows a full-page warning instead of the site: these sites do not lose a few visits, they lose all of them. The site itself may well respond normally — it is its reputation that is at fault. Open Google’s page to see the reason and request a review.",
+    "flagged_badge": "Flagged",
+    "flagged_why": "See the reason on Google",
+    "flagged_seen": "seen on {date}",
+    "rep_unchecked": "Reputation not checked for {count} site(s): the lookup did not go through. No verdict is claimed for them."
   },
   "urls": {
     "title": "404 scanner",
