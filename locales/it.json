@@ -1072,7 +1072,8 @@
     "undo_note": "La pagina della rubrica, la sua voce di menu e la sua riga nel riepilogo se ne vanno insieme. Le rubriche precedenti non sono toccate.",
     "undo_go": "Ripristina",
     "undone": "{count} rubrica(che) tolta(e) su {sites} sito(i).",
-    "undo_failed": "{count} rubrica(che) non hanno potuto essere tolte."
+    "undo_failed": "{count} rubrica(che) non hanno potuto essere tolte.",
+    "explain_remove": "Il back-office toglie la rubrica da ogni sito scelto: la sua pagina, la sua voce di menu e la sua riga nel riepilogo WordPress. Gli articoli pubblicati dentro restano al loro posto. Nulla è tolto prima che abbiate visto la verifica."
   },
   "audit": {
     "search_placeholder": "Cerca un utente, un dominio, un’azione…",

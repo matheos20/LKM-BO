@@ -1072,7 +1072,8 @@
     "undo_note": "La page de la rubrique, son entrée dans le menu et sa ligne dans le résumé partent ensemble. Les rubriques qui existaient avant ne sont pas touchées.",
     "undo_go": "Restaurer",
     "undone": "{count} rubrique(s) retirée(s) sur {sites} site(s).",
-    "undo_failed": "{count} rubrique(s) n’ont pas pu être retirées."
+    "undo_failed": "{count} rubrique(s) n’ont pas pu être retirées.",
+    "explain_remove": "Le back-office retire la rubrique de chaque site choisi : sa page, son entrée dans le menu, et sa ligne dans le résumé WordPress. Les articles publiés dedans restent en place. Rien n’est retiré avant que vous ayez vu la vérification."
   },
   "audit": {
     "search_placeholder": "Chercher un utilisateur, un domaine, une action…",

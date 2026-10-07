@@ -155,3 +155,18 @@ test('rubriques : « restaurer » et « supprimer » ne se disent pas du même m
     assert.notEqual(c.undo_title.toLowerCase(), c.remove_title.toLowerCase(), `${l} : les deux fenêtres aussi`);
   }
 });
+
+test('rubriques : la phrase d’en-tête SUIT le verbe', () => {
+  // Elle annonçait « le back-office crée la rubrique sur chaque site choisi » alors que
+  // l'agent venait de choisir « Supprimer » : la seule phrase qui explique l'écran
+  // décrivait l'inverse de ce qui allait se passer.
+  assert.match(ECRAN, /get hintKey\(\) \{[\s\S]{0,200}categories\.explain_remove/);
+  for (const l of LANGUES) {
+    const c = locale(l).categories;
+    assert.equal(typeof c.explain_remove, 'string', `${l} : categories.explain_remove manque`);
+    assert.notEqual(c.explain_remove, c.explain, `${l} : les deux verbes ne se décrivent pas de la même façon`);
+    // Et elle doit dire ce qu'il advient des articles : c'est la question que l'agent
+    // se pose en lisant « supprimer ».
+    assert.ok(c.explain_remove.length > 80, `${l} : la phrase doit expliquer, pas seulement nommer`);
+  }
+});

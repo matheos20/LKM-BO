@@ -913,7 +913,13 @@ export const categoryAction = {
   icon: 'folderPlus',
   labelKey: 'actions.categories',
   // Le verbe choisi décide du reste : c'est la même action, pas deux entrées de menu.
-  hintKey: 'categories.explain',
+  // LA PHRASE D'EN-TÊTE SUIT LE VERBE, elle aussi. Elle annonçait « le back-office crée
+  // la rubrique sur chaque site choisi » alors que l'agent venait de choisir
+  // « Supprimer » : la seule phrase qui explique l'écran décrivait l'inverse de ce qui
+  // allait se passer.
+  get hintKey() {
+    return state.operation === 'remove' ? 'categories.explain_remove' : 'categories.explain';
+  },
   startLabelKey: 'categories.verify',
   batch: 60,
   onChange: null,

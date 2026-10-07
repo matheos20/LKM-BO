@@ -1072,7 +1072,8 @@
     "undo_note": "La página de la sección, su entrada en el menú y su línea en el resumen se van juntas. Las secciones anteriores no se tocan.",
     "undo_go": "Restaurar",
     "undone": "{count} sección(es) quitada(s) en {sites} sitio(s).",
-    "undo_failed": "No se pudieron quitar {count} sección(es)."
+    "undo_failed": "No se pudieron quitar {count} sección(es).",
+    "explain_remove": "El back-office quita la sección de cada sitio elegido: su página, su entrada en el menú y su línea en el resumen de WordPress. Los artículos publicados dentro se quedan donde están. No se quita nada antes de que vea la comprobación."
   },
   "audit": {
     "search_placeholder": "Buscar un usuario, un dominio, una acción…",

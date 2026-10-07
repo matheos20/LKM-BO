@@ -1072,7 +1072,8 @@
     "undo_note": "The section page, its menu entry and its summary line go together. Sections that existed before are not touched.",
     "undo_go": "Undo",
     "undone": "{count} section(s) removed on {sites} site(s).",
-    "undo_failed": "{count} section(s) could not be removed."
+    "undo_failed": "{count} section(s) could not be removed.",
+    "explain_remove": "The back-office removes the section from each chosen site: its page, its menu entry and its line in the WordPress summary. Articles published inside stay where they are. Nothing is removed before you have seen the check."
   },
   "audit": {
     "search_placeholder": "Search a user, a domain, an action…",

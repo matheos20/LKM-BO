@@ -1072,7 +1072,8 @@
     "undo_note": "Die Rubrikseite, ihr Menüeintrag und ihre Zeile in der Übersicht gehen zusammen. Zuvor vorhandene Rubriken bleiben unberührt.",
     "undo_go": "Zurücknehmen",
     "undone": "{count} Rubrik(en) auf {sites} Website(s) entfernt.",
-    "undo_failed": "{count} Rubrik(en) konnten nicht entfernt werden."
+    "undo_failed": "{count} Rubrik(en) konnten nicht entfernt werden.",
+    "explain_remove": "Das Back-Office entfernt die Rubrik von jeder gewählten Website: ihre Seite, ihren Menüeintrag und ihre Zeile in der WordPress-Übersicht. Darin veröffentlichte Artikel bleiben, wo sie sind. Es wird nichts entfernt, bevor Sie die Prüfung gesehen haben."
   },
   "audit": {
     "search_placeholder": "Nach Benutzer, Domain oder Aktion suchen…",

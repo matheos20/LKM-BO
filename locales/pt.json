@@ -1072,7 +1072,8 @@
     "undo_note": "A página da rubrica, a sua entrada no menu e a sua linha no resumo saem juntas. As rubricas anteriores não são tocadas.",
     "undo_go": "Restaurar",
     "undone": "{count} rubrica(s) retirada(s) em {sites} site(s).",
-    "undo_failed": "Não foi possível retirar {count} rubrica(s)."
+    "undo_failed": "Não foi possível retirar {count} rubrica(s).",
+    "explain_remove": "O back-office retira a rubrica de cada site escolhido: a sua página, a sua entrada no menu e a sua linha no resumo WordPress. Os artigos publicados lá dentro ficam onde estão. Nada é retirado antes de ter visto a verificação."
   },
   "audit": {
     "search_placeholder": "Procurar um utilizador, um domínio, uma ação…",
