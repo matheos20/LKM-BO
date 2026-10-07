@@ -32,6 +32,43 @@ export function categoriesRouter({ ssh, categories, audit }) {
     res.json(await categories.plan(req.params.id, req.body?.request, { operation: req.body?.operation }));
   });
 
+  /**
+   * Les dates auxquelles les rubriques d'un site peuvent revenir. LECTURE SEULE.
+   *
+   * Elles ne sont pas créées pour l'occasion : le circuit de publication sauvegarde déjà
+   * `config.php` à chaque écriture. On ne fait que les présenter.
+   */
+  r.post('/points', requirePermission('bulk.read'), requirePermission('design.read'), async (req, res) => {
+    res.json(await categories.points(req.params.id, String(req.body?.domain ?? '')));
+  });
+
+  /** Ce que revenir à un point changerait, avant de le faire. LECTURE SEULE. */
+  r.post('/preview', requirePermission('bulk.read'), requirePermission('design.read'), async (req, res) => {
+    res.json(await categories.preview(req.params.id, String(req.body?.domain ?? ''), String(req.body?.point ?? '')));
+  });
+
+  /** Ramène les rubriques d'un site à l'un de ces points. */
+  r.post('/restore', requirePermission('bulk.apply'), requirePermission('design.publish'), async (req, res) => {
+    const domain = String(req.body?.domain ?? '');
+    const point = String(req.body?.point ?? '');
+    try {
+      const out = await categories.restore(req.params.id, domain, point);
+      audit(req, {
+        action: 'categories.restore_point',
+        server: req.params.id,
+        domain,
+        // Ce que le retour a réellement fait, et non seulement la date visée : qui relit
+        // la trace veut savoir combien de pages sont reparties et combien sont revenues.
+        target: `${point} · ${out.restored?.length ?? 0} reposée(s), ${out.removed?.length ?? 0} retirée(s)`,
+        ok: true,
+      });
+      res.json(out);
+    } catch (err) {
+      audit(req, { action: 'categories.restore_point', server: req.params.id, domain, target: point, ok: false, error: err.key ?? err.message });
+      throw err;
+    }
+  });
+
   r.post('/apply', requirePermission('bulk.apply'), requirePermission('design.publish'), async (req, res) => {
     const demande = req.body?.request ?? {};
     const demande_op = String(req.body?.operation ?? '');

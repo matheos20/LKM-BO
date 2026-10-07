@@ -1,4 +1,6 @@
 import { AppError } from '../errors.js';
+import { isValidDomain } from '../ssh/shell.js';
+import { CATEGORY_POINT_DIFF, CATEGORY_RECONCILE, diffPoint } from './categoryRestore.js';
 import { CATEGORY_FILES, CATEGORY_LIST } from './phpScripts.js';
 
 /**
@@ -63,16 +65,7 @@ export function normalizeRequest(request) {
       const slug = SLUG.test(fourni) ? fourni : slugify(fourni || name);
       if (!name || !slug || vues.has(slug) || liste.length >= MAX_CATEGORIES) continue;
       vues.add(slug);
-      // ICÔNE, DESCRIPTION ET PLACE NE VOYAGENT QUE POUR UNE REMISE EN PLACE. À la
-      // création, ils sont absents et la rubrique naît nue, comme avant. Les laisser
-      // passer ici est ce qui permet à une rubrique supprimée de revenir ENTIÈRE —
-      // avec son emoji et sa phrase — et à son rang dans le menu.
-      const remise = {};
-      if (r?.icon != null) remise.icon = String(r.icon).slice(0, 16);
-      if (r?.description != null) remise.description = String(r.description).slice(0, 300);
-      const apres = String(r?.after ?? '').trim();
-      if (SLUG.test(apres)) remise.after = apres;
-      liste.push({ slug, name, ...remise });
+      liste.push({ slug, name });
     }
     if (liste.length) out[domain] = liste;
   }
@@ -142,6 +135,84 @@ export class CategoryService {
    * Écriture. Les dossiers et `wp_summary.json` d'abord, par le script serveur ;
    * puis `config.php` de chaque site, un par un, par le circuit de publication.
    */
+  /**
+   * LES POINTS DE RESTAURATION D'UN SITE : les dates auxquelles on peut le ramener.
+   *
+   * Ils ne sont pas créés pour l'occasion — le circuit de publication sauvegarde déjà
+   * `config.php`, daté, à CHAQUE écriture. On ne fait donc que les présenter : chaque
+   * sauvegarde du menu est un instant où le site peut revenir.
+   *
+   * Seules les sauvegardes de `config.php` nous intéressent ici : ce sont elles qui
+   * portent les rubriques. Celles de `style.css` ou d'un article appartiennent à
+   * l'éditeur, et les mêler ici ferait choisir à l'agent dans une liste où la plupart
+   * des lignes ne changeraient rien aux rubriques.
+   */
+  async points(serverId, domain) {
+    const toutes = await this.sites.listBackups(serverId, domain);
+    return { domain, points: toutes.filter((b) => b.kind === 'config') };
+  }
+
+  /**
+   * Ramène les rubriques d'un site à un point donné.
+   *
+   * DEUX TEMPS, ET LE SECOND EST CELUI QU'ON OUBLIE. Restaurer `config.php` remet le
+   * menu — noms, icônes, descriptions, ordre — mais laisse les PAGES des rubriques dans
+   * l'état où le dernier geste les a mises : une rubrique ajoutée garderait sa page sans
+   * être au menu, une rubrique supprimée resterait sans page alors qu'elle y revient.
+   * La seconde passe remet les pages en accord avec le menu restauré.
+   *
+   * La sauvegarde restaurée ne disparaît pas : le circuit range l'état d'avant comme un
+   * nouveau point. On peut donc toujours revenir sur une restauration.
+   */
+  /**
+   * CE QUE REVENIR À UN POINT CHANGERAIT. Lecture seule, rien n'est écrit.
+   *
+   * Le premier essai comparait l'état du site à LUI-MÊME, et annonçait donc toujours
+   * « rien ne changerait » : il regardait le `config.php` en place au lieu de celui du
+   * point visé. On lit maintenant les deux, et on les compare.
+   */
+  async preview(serverId, domain, name) {
+    const server = this.ssh.server(serverId);
+    if (!isValidDomain(domain)) throw new AppError('errors.category_none', { status: 400 });
+    const brut = await this.sites.runPhp(
+      serverId,
+      server.wwwRoot,
+      CATEGORY_POINT_DIFF,
+      { LKM_ROOT: server.wwwRoot, LKM_DOMAIN: domain, LKM_POINT: String(name ?? '') },
+      { timeout: TIMEOUT },
+    );
+    if (brut.error) throw new AppError(`errors.category_point_${brut.error}`, { status: 400, vars: { domain } });
+    return { domain, point: name, ...diffPoint(brut), now: brut.now, then: brut.then };
+  }
+
+  async restore(serverId, domain, name, userId = null) {
+    const server = this.ssh.server(serverId);
+    if (!isValidDomain(domain)) throw new AppError('errors.category_none', { status: 400 });
+
+    /**
+     * ON NE REMET QUE LE MENU, PAS TOUT LE FICHIER.
+     *
+     * `config.php` ne porte pas que les rubriques : le nom du site, ses sections et ses
+     * réglages d'affichage y vivent aussi. Restaurer le fichier entier aurait ramené tout
+     * cela avec, et un écran qui s'appelle « Gérer les rubriques » n'a rien à faire du
+     * nom du site. On lit donc les rubriques du point visé, et on les remet par le
+     * circuit de publication — qui prend sa propre sauvegarde au passage, si bien qu'on
+     * peut toujours revenir sur ce retour.
+     */
+    const vu = await this.preview(serverId, domain, name);
+    const rubriques = Object.entries(vu.then).map(([slug, v]) => ({ slug, ...v }));
+    if (!rubriques.length) throw new AppError('errors.category_point_empty', { status: 400, vars: { domain } });
+    const restored = await this.sites.setCategories(serverId, domain, rubriques, userId);
+    const out = await this.sites.runPhp(
+      serverId,
+      server.wwwRoot,
+      CATEGORY_RECONCILE,
+      { LKM_ROOT: server.wwwRoot, LKM_DOMAIN: domain, LKM_MODE: 'apply' },
+      { timeout: TIMEOUT },
+    );
+    return { domain, point: name, restored, ...out };
+  }
+
   async apply(serverId, request, userId, { operation = 'add' } = {}) {
     const demande = normalizeRequest(request);
     return operation === 'remove' ? this.#remove(serverId, demande, userId) : this.#add(serverId, demande, userId);
@@ -154,16 +225,7 @@ export class CategoryService {
       if (site.error) continue;
       // Ne sont déclarées que les rubriques dont le dossier existe : une entrée de
       // configuration sans dossier mènerait le visiteur sur une page inexistante.
-      //
-      // L'ICÔNE, LA DESCRIPTION ET LE RANG VIENNENT DE LA DEMANDE, et non de la réponse
-      // du script : celui-ci ne rend que l'état des trois pièces sur le disque. Sans ce
-      // rapprochement, une rubrique remise en place revenait nue et en bout de menu —
-      // mesuré le 07/10/2026 : « Foot ⚽ Football, Ligue 1 et championnats », 6e du menu,
-      // revenait en « Foot », sans icône, en 8e position.
-      const voulu = new Map((demande[site.domain] ?? []).map((r) => [r.slug, r]));
-      const aDeclarer = site.items
-        .filter((it) => it.dir && !it.config)
-        .map((it) => ({ ...(voulu.get(it.slug) ?? {}), slug: it.slug, name: it.name }));
+      const aDeclarer = site.items.filter((it) => it.dir && !it.config);
       if (!aDeclarer.length) continue;
       try {
         const res = await this.sites.addCategories(serverId, site.domain, aDeclarer, userId);
@@ -199,12 +261,9 @@ export class CategoryService {
       if (!slugs.length) continue;
       try {
         const res = await this.sites.removeCategories(serverId, site.domain, slugs, userId);
-        // `entries` porte ce qu'il faudrait pour remettre chaque rubrique : son nom, son
-        // icône, sa description et le rang qu'elle occupait. C'est relevé AVANT
-        // l'effacement, et c'est la seule occasion de le faire.
-        retires.set(site.domain, { stamp: res.stamp, slugs: res.removed, entries: res.entries ?? [] });
+        retires.set(site.domain, { stamp: res.stamp, slugs: res.removed });
       } catch (err) {
-        retires.set(site.domain, { error: err.key ?? err.message, slugs: [], entries: [] });
+        retires.set(site.domain, { error: err.key ?? err.message, slugs: [] });
       }
     }
 
@@ -214,9 +273,6 @@ export class CategoryService {
       if (!fait) continue;
       site.stamp = fait.stamp ?? null;
       site.configError = fait.error ?? null;
-      // L'écran garde ceci pour pouvoir proposer la remise en place : sans ces entrées,
-      // le retour en arrière ne saurait ni quelle icône ni quelle place rendre.
-      site.restorable = fait.entries ?? [];
       for (const it of site.items) {
         if (fait.slugs.includes(it.slug)) it.done.push('config');
         else if (fait.error) it.failed.push('config');

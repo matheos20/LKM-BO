@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
-import { closeModal, enc, fmtNum, folderButton, h, icon, modalHeader, openModal, peutAppliquerEnMasse, stepTitle, toast, toastError } from './ui.js';
+import { closeModal, enc, fmtDate, fmtNum, folderButton, h, icon, modalHeader, openModal, peutAppliquerEnMasse, stepTitle, toast, toastError } from './ui.js';
 
 /**
  * Action « Ajouter des rubriques ».
@@ -35,16 +35,16 @@ const state = {
   selected: null,
   done: new Map(), // clé de site → nombre de rubriques créées
   /**
-   * CE QUI VIENT D'ÊTRE CRÉÉ, ET QUI PEUT DONC ÊTRE DÉFAIT.
+   * LES POINTS DE RESTAURATION D’UN SITE, chargés à la demande.
    *
-   * Clé de site → les rubriques que CETTE création a posées, et elles seules. L'écran
-   * offrait la création sans retour en arrière : une rubrique qui ne convenait pas
-   * obligeait l'agent à changer de verbe, retaper le domaine et le nom, et relancer.
-   * Le bouton « Restaurer » fait l'inverse exact de ce qui vient d'être fait, sur les
-   * rubriques posées et sur aucune autre — une rubrique qui existait déjà avant n'y
-   * figure pas et ne risque rien.
+   * Un bouton qui défait « le dernier geste » ne sert qu’une fois, et seulement si
+   * l’agent n’a pas rechargé sa page. Une liste de dates sert toujours, et le même
+   * geste couvre les trois cas : une rubrique AJOUTÉE repart, une rubrique MODIFIÉE
+   * retrouve son nom, son icône et sa description, une rubrique SUPPRIMÉE revient
+   * avec sa page — et ses articles redeviennent visibles, eux qui n’avaient jamais
+   * quitté le serveur.
    */
-  annulables: new Map(), // clé de site → { server, domain, serverLabel, items: [{name, slug}] }
+  points: new Map(), // clé de site → { chargement, liste, erreur }
   // Mode « Supprimer » : ce qui existe sur les sites choisis, et ce que l'agent coche.
   existantes: null, // { union, scanned, total, erreur } — lu sur le serveur
   chargement: false,
@@ -522,27 +522,9 @@ async function creer(sites, bouton, etiquette) {
           creees += faites;
           echecs += res.items.filter((it) => it.failed.length).length;
           if (faites) state.done.set(keyOf(site), faites);
-          // CE QUI VIENT D'ÊTRE FAIT EST RETENU, pour pouvoir être défait d'un clic —
-          // dans un sens comme dans l'autre.
-          //
-          //   - après une CRÉATION, on retient les rubriques posées, pour les retirer ;
-          //   - après une SUPPRESSION, on retient ce que le serveur a relevé avant
-          //     d'effacer : le nom, l'icône, la description et le rang de chacune. C'est
-          //     la seule occasion de le faire, et c'est ce qui permet à la rubrique de
-          //     revenir ENTIÈRE au lieu de revenir nue.
-          //
-          // Une rubrique qui n'a pas bougé n'a rien de « fait » : elle n'entre pas dans
-          // la liste, et le retour en arrière ne la touchera pas.
-          const cle = keyOf(site);
-          if (state.operation === 'add') {
-            const poses = res.items.filter((it) => it.done.length).map((it) => ({ name: it.name, slug: it.slug }));
-            if (poses.length) state.annulables.set(cle, { sens: 'add', server, domain: site.domain, serverLabel: site.serverLabel, items: poses });
-            else state.annulables.delete(cle);
-          } else {
-            const retirees = (res.restorable ?? []).filter((e) => e?.slug);
-            if (retirees.length) state.annulables.set(cle, { sens: 'remove', server, domain: site.domain, serverLabel: site.serverLabel, items: retirees });
-            else state.annulables.delete(cle);
-          }
+          // Les rubriques de ce site viennent de changer : la liste de ses points de
+          // restauration n’est plus à jour. On l’oublie, elle sera relue au besoin.
+          state.points.delete(keyOf(site));
         }
         faits += lot.length;
         if (etiquette) etiquette.textContent = t('categories.working', { done: fmtNum(faits), total: fmtNum(sites.length) });
@@ -618,124 +600,7 @@ function confirmer(sites) {
 
 // ───────────────────────── Retour en arrière ─────────────────────────
 
-/**
- * DÉFAIRE CE QUI VIENT D'ÊTRE CRÉÉ, et rien d'autre.
- *
- * L'écran savait créer et savait supprimer, mais n'offrait pas de RETOUR : une rubrique
- * qui ne convenait pas obligeait l'agent à changer de verbe, retaper le domaine et le
- * nom, et relancer — en espérant ne pas se tromper de rubrique au passage. Ici, les
- * rubriques à retirer sont celles que la création vient de poser, retenues au moment où
- * le serveur a répondu. L'agent ne saisit rien, donc ne peut rien viser de travers.
- *
- * LES ARTICLES SONT PROTÉGÉS PAR LE SERVEUR, et pas par cet écran : le script de
- * suppression retire la page de la rubrique, puis n'efface le dossier QUE s'il est vide.
- * Un article publié entre-temps reste donc en place. La fenêtre de confirmation le dit
- * quand c'est le cas, parce qu'un agent qui l'apprend après coup ne comprend pas
- * pourquoi le dossier est toujours là.
- */
-async function annuler(cles, bouton) {
-  const lots = cles.map((cle) => state.annulables.get(cle)).filter(Boolean);
-  if (!lots.length) return toast(t('categories.nothing_to_do'), 'info');
-  // L'inverse de ce qui a été fait : on retire ce qui a été posé, on remet ce qui a été
-  // retiré. Le sens vient de ce qu'on a retenu, jamais du verbe affiché à l'écran —
-  // l'agent a pu en changer entre-temps.
-  const sens = lots[0].sens === 'remove' ? 'restore' : 'remove';
 
-  const parServeur = new Map();
-  for (const lot of lots) {
-    if (!parServeur.has(lot.server)) parServeur.set(lot.server, []);
-    parServeur.get(lot.server).push(lot);
-  }
-
-  if (bouton) bouton.disabled = true;
-  let retirees = 0;
-  let echecs = 0;
-  try {
-    for (const [server, liste] of parServeur) {
-      for (let i = 0; i < liste.length; i += 40) {
-        const tranche = liste.slice(i, i + 40);
-        const request = {};
-        for (const lot of tranche) request[lot.domain] = lot.items;
-        const out = await api(`/api/servers/${enc(server)}/categories/apply`, { method: 'POST', body: { request, operation: sens } });
-        for (const res of out.sites ?? []) {
-          const lot = tranche.find((l) => l.domain === res.domain);
-          if (!lot) continue;
-          const cle = `${lot.server}/${lot.domain}`;
-          retirees += res.items.filter((it) => it.done.length).length;
-          echecs += res.items.filter((it) => it.failed.length).length;
-          // Le site retrouve son état d'avant : plus rien à défaire, plus de pastille
-          // « fait ». La vérification affichée est en revanche devenue caduque — c'est
-          // dit, plutôt que de laisser un tableau qui ne décrit plus le site.
-          state.annulables.delete(cle);
-          state.done.delete(cle);
-          const site = (state.plan?.sites ?? []).find((s) => keyOf(s) === cle);
-          if (site) {
-            site.items = res.items;
-            site.configError = res.configError ?? null;
-          }
-        }
-      }
-    }
-    toast(t(sens === 'restore' ? 'categories.restored' : 'categories.undone', { count: fmtNum(retirees), sites: fmtNum(lots.length) }), echecs ? 'info' : 'success');
-    if (echecs) toast(t('categories.undo_failed', { count: fmtNum(echecs) }), 'error');
-  } catch (err) {
-    toastError(err);
-  } finally {
-    if (bouton) bouton.disabled = false;
-    categoryAction.onChange?.();
-  }
-}
-
-/** La confirmation du retour en arrière : des nombres, et le sort des articles. */
-function confirmerAnnulation(cles) {
-  const lots = cles.map((cle) => state.annulables.get(cle)).filter(Boolean);
-  if (!lots.length) return toast(t('categories.nothing_to_do'), 'info');
-  const remise = lots[0].sens === 'remove';
-  const total = lots.reduce((n, l) => n + l.items.length, 0);
-  // Les articles publiés dans une rubrique qu'on vient de créer : normalement aucun,
-  // mais le cas existe dès que l'agent a travaillé entre-temps.
-  const articles = lots.reduce((n, lot) => {
-    const site = (state.plan?.sites ?? []).find((s) => keyOf(s) === `${lot.server}/${lot.domain}`);
-    const slugs = new Set(lot.items.map((it) => it.slug));
-    return n + (site?.items ?? []).filter((it) => slugs.has(it.slug)).reduce((m, it) => m + (it.articles ?? 0), 0);
-  }, 0);
-
-  const go = h('button', { type: 'button', class: 'btn btn-dark' }, icon('arrowLeft'), h('span', {}, t('categories.undo_go')));
-  go.addEventListener('click', async () => {
-    await annuler(cles, go);
-    closeModal();
-  });
-
-  openModal(
-    h(
-      'div',
-      {},
-      modalHeader(t(remise ? 'categories.restore_title' : 'categories.undo_title'), 'bg-ink-100 text-ink-600', 'arrowLeft'),
-      h(
-        'p',
-        { class: 'text-sm text-ink-600' },
-        t(remise ? 'categories.restore_body' : 'categories.undo_body', { sites: fmtNum(lots.length), cats: fmtNum(total) }),
-      ),
-      // Le détail : l'agent lit les noms exacts qui vont disparaître.
-      h(
-        'ul',
-        { class: 'mt-3 max-h-40 overflow-y-auto rounded-lg bg-ink-50 px-3 py-2 font-mono text-xs text-ink-600' },
-        lots.slice(0, 20).map((lot) => h('li', { class: 'truncate' }, `${lot.domain} · ${lot.items.map((it) => it.slug).join(', ')}`)),
-      ),
-      // Après une suppression, le chiffre qui compte est celui des articles qui vont
-      // redevenir accessibles — c'est la raison même du bouton.
-      articles
-        ? h(
-            'p',
-            { class: 'mt-3 text-sm font-medium text-ink-700' },
-            t(remise ? 'categories.restore_articles' : 'categories.undo_articles', { count: fmtNum(articles) }),
-          )
-        : null,
-      h('p', { class: 'mt-2 text-sm text-ink-500' }, t(remise ? 'categories.restore_note' : 'categories.undo_note')),
-      h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), go),
-    ),
-  );
-}
 
 // ───────────────────────── Résultat de la vérification ─────────────────────────
 
@@ -860,9 +725,6 @@ function detailSite(permissions, openFilesFor) {
       // Après coup, c'est là que l'agent va voir le dossier de la rubrique et le
       // menu réécrit dans config.php, sans ouvrir une session SSH.
       folderButton(permissions, openFilesFor && (() => openFilesFor(site))),
-      // LE RETOUR EN ARRIÈRE, juste à côté de ce qui vient d'être fait. Il n'apparaît
-      // que là où il y a quelque chose à défaire, et disparaît une fois défait.
-      boutonRestaurer(site, permissions),
       h(
         'button',
         {
@@ -878,59 +740,186 @@ function detailSite(permissions, openFilesFor) {
     ),
     h('div', { class: 'divide-y divide-ink-100' }, rows),
     h('p', { class: 'border-t border-ink-100 bg-ink-50/60 px-5 py-3 text-xs text-ink-500' }, t('categories.safety_note')),
+    // LE RETOUR EN ARRIÈRE, au pied du site qu'il concerne.
+    panneauPoints(site, permissions),
+  );
+}
+
+
+// ───────────────────────── Points de restauration ─────────────────────────
+
+/**
+ * LES DATES AUXQUELLES LES RUBRIQUES D'UN SITE PEUVENT REVENIR.
+ *
+ * Elles ne sont pas créées pour l'occasion : le circuit de publication sauvegarde
+ * `config.php` à chaque écriture, daté. Chacune de ces sauvegardes est un instant où le
+ * site peut revenir — et comme tout l'état des rubriques tient dans ce fichier, un seul
+ * geste couvre les trois cas : une rubrique ajoutée repart, une rubrique modifiée
+ * retrouve son nom, une rubrique supprimée revient avec sa page, donc avec ses articles.
+ */
+async function chargerPoints(site) {
+  const cle = keyOf(site);
+  const connu = state.points.get(cle);
+  if (connu?.chargement || connu?.liste) return;
+  state.points.set(cle, { chargement: true, liste: null, erreur: null });
+  categoryAction.onChange?.();
+  try {
+    const out = await api(`/api/servers/${enc(site.server)}/categories/points`, { method: 'POST', body: { domain: site.domain } });
+    state.points.set(cle, { chargement: false, liste: out.points ?? [], erreur: null });
+  } catch (err) {
+    state.points.set(cle, { chargement: false, liste: null, erreur: err.message });
+  }
+  categoryAction.onChange?.();
+}
+
+/** Le panneau, replié tant que l'agent ne l'ouvre pas : il ne sert qu'en cas de regret. */
+function panneauPoints(site, permissions) {
+  const cle = keyOf(site);
+  const etat = state.points.get(cle);
+  const corps = etat?.chargement
+    ? h('p', { class: 'px-5 py-3 text-sm text-ink-400' }, t('files.loading'))
+    : etat?.erreur
+      ? h('p', { class: 'px-5 py-3 text-sm text-red-600' }, etat.erreur)
+      : etat?.liste?.length
+        ? h('ul', { class: 'divide-y divide-ink-100' }, etat.liste.slice(0, 10).map((p, rang) => lignePoint(site, p, rang, permissions)))
+        : etat
+          ? h('p', { class: 'px-5 py-3 text-sm text-ink-400' }, t('categories.points_none'))
+          : null;
+
+  return h(
+    'details',
+    {
+      class: 'border-t border-ink-100',
+      // La liste se lit au serveur : on ne la demande qu'au moment où l'agent l'ouvre.
+      ontoggle: (e) => e.target.open && chargerPoints(site),
+    },
+    h(
+      'summary',
+      { class: 'cursor-pointer px-5 py-3 text-sm font-medium text-ink-600 hover:bg-ink-50' },
+      t('categories.points_title'),
+    ),
+    h('p', { class: 'px-5 pb-2 text-xs text-ink-400' }, t('categories.points_hint')),
+    corps,
+  );
+}
+
+/** Une date, et le bouton qui y ramène. */
+function lignePoint(site, point, rang, permissions) {
+  return h(
+    'li',
+    { class: 'flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2' },
+    h('span', { class: 'font-mono text-xs text-ink-500' }, point.at ? fmtDate(point.at) : point.name),
+    // Le plus récent est celui qu'on veut neuf fois sur dix : il est nommé pour qu'on
+    // n'ait pas à lire une date pour le reconnaître.
+    rang === 0 ? h('span', { class: 'badge bg-ink-100 text-ink-500' }, t('categories.points_last')) : null,
+    h('span', { class: 'flex-1' }),
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn btn-outline px-3 py-1',
+        disabled: !peutAppliquerEnMasse(permissions),
+        title: peutAppliquerEnMasse(permissions) ? t('categories.points_hint') : t('reason.permission_denied'),
+        onclick: (e) => apercuPoint(site, point, e.currentTarget),
+      },
+      icon('arrowLeft', 'size-3.5'),
+      t('categories.points_go'),
+    ),
   );
 }
 
 /**
- * Le bouton « Restaurer » d'un site : seulement là où quelque chose vient d'être posé.
+ * CE QUE LE RETOUR CHANGERAIT, demandé au serveur AVANT de rien faire.
  *
- * Il est sombre et non rouge : ce n'est pas une suppression, c'est un retour à l'état
- * d'avant. Le rouge est réservé au verbe « Supprimer », qui vise des rubriques que
- * l'agent désigne lui-même.
+ * Une confirmation qui annonce « 1 rubrique reviendra, 1 partira, 1 retrouvera son nom »
+ * se décide. Une qui demande « êtes-vous sûr ? » se clique sans réfléchir.
  */
-function boutonRestaurer(site, permissions) {
-  const lot = state.annulables.get(keyOf(site));
-  if (!lot) return null;
-  const aide = lot.sens === 'remove' ? 'categories.restore_hint' : 'categories.undo_hint';
-  return h(
-    'button',
-    {
-      type: 'button',
-      class: 'btn btn-outline',
-      disabled: !peutAppliquerEnMasse(permissions),
-      title: peutAppliquerEnMasse(permissions) ? t(aide) : t('reason.permission_denied'),
-      onclick: () => confirmerAnnulation([keyOf(site)]),
-    },
-    icon('arrowLeft'),
-    t('categories.undo_site'),
+async function apercuPoint(site, point, bouton) {
+  bouton.disabled = true;
+  try {
+    const vu = await api(`/api/servers/${enc(site.server)}/categories/preview`, {
+      method: 'POST',
+      body: { domain: site.domain, point: point.name },
+    });
+    if (vu.identique) return toast(t('categories.points_identical'), 'info');
+    confirmerPoint(site, point, vu);
+  } catch (err) {
+    toastError(err);
+  } finally {
+    bouton.disabled = false;
+  }
+}
+
+function confirmerPoint(site, point, vu) {
+  const liste = (cle, slugs, teinte) =>
+    slugs.length
+      ? h(
+          'p',
+          { class: 'mt-2 text-sm text-ink-600' },
+          h('span', { class: `badge ${teinte}` }, t(cle, { count: fmtNum(slugs.length) })),
+          h('span', { class: 'ml-2 font-mono text-xs text-ink-500' }, slugs.join(', ')),
+        )
+      : null;
+
+  const go = h('button', { type: 'button', class: 'btn btn-dark' }, icon('arrowLeft'), h('span', {}, t('categories.points_go')));
+  go.addEventListener('click', async () => {
+    await revenirAuPoint(site, point, go);
+    closeModal();
+  });
+
+  openModal(
+    h(
+      'div',
+      {},
+      modalHeader(t('categories.points_confirm_title'), 'bg-ink-100 text-ink-600', 'arrowLeft'),
+      h('p', { class: 'text-sm text-ink-600' }, t('categories.points_confirm_body', { date: point.at ? fmtDate(point.at) : point.name })),
+      liste('categories.points_back', vu.revient, 'bg-accent-100 text-accent-700'),
+      liste('categories.points_gone', vu.part, 'bg-amber-100 text-amber-800'),
+      liste('categories.points_renamed', vu.change, 'bg-ink-100 text-ink-600'),
+      // Les articles qui deviendraient inatteignables : c'est le seul chiffre qui peut
+      // faire renoncer, il a donc sa place avant le bouton.
+      vu.orphelins
+        ? h('p', { class: 'mt-3 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900' },
+            icon('alert', 'size-4 shrink-0 mt-0.5'),
+            t('categories.points_orphans', { count: fmtNum(vu.orphelins) }))
+        : null,
+      h('p', { class: 'mt-3 text-sm text-ink-500' }, t('categories.points_note')),
+      h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), go),
+    ),
   );
+}
+
+async function revenirAuPoint(site, point, bouton) {
+  bouton.disabled = true;
+  try {
+    const out = await api(`/api/servers/${enc(site.server)}/categories/restore`, {
+      method: 'POST',
+      body: { domain: site.domain, point: point.name },
+    });
+    toast(t('categories.points_done', { back: fmtNum(out.restored?.length ?? 0), gone: fmtNum(out.removed?.length ?? 0) }), 'success');
+    // Une page retouchée à la main n'a pas été touchée : l'agent doit le savoir, sinon
+    // il croira le retour incomplet sans comprendre pourquoi.
+    if (out.custom?.length) toast(t('categories.points_custom', { list: out.custom.join(', ') }), 'info');
+    if (out.kept?.length) toast(t('categories.points_kept', { list: out.kept.join(', ') }), 'info');
+    // Le site a changé : sa vérification et sa liste de points sont périmées.
+    state.points.delete(keyOf(site));
+    state.done.delete(keyOf(site));
+    categoryAction.onChange?.();
+  } catch (err) {
+    toastError(err);
+  } finally {
+    bouton.disabled = false;
+  }
 }
 
 function barre(permissions) {
   const sites = (state.plan?.sites ?? []).filter((s) => !s.error);
   const reste = sites.filter((s) => s.items.some((it) => aFaire(it)));
   const total = reste.reduce((n, s) => n + s.items.filter((it) => aFaire(it)).length, 0);
-  const aDefaire = [...state.annulables.keys()];
   return h(
     'div',
     { class: 'card flex flex-wrap items-center gap-3 px-5 py-3' },
     h('p', { class: 'min-w-0 flex-1 text-sm text-ink-500' }, t(state.operation === 'remove' ? 'categories.bulk_hint_remove' : 'categories.bulk_hint', { sites: fmtNum(reste.length), cats: fmtNum(total) })),
-    // Défaire TOUT ce que la création vient de poser, quand elle a touché plusieurs
-    // sites. Un bouton par site ferait vingt clics là où l'agent en veut un.
-    aDefaire.length > 1
-      ? h(
-          'button',
-          {
-            type: 'button',
-            class: 'btn btn-outline',
-            disabled: !peutAppliquerEnMasse(permissions),
-            title: peutAppliquerEnMasse(permissions) ? t('categories.undo_hint') : t('reason.permission_denied'),
-            onclick: () => confirmerAnnulation(aDefaire),
-          },
-          icon('arrowLeft'),
-          h('span', {}, t('categories.undo_all', { count: fmtNum(aDefaire.length) })),
-        )
-      : null,
     h(
       'button',
       {
@@ -968,10 +957,7 @@ export const categoryAction = {
     state.plan = null;
     state.selected = null;
     state.done.clear();
-    // Le retour en arrière ne survit pas à une nouvelle vérification : il ne porte que
-    // sur la création qui vient d'avoir lieu. Garder une liste périmée proposerait de
-    // défaire quelque chose qui n'est plus à l'écran.
-    state.annulables.clear();
+    state.points.clear();
   },
 
   /** Étape 1 : ce que l'agent saisit, avant même de choisir les sites. */
