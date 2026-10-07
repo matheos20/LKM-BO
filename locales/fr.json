@@ -1073,7 +1073,14 @@
     "undo_go": "Restaurer",
     "undone": "{count} rubrique(s) retirée(s) sur {sites} site(s).",
     "undo_failed": "{count} rubrique(s) n’ont pas pu être retirées.",
-    "explain_remove": "Le back-office retire la rubrique de chaque site choisi : sa page, son entrée dans le menu, et sa ligne dans le résumé WordPress. Les articles publiés dedans restent en place. Rien n’est retiré avant que vous ayez vu la vérification."
+    "explain_remove": "Le back-office retire la rubrique de chaque site choisi : sa page, son entrée dans le menu, et sa ligne dans le résumé WordPress. Les articles publiés dedans restent en place. Rien n’est retiré avant que vous ayez vu la vérification.",
+    "restore_hint": "Remet la ou les rubriques qui viennent d’être supprimées, avec leur icône, leur description et leur place dans le menu.",
+    "restore_title": "Remettre la rubrique en place",
+    "restore_body": "Les rubriques qui viennent d’être supprimées sur {sites} site(s) vont être remises : {cats} rubrique(s) au total. Elles retrouvent leur nom, leur icône, leur description et leur rang dans le menu.",
+    "restore_articles": "{count} article(s) redeviennent accessibles : ils n’ont jamais quitté le serveur.",
+    "restore_note": "La page de la rubrique est recréée, son entrée revient au menu et ses articles reparaissent dans le plan du site. C’est ce qui les rend à nouveau visibles pour les visiteurs et pour les moteurs de recherche.",
+    "restored": "{count} rubrique(s) remise(s) en place sur {sites} site(s).",
+    "lost_warning": "Attention : les articles d’une rubrique supprimée restent sur le serveur mais disparaissent du plan du site et du menu, et leur page s’affiche en erreur. Ils ne sont plus trouvables par les visiteurs ni par les moteurs de recherche. Le bouton « Restaurer » les ramène."
   },
   "audit": {
     "search_placeholder": "Chercher un utilisateur, un domaine, une action…",

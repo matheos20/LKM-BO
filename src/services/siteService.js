@@ -637,12 +637,29 @@ export class SiteService {
     }
 
     const added = [];
-    for (const { slug, name } of Array.isArray(categories) ? categories : []) {
+    for (const { slug, name, icon, description, after } of Array.isArray(categories) ? categories : []) {
       if (!/^[a-z0-9][a-z0-9-]{0,60}$/.test(String(slug ?? '')) || !String(name ?? '').trim()) continue;
       if (Object.hasOwn(config.categories, slug)) continue;
-      // Icône et description restent vides : l'agent les complète dans l'éditeur, s'il
-      // le souhaite, en voyant le rendu.
-      config.categories[slug] = { name: String(name).trim(), icon: '', description: '' };
+      // À la création, icône et description restent vides : l'agent les complète dans
+      // l'éditeur, en voyant le rendu. REMETTRE une rubrique est l'autre cas : elle
+      // revient avec ce qu'elle portait, sinon elle revient dépouillée.
+      // Les bornes sont celles de `validateConfig`, et non celles de la base.
+      config.categories[slug] = {
+        name: String(name).trim().slice(0, 120),
+        icon: String(icon ?? '').slice(0, 16),
+        description: String(description ?? '').slice(0, 300),
+      };
+      // LA PLACE DANS LE MENU : le moteur du site affiche la barre dans l'ordre du
+      // tableau. Une rubrique remise en bout de liste au lieu de son rang d'origine
+      // change le menu de toutes les pages. L'objet garde l'ordre d'insertion, on le
+      // reconstruit donc en glissant la clé derrière celle qui la précédait.
+      if (after && Object.hasOwn(config.categories, after)) {
+        config.categories = Object.fromEntries(
+          Object.entries(config.categories)
+            .filter(([k]) => k !== slug)
+            .flatMap(([k, v]) => (k === after ? [[k, v], [slug, config.categories[slug]]] : [[k, v]])),
+        );
+      }
       added.push(slug);
     }
     if (!added.length) return { domain, added: [], stamp: null };
@@ -711,16 +728,38 @@ export class SiteService {
     }
 
     const removed = [];
+    /**
+     * CE QU'IL FAUDRAIT POUR REMETTRE LA RUBRIQUE, relevé AVANT de l'effacer.
+     *
+     * Sans cela, une remise en place écrirait une icône et une description vides, et la
+     * rubrique reviendrait dépouillée — mesuré sur `oxygenesportsnature.org`, où « foot »
+     * porte « ⚽ » et « Football, Ligue 1 et championnats ».
+     *
+     * `after` est la rubrique qui la précédait : le menu s'affiche dans l'ordre du
+     * tableau, et une rubrique remise en tête au lieu de son rang d'origine change la
+     * barre de navigation de TOUT le site.
+     */
+    const entries = [];
+    const ordre = Object.keys(config.categories);
     for (const slug of Array.isArray(slugs) ? slugs : []) {
       if (!Object.hasOwn(config.categories, slug)) continue;
+      const rang = ordre.indexOf(slug);
+      const valeur = config.categories[slug];
+      entries.push({
+        slug,
+        name: String(valeur?.name ?? ''),
+        icon: String(valeur?.icon ?? ''),
+        description: String(valeur?.description ?? ''),
+        after: rang > 0 ? ordre[rang - 1] : null,
+      });
       delete config.categories[slug];
       removed.push(slug);
     }
-    if (!removed.length) return { domain, removed: [], stamp: null };
+    if (!removed.length) return { domain, removed: [], entries: [], stamp: null };
 
     const validated = validateConfig(config, { available: site.sections });
     const { stamp } = await this.#commitConfig(serverId, domain, { site, config: validated });
-    return { domain, removed, stamp };
+    return { domain, removed, entries, stamp };
   }
 
   /**

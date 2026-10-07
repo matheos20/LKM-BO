@@ -1073,7 +1073,14 @@
     "undo_go": "Ripristina",
     "undone": "{count} rubrica(che) tolta(e) su {sites} sito(i).",
     "undo_failed": "{count} rubrica(che) non hanno potuto essere tolte.",
-    "explain_remove": "Il back-office toglie la rubrica da ogni sito scelto: la sua pagina, la sua voce di menu e la sua riga nel riepilogo WordPress. Gli articoli pubblicati dentro restano al loro posto. Nulla è tolto prima che abbiate visto la verifica."
+    "explain_remove": "Il back-office toglie la rubrica da ogni sito scelto: la sua pagina, la sua voce di menu e la sua riga nel riepilogo WordPress. Gli articoli pubblicati dentro restano al loro posto. Nulla è tolto prima che abbiate visto la verifica.",
+    "restore_hint": "Rimette la o le rubriche appena eliminate, con la loro icona, la loro descrizione e il loro posto nel menu.",
+    "restore_title": "Rimettere la rubrica",
+    "restore_body": "Le rubriche appena eliminate su {sites} sito(i) saranno rimesse: {cats} rubrica(che) in tutto. Ritrovano il loro nome, la loro icona, la loro descrizione e il loro rango nel menu.",
+    "restore_articles": "{count} articolo(i) tornano accessibili: non hanno mai lasciato il server.",
+    "restore_note": "La pagina della rubrica è ricreata, la sua voce torna nel menu e i suoi articoli riappaiono nella mappa del sito. È questo a renderli di nuovo visibili ai visitatori e ai motori di ricerca.",
+    "restored": "{count} rubrica(che) rimessa(e) su {sites} sito(i).",
+    "lost_warning": "Attenzione: gli articoli di una rubrica eliminata restano sul server ma spariscono dalla mappa del sito e dal menu, e la loro pagina si mostra in errore. Né i visitatori né i motori di ricerca possono piu trovarli. Il pulsante « Ripristina » li riporta."
   },
   "audit": {
     "search_placeholder": "Cerca un utente, un dominio, un’azione…",

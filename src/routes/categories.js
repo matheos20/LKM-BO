@@ -34,15 +34,21 @@ export function categoriesRouter({ ssh, categories, audit }) {
 
   r.post('/apply', requirePermission('bulk.apply'), requirePermission('design.publish'), async (req, res) => {
     const demande = req.body?.request ?? {};
-    const operation = req.body?.operation === 'remove' ? 'remove' : 'add';
+    const demande_op = String(req.body?.operation ?? '');
+    const operation = demande_op === 'remove' ? 'remove' : 'add';
+    // REMETTRE UNE RUBRIQUE EST UN AJOUT, mais ce n'est pas une création : la rubrique
+    // revient avec son icône, sa description et son rang. Le traitement est le même ;
+    // le JOURNAL, lui, doit les distinguer — « on a recréé » et « on a remis ce qu'on
+    // venait d'enlever » ne racontent pas la même histoire à qui relit la trace.
+    const journal = demande_op === 'restore' ? 'restore' : operation;
     const domaines = Object.keys(demande);
     try {
       const out = await categories.apply(req.params.id, demande, req.user?.id, { operation });
       const touchees = out.sites.reduce((n, s) => n + s.items.filter((i) => i.done.length).length, 0);
-      audit(req, { action: `categories.${operation}`, server: req.params.id, domain: domaines.join(', ').slice(0, 253), target: `${touchees} rubrique(s)`, ok: true });
+      audit(req, { action: `categories.${journal}`, server: req.params.id, domain: domaines.join(', ').slice(0, 253), target: `${touchees} rubrique(s)`, ok: true });
       res.json(out);
     } catch (err) {
-      audit(req, { action: `categories.${operation}`, server: req.params.id, domain: domaines.join(', ').slice(0, 253), ok: false, error: err.key ?? err.message });
+      audit(req, { action: `categories.${journal}`, server: req.params.id, domain: domaines.join(', ').slice(0, 253), ok: false, error: err.key ?? err.message });
       throw err;
     }
   });

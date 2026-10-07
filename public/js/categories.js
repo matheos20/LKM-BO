@@ -522,15 +522,26 @@ async function creer(sites, bouton, etiquette) {
           creees += faites;
           echecs += res.items.filter((it) => it.failed.length).length;
           if (faites) state.done.set(keyOf(site), faites);
-          // Ce qui vient d'être POSÉ est retenu, pour pouvoir être défait d'un clic. Une
-          // rubrique qui existait déjà n'a rien de « fait » : elle n'entre pas dans la
-          // liste, et le retour en arrière ne la touchera pas.
+          // CE QUI VIENT D'ÊTRE FAIT EST RETENU, pour pouvoir être défait d'un clic —
+          // dans un sens comme dans l'autre.
+          //
+          //   - après une CRÉATION, on retient les rubriques posées, pour les retirer ;
+          //   - après une SUPPRESSION, on retient ce que le serveur a relevé avant
+          //     d'effacer : le nom, l'icône, la description et le rang de chacune. C'est
+          //     la seule occasion de le faire, et c'est ce qui permet à la rubrique de
+          //     revenir ENTIÈRE au lieu de revenir nue.
+          //
+          // Une rubrique qui n'a pas bougé n'a rien de « fait » : elle n'entre pas dans
+          // la liste, et le retour en arrière ne la touchera pas.
+          const cle = keyOf(site);
           if (state.operation === 'add') {
             const poses = res.items.filter((it) => it.done.length).map((it) => ({ name: it.name, slug: it.slug }));
-            if (poses.length) state.annulables.set(keyOf(site), { server, domain: site.domain, serverLabel: site.serverLabel, items: poses });
-            else state.annulables.delete(keyOf(site));
+            if (poses.length) state.annulables.set(cle, { sens: 'add', server, domain: site.domain, serverLabel: site.serverLabel, items: poses });
+            else state.annulables.delete(cle);
           } else {
-            state.annulables.delete(keyOf(site));
+            const retirees = (res.restorable ?? []).filter((e) => e?.slug);
+            if (retirees.length) state.annulables.set(cle, { sens: 'remove', server, domain: site.domain, serverLabel: site.serverLabel, items: retirees });
+            else state.annulables.delete(cle);
           }
         }
         faits += lot.length;
@@ -586,6 +597,19 @@ function confirmer(sites) {
       ),
       h('p', { class: 'text-sm text-ink-600' }, t(suppr ? 'categories.remove_body' : 'categories.create_body', { sites: fmtNum(sites.length), cats: fmtNum(total) })),
       articles ? h('p', { class: 'mt-2 text-sm font-medium text-ink-700' }, t('categories.remove_articles', { count: fmtNum(articles) })) : null,
+      // CE QU'IL ADVIENT DES ARTICLES, dit AVANT et non après. Mesuré le 07/10/2026 sur
+      // une copie d'`oxygenesportsnature.org` : en retirant « foot », l'article passe de
+      // 0 à 2 avertissements PHP et le plan du site passe de 2 adresses à 0. Les
+      // fichiers restent sur le disque, mais plus personne ne peut les atteindre. C'est
+      // le seul endroit où l'agent peut encore changer d'avis.
+      suppr && articles
+        ? h(
+            'p',
+            { class: 'mt-3 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900' },
+            icon('alert', 'size-4 shrink-0 mt-0.5'),
+            t('categories.lost_warning'),
+          )
+        : null,
       h('p', { class: 'mt-2 text-sm text-ink-500' }, t(suppr ? 'categories.remove_note' : 'categories.safety_note')),
       h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), go),
     ),
@@ -612,6 +636,10 @@ function confirmer(sites) {
 async function annuler(cles, bouton) {
   const lots = cles.map((cle) => state.annulables.get(cle)).filter(Boolean);
   if (!lots.length) return toast(t('categories.nothing_to_do'), 'info');
+  // L'inverse de ce qui a été fait : on retire ce qui a été posé, on remet ce qui a été
+  // retiré. Le sens vient de ce qu'on a retenu, jamais du verbe affiché à l'écran —
+  // l'agent a pu en changer entre-temps.
+  const sens = lots[0].sens === 'remove' ? 'restore' : 'remove';
 
   const parServeur = new Map();
   for (const lot of lots) {
@@ -628,7 +656,7 @@ async function annuler(cles, bouton) {
         const tranche = liste.slice(i, i + 40);
         const request = {};
         for (const lot of tranche) request[lot.domain] = lot.items;
-        const out = await api(`/api/servers/${enc(server)}/categories/apply`, { method: 'POST', body: { request, operation: 'remove' } });
+        const out = await api(`/api/servers/${enc(server)}/categories/apply`, { method: 'POST', body: { request, operation: sens } });
         for (const res of out.sites ?? []) {
           const lot = tranche.find((l) => l.domain === res.domain);
           if (!lot) continue;
@@ -648,7 +676,7 @@ async function annuler(cles, bouton) {
         }
       }
     }
-    toast(t('categories.undone', { count: fmtNum(retirees), sites: fmtNum(lots.length) }), echecs ? 'info' : 'success');
+    toast(t(sens === 'restore' ? 'categories.restored' : 'categories.undone', { count: fmtNum(retirees), sites: fmtNum(lots.length) }), echecs ? 'info' : 'success');
     if (echecs) toast(t('categories.undo_failed', { count: fmtNum(echecs) }), 'error');
   } catch (err) {
     toastError(err);
@@ -662,6 +690,7 @@ async function annuler(cles, bouton) {
 function confirmerAnnulation(cles) {
   const lots = cles.map((cle) => state.annulables.get(cle)).filter(Boolean);
   if (!lots.length) return toast(t('categories.nothing_to_do'), 'info');
+  const remise = lots[0].sens === 'remove';
   const total = lots.reduce((n, l) => n + l.items.length, 0);
   // Les articles publiés dans une rubrique qu'on vient de créer : normalement aucun,
   // mais le cas existe dès que l'agent a travaillé entre-temps.
@@ -681,18 +710,28 @@ function confirmerAnnulation(cles) {
     h(
       'div',
       {},
-      modalHeader(t('categories.undo_title'), 'bg-ink-100 text-ink-600', 'arrowLeft'),
-      h('p', { class: 'text-sm text-ink-600' }, t('categories.undo_body', { sites: fmtNum(lots.length), cats: fmtNum(total) })),
+      modalHeader(t(remise ? 'categories.restore_title' : 'categories.undo_title'), 'bg-ink-100 text-ink-600', 'arrowLeft'),
+      h(
+        'p',
+        { class: 'text-sm text-ink-600' },
+        t(remise ? 'categories.restore_body' : 'categories.undo_body', { sites: fmtNum(lots.length), cats: fmtNum(total) }),
+      ),
       // Le détail : l'agent lit les noms exacts qui vont disparaître.
       h(
         'ul',
         { class: 'mt-3 max-h-40 overflow-y-auto rounded-lg bg-ink-50 px-3 py-2 font-mono text-xs text-ink-600' },
         lots.slice(0, 20).map((lot) => h('li', { class: 'truncate' }, `${lot.domain} · ${lot.items.map((it) => it.slug).join(', ')}`)),
       ),
+      // Après une suppression, le chiffre qui compte est celui des articles qui vont
+      // redevenir accessibles — c'est la raison même du bouton.
       articles
-        ? h('p', { class: 'mt-3 text-sm font-medium text-ink-700' }, t('categories.undo_articles', { count: fmtNum(articles) }))
+        ? h(
+            'p',
+            { class: 'mt-3 text-sm font-medium text-ink-700' },
+            t(remise ? 'categories.restore_articles' : 'categories.undo_articles', { count: fmtNum(articles) }),
+          )
         : null,
-      h('p', { class: 'mt-2 text-sm text-ink-500' }, t('categories.undo_note')),
+      h('p', { class: 'mt-2 text-sm text-ink-500' }, t(remise ? 'categories.restore_note' : 'categories.undo_note')),
       h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), go),
     ),
   );
@@ -852,13 +891,14 @@ function detailSite(permissions, openFilesFor) {
 function boutonRestaurer(site, permissions) {
   const lot = state.annulables.get(keyOf(site));
   if (!lot) return null;
+  const aide = lot.sens === 'remove' ? 'categories.restore_hint' : 'categories.undo_hint';
   return h(
     'button',
     {
       type: 'button',
       class: 'btn btn-outline',
       disabled: !peutAppliquerEnMasse(permissions),
-      title: peutAppliquerEnMasse(permissions) ? t('categories.undo_hint') : t('reason.permission_denied'),
+      title: peutAppliquerEnMasse(permissions) ? t(aide) : t('reason.permission_denied'),
       onclick: () => confirmerAnnulation([keyOf(site)]),
     },
     icon('arrowLeft'),

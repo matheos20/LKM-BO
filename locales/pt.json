@@ -1073,7 +1073,14 @@
     "undo_go": "Restaurar",
     "undone": "{count} rubrica(s) retirada(s) em {sites} site(s).",
     "undo_failed": "Não foi possível retirar {count} rubrica(s).",
-    "explain_remove": "O back-office retira a rubrica de cada site escolhido: a sua página, a sua entrada no menu e a sua linha no resumo WordPress. Os artigos publicados lá dentro ficam onde estão. Nada é retirado antes de ter visto a verificação."
+    "explain_remove": "O back-office retira a rubrica de cada site escolhido: a sua página, a sua entrada no menu e a sua linha no resumo WordPress. Os artigos publicados lá dentro ficam onde estão. Nada é retirado antes de ter visto a verificação.",
+    "restore_hint": "Repõe a ou as rubricas acabadas de eliminar, com o seu ícone, a sua descrição e o seu lugar no menu.",
+    "restore_title": "Repor a rubrica",
+    "restore_body": "As rubricas acabadas de eliminar em {sites} site(s) serão repostas: {cats} rubrica(s) no total. Recuperam o seu nome, o seu ícone, a sua descrição e a sua posição no menu.",
+    "restore_articles": "{count} artigo(s) voltam a ficar acessíveis: nunca saíram do servidor.",
+    "restore_note": "A página da rubrica é recriada, a sua entrada volta ao menu e os seus artigos reaparecem no mapa do site. É isso que os torna de novo visíveis para os visitantes e para os motores de busca.",
+    "restored": "{count} rubrica(s) reposta(s) em {sites} site(s).",
+    "lost_warning": "Atenção: os artigos de uma rubrica eliminada ficam no servidor mas desaparecem do mapa do site e do menu, e a sua página mostra-se com erro. Nem os visitantes nem os motores de busca os conseguem encontrar. O botão «Restaurar» traz-los de volta."
   },
   "audit": {
     "search_placeholder": "Procurar um utilizador, um domínio, uma ação…",

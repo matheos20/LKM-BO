@@ -1073,7 +1073,14 @@
     "undo_go": "Restaurar",
     "undone": "{count} sección(es) quitada(s) en {sites} sitio(s).",
     "undo_failed": "No se pudieron quitar {count} sección(es).",
-    "explain_remove": "El back-office quita la sección de cada sitio elegido: su página, su entrada en el menú y su línea en el resumen de WordPress. Los artículos publicados dentro se quedan donde están. No se quita nada antes de que vea la comprobación."
+    "explain_remove": "El back-office quita la sección de cada sitio elegido: su página, su entrada en el menú y su línea en el resumen de WordPress. Los artículos publicados dentro se quedan donde están. No se quita nada antes de que vea la comprobación.",
+    "restore_hint": "Devuelve la o las secciones recién eliminadas, con su icono, su descripción y su lugar en el menú.",
+    "restore_title": "Devolver la sección",
+    "restore_body": "Las secciones recién eliminadas en {sites} sitio(s) serán devueltas: {cats} sección(es) en total. Recuperan su nombre, su icono, su descripción y su rango en el menú.",
+    "restore_articles": "{count} artículo(s) vuelven a ser accesibles: nunca salieron del servidor.",
+    "restore_note": "La página de la sección se vuelve a crear, su entrada regresa al menú y sus artículos reaparecen en el mapa del sitio. Eso es lo que los hace visibles de nuevo para los visitantes y los buscadores.",
+    "restored": "{count} sección(es) devuelta(s) en {sites} sitio(s).",
+    "lost_warning": "Cuidado: los artículos de una sección eliminada quedan en el servidor pero desaparecen del mapa del sitio y del menú, y su página se muestra con error. Ni los visitantes ni los buscadores pueden encontrarlos. El botón «Restaurar» los devuelve."
   },
   "audit": {
     "search_placeholder": "Buscar un usuario, un dominio, una acción…",

@@ -63,7 +63,16 @@ export function normalizeRequest(request) {
       const slug = SLUG.test(fourni) ? fourni : slugify(fourni || name);
       if (!name || !slug || vues.has(slug) || liste.length >= MAX_CATEGORIES) continue;
       vues.add(slug);
-      liste.push({ slug, name });
+      // ICÔNE, DESCRIPTION ET PLACE NE VOYAGENT QUE POUR UNE REMISE EN PLACE. À la
+      // création, ils sont absents et la rubrique naît nue, comme avant. Les laisser
+      // passer ici est ce qui permet à une rubrique supprimée de revenir ENTIÈRE —
+      // avec son emoji et sa phrase — et à son rang dans le menu.
+      const remise = {};
+      if (r?.icon != null) remise.icon = String(r.icon).slice(0, 16);
+      if (r?.description != null) remise.description = String(r.description).slice(0, 300);
+      const apres = String(r?.after ?? '').trim();
+      if (SLUG.test(apres)) remise.after = apres;
+      liste.push({ slug, name, ...remise });
     }
     if (liste.length) out[domain] = liste;
   }
@@ -145,7 +154,16 @@ export class CategoryService {
       if (site.error) continue;
       // Ne sont déclarées que les rubriques dont le dossier existe : une entrée de
       // configuration sans dossier mènerait le visiteur sur une page inexistante.
-      const aDeclarer = site.items.filter((it) => it.dir && !it.config);
+      //
+      // L'ICÔNE, LA DESCRIPTION ET LE RANG VIENNENT DE LA DEMANDE, et non de la réponse
+      // du script : celui-ci ne rend que l'état des trois pièces sur le disque. Sans ce
+      // rapprochement, une rubrique remise en place revenait nue et en bout de menu —
+      // mesuré le 07/10/2026 : « Foot ⚽ Football, Ligue 1 et championnats », 6e du menu,
+      // revenait en « Foot », sans icône, en 8e position.
+      const voulu = new Map((demande[site.domain] ?? []).map((r) => [r.slug, r]));
+      const aDeclarer = site.items
+        .filter((it) => it.dir && !it.config)
+        .map((it) => ({ ...(voulu.get(it.slug) ?? {}), slug: it.slug, name: it.name }));
       if (!aDeclarer.length) continue;
       try {
         const res = await this.sites.addCategories(serverId, site.domain, aDeclarer, userId);
@@ -181,9 +199,12 @@ export class CategoryService {
       if (!slugs.length) continue;
       try {
         const res = await this.sites.removeCategories(serverId, site.domain, slugs, userId);
-        retires.set(site.domain, { stamp: res.stamp, slugs: res.removed });
+        // `entries` porte ce qu'il faudrait pour remettre chaque rubrique : son nom, son
+        // icône, sa description et le rang qu'elle occupait. C'est relevé AVANT
+        // l'effacement, et c'est la seule occasion de le faire.
+        retires.set(site.domain, { stamp: res.stamp, slugs: res.removed, entries: res.entries ?? [] });
       } catch (err) {
-        retires.set(site.domain, { error: err.key ?? err.message, slugs: [] });
+        retires.set(site.domain, { error: err.key ?? err.message, slugs: [], entries: [] });
       }
     }
 
@@ -193,6 +214,9 @@ export class CategoryService {
       if (!fait) continue;
       site.stamp = fait.stamp ?? null;
       site.configError = fait.error ?? null;
+      // L'écran garde ceci pour pouvoir proposer la remise en place : sans ces entrées,
+      // le retour en arrière ne saurait ni quelle icône ni quelle place rendre.
+      site.restorable = fait.entries ?? [];
       for (const it of site.items) {
         if (fait.slugs.includes(it.slug)) it.done.push('config');
         else if (fait.error) it.failed.push('config');

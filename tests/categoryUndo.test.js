@@ -51,10 +51,14 @@ test('rubriques : une nouvelle vérification efface le retour en arrière', () =
   assert.match(reset, /state\.done\.clear\(\)/);
 });
 
-test('rubriques : le retour en arrière envoie l’opération « remove », jamais autre chose', () => {
+test('rubriques : le SENS du retour vient de ce qui a été fait, pas du verbe affiché', () => {
+  // L'agent a pu changer de verbe entre-temps. Si le sens se lisait à l'écran, un
+  // clic sur « Restaurer » après une création pourrait REMETTRE au lieu de RETIRER —
+  // c'est-à-dire faire l'inverse de ce que le bouton annonce.
   const annul = corps('annuler');
-  assert.match(annul, /operation: 'remove'/, 'c’est bien une suppression côté serveur');
-  assert.ok(!/state\.operation/.test(annul), 'et elle ne dépend PAS du verbe affiché à l’écran');
+  assert.match(annul, /lots\[0\]\.sens === 'remove' \? 'restore' : 'remove'/, 'on défait dans l’autre sens');
+  assert.match(annul, /operation: sens/);
+  assert.ok(!/state\.operation/.test(annul), 'et cela ne dépend PAS du verbe affiché à l’écran');
   // Les rubriques envoyées sont celles retenues, pas celles du tableau en cours : le
   // tableau peut avoir été recalculé entre-temps.
   assert.match(annul, /state\.annulables\.get\(cle\)/);
@@ -168,5 +172,88 @@ test('rubriques : la phrase d’en-tête SUIT le verbe', () => {
     // Et elle doit dire ce qu'il advient des articles : c'est la question que l'agent
     // se pose en lisant « supprimer ».
     assert.ok(c.explain_remove.length > 80, `${l} : la phrase doit expliquer, pas seulement nommer`);
+  }
+});
+
+// ───────── remettre une rubrique supprimée, et ses articles avec elle ─────────
+
+test('rubriques : une suppression relève CE QU’IL FAUT pour remettre, avant d’effacer', () => {
+  // Sans ce relevé, la rubrique reviendrait dépouillée. Mesuré sur
+  // `oxygenesportsnature.org` : « foot » porte « ⚽ » et « Football, Ligue 1 et
+  // championnats », et occupe la 6e place du menu.
+  const SITE = readFileSync(join(RACINE, 'src/services/siteService.js'), 'utf8');
+  const retrait = SITE.slice(SITE.indexOf('async removeCategories('), SITE.indexOf('async removeCategories(') + 2200);
+  assert.match(retrait, /const entries = \[\]/, 'les entrées sont relevées');
+  assert.match(retrait, /icon: String\(valeur\?\.icon \?\? ''\)/, 'avec leur icône');
+  assert.match(retrait, /description: String\(valeur\?\.description \?\? ''\)/, 'et leur description');
+  // Le rang : le menu s'affiche dans l'ordre du tableau. Une rubrique remise en bout de
+  // liste au lieu de son rang change la barre de navigation de tout le site.
+  assert.match(retrait, /after: rang > 0 \? ordre\[rang - 1\] : null/, 'et le rang qu’elles occupaient');
+  // Et le relevé se fait AVANT la suppression, sans quoi il ne trouverait plus rien.
+  assert.ok(retrait.indexOf('entries.push(') < retrait.indexOf('delete config.categories[slug]'), 'relevé AVANT d’effacer');
+});
+
+test('rubriques : remettre une rubrique la replace à SON rang', () => {
+  const SITE = readFileSync(join(RACINE, 'src/services/siteService.js'), 'utf8');
+  const ajout = SITE.slice(SITE.indexOf('async addCategories('), SITE.indexOf('async addCategories(') + 2400);
+  assert.match(ajout, /if \(after && Object\.hasOwn\(config\.categories, after\)\)/);
+  assert.match(ajout, /Object\.fromEntries/, 'l’ordre d’insertion est reconstruit');
+  // Une CRÉATION ne passe ni icône ni rang : la rubrique naît nue, comme avant.
+  assert.match(ajout, /icon: String\(icon \?\? ''\)/, 'et sans icône fournie, elle reste vide');
+});
+
+test('rubriques : la demande ne porte icône et rang QUE si on les lui donne', () => {
+  const SERVICE = readFileSync(join(RACINE, 'src/services/categoryService.js'), 'utf8');
+  const norm = SERVICE.slice(SERVICE.indexOf('export function normalizeRequest'), SERVICE.indexOf('export function normalizeRequest') + 1800);
+  assert.match(norm, /if \(r\?\.icon != null\)/, 'absent par défaut');
+  assert.match(norm, /if \(SLUG\.test\(apres\)\) remise\.after = apres/, 'et le rang est validé comme un slug');
+});
+
+test('rubriques : le journal distingue « créer » de « remettre »', () => {
+  // « On a recréé » et « on a remis ce qu'on venait d'enlever » ne racontent pas la même
+  // histoire à qui relit la trace.
+  const ROUTE = readFileSync(join(RACINE, 'src/routes/categories.js'), 'utf8');
+  assert.match(ROUTE, /const journal = demande_op === 'restore' \? 'restore' : operation/);
+  assert.match(ROUTE, /action: `categories\.\$\{journal\}`/);
+  // Mais le TRAITEMENT reste un ajout : remettre, c'est ajouter avec ce qu'il faut.
+  assert.match(ROUTE, /const operation = demande_op === 'remove' \? 'remove' : 'add'/);
+});
+
+test('rubriques : ce qui a été retiré est retenu pour pouvoir revenir', () => {
+  const creation = corps('creer');
+  assert.match(creation, /sens: 'remove'/, 'une suppression se retient comme telle');
+  assert.match(creation, /sens: 'add'/, 'une création aussi');
+  assert.match(creation, /res\.restorable \?\? \[\]/, 'et elle garde ce que le serveur a relevé');
+});
+
+test('rubriques : l’agent est averti du sort des articles AVANT de supprimer', () => {
+  // Mesuré : en retirant « foot », l'article passe de 0 à 2 avertissements PHP et le
+  // plan du site de 2 adresses à 0. Les fichiers restent, mais plus personne ne les
+  // atteint. C'est le seul moment où l'agent peut encore changer d'avis.
+  const conf = corps('confirmer');
+  assert.match(conf, /suppr && articles/, 'seulement quand il y a des articles en jeu');
+  assert.match(conf, /categories\.lost_warning/);
+  for (const l of LANGUES) {
+    const c = locale(l).categories;
+    assert.equal(typeof c.lost_warning, 'string', `${l} : categories.lost_warning manque`);
+    assert.ok(c.lost_warning.length > 120, `${l} : l’avertissement doit expliquer, pas alarmer`);
+  }
+});
+
+test('rubriques : la remise en place se dit dans les six langues', () => {
+  const attendus = ['restore_hint', 'restore_title', 'restore_body', 'restore_articles', 'restore_note', 'restored'];
+  const gabarits = { restore_body: ['{sites}', '{cats}'], restore_articles: ['{count}'], restored: ['{count}', '{sites}'] };
+  for (const l of LANGUES) {
+    const c = locale(l).categories;
+    for (const cle of attendus) {
+      assert.equal(typeof c[cle], 'string', `${l} : categories.${cle} manque`);
+      assert.ok(c[cle].trim().length > 0, `${l} : categories.${cle} est vide`);
+    }
+    for (const [cle, vars] of Object.entries(gabarits)) {
+      for (const v of vars) assert.ok(c[cle].includes(v), `${l} : categories.${cle} doit contenir ${v}`);
+    }
+    // Remettre et défaire ne se disent pas pareil : l'un rend un contenu, l'autre
+    // retire ce qu'on vient de poser.
+    assert.notEqual(c.restore_title.toLowerCase(), c.undo_title.toLowerCase(), `${l} : les deux fenêtres doivent se lire différemment`);
   }
 });
