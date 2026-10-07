@@ -863,7 +863,21 @@
     "health": "Zustand des Bestands",
     "urls": "404-Prüfung",
     "themes": "Thema wechseln",
-    "duplicates": "Doppelte Artikel"
+    "duplicates": "Doppelte Artikel",
+    "family_read": "Nur lesen",
+    "family_read_hint": "Dieser Vorgang liest, zählt und vergleicht. Er ändert keine Datei auf den Servern.",
+    "family_write": "Schreibt auf die Websites",
+    "family_write_hint": "Dieser Vorgang ändert Dateien auf laufenden Websites. Er zeigt Ihnen stets, was er vorhat, bevor er es anwendet.",
+    "stats_title": "Zahlen",
+    "done_title": "Fertig",
+    "done_partial": "Abgebrochen",
+    "done_count": "{done} / {total} Website(s)",
+    "done_read_only": "Es wurde nichts geschrieben.",
+    "dur_s": "{n} s",
+    "dur_min": "{n} Min.",
+    "dur_h": "{h} h {m}",
+    "step_read": "Ergebnis",
+    "step_read_hint": "Was die Auswertung gefunden hat. Auf den Websites wurde nichts geändert."
   },
   "translate": {
     "explain": "Das Back-Office liest die Startseite der ausgewählten Websites und findet Texte, die nicht in der Sprache der Website verfasst sind. Während der Prüfung wird nichts verändert.",

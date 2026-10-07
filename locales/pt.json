@@ -863,7 +863,21 @@
     "health": "Saúde do parque",
     "urls": "Scanner 404",
     "themes": "Mudar de temática",
-    "duplicates": "Artigos duplicados"
+    "duplicates": "Artigos duplicados",
+    "family_read": "Apenas leitura",
+    "family_read_hint": "Este tratamento lê, conta e compara. Não altera nenhum ficheiro nos servidores.",
+    "family_write": "Escreve nos sites",
+    "family_write_hint": "Este tratamento altera ficheiros em sites em produção. Mostra-lhe sempre o que tenciona fazer antes de o aplicar.",
+    "stats_title": "Números",
+    "done_title": "Terminado",
+    "done_partial": "Interrompido",
+    "done_count": "{done} / {total} site(s)",
+    "done_read_only": "Nada foi escrito.",
+    "dur_s": "{n} s",
+    "dur_min": "{n} min",
+    "dur_h": "{h} h {m}",
+    "step_read": "Resultado",
+    "step_read_hint": "O que a análise encontrou. Nada foi alterado nos sites."
   },
   "translate": {
     "explain": "O back-office lê a página inicial dos sites escolhidos e assinala os textos escritos noutra língua que não a do site. Nada é alterado durante a análise.",

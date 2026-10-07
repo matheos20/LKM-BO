@@ -8,6 +8,7 @@ import { healthAction } from './health.js';
 import { urlAction } from './urls.js';
 import { themeAction } from './themes.js';
 import { duplicateAction } from './duplicates.js';
+import { estLecture, etiquetteDe } from './actionIdentity.js';
 import { translateAction } from './translate.js';
 
 /**
@@ -52,7 +53,10 @@ const state = {
   permissions: [],
   domains: [], // domaines du serveur courant (périmètre « tout le serveur »)
   loadingDomains: false,
-  scope: 'server', // server | parc | list
+  // « Liste de domaines » par defaut : c est le perimetre que l agent choisit presque
+  // toujours, et le seul qui ne risque pas de lancer un traitement sur 1 838 sites
+  // parce qu on a clique sans y penser.
+  scope: 'list', // server | parc | list
   parc: null, // serveur → noms de domaines, pour le périmètre « tout le parc »
   parcChoisis: new Set(), // sous-ensemble retenu par l'agent
   loadingParc: false,
@@ -63,6 +67,10 @@ const state = {
   total: 0,
   done: 0,
   cancel: false,
+  // Quand la tournée a commencé et quand elle a fini : le bandeau de fin dit combien
+  // de temps elle a pris, ce qui est la première question posée après « combien ? ».
+  demarre: 0,
+  fini: 0,
   job: null, // la tournée suivie : c'est le serveur qui la mène
   lastSeq: -1, // dernier lot absorbé, pour ne demander que la suite
   encours: null, // une tournée que le serveur mène, qu'on ne suit pas encore
@@ -90,7 +98,10 @@ export async function openActions({ serverId, serverLabel: label, servers, permi
     parc: null,
     parcChoisis: new Set(),
     loadingParc: false,
-    scope: serverId && serverId !== 'all' ? 'server' : 'parc',
+    // « Liste de domaines » à l'ouverture, quel que soit le chemin emprunté. Les deux
+    // autres périmètres désignent des milliers de sites d'un seul clic : qu'ils soient
+    // choisis sciemment, et non trouvés déjà cochés.
+    scope: 'list',
     text: '',
     resolved: null,
     resolving: false,
@@ -386,7 +397,7 @@ async function run() {
 
   const action = state.action;
   action.reset();
-  Object.assign(state, { phase: 'running', total: list.length, done: 0, cancel: false, job: null, lastSeq: -1 });
+  Object.assign(state, { phase: 'running', total: list.length, done: 0, cancel: false, job: null, lastSeq: -1, demarre: Date.now(), fini: 0 });
   render();
 
   try {
@@ -407,6 +418,7 @@ async function run() {
     await suivre(job.id);
   } catch (err) {
     state.phase = 'done';
+    state.fini = Date.now();
     render();
     toastError(err);
   }
@@ -457,6 +469,7 @@ async function suivre(id) {
 
     if (TERMINEES.includes(out.job.status)) {
       state.phase = 'done';
+      state.fini = Date.now();
       render();
       for (const [server, n] of echecs) {
         toast(t('actions.server_failed', { server: serverLabel(server) }), 'error', t('actions.lost_targets', { count: fmtNum(n) }));
@@ -536,6 +549,7 @@ function render() {
   // Les étapes se numérotent toutes seules : une action sans formulaire commence au
   // choix des sites. L'agent suit 1, 2, 3 sans qu'on lui explique.
   const avecForm = Boolean(state.action.form);
+  const lecture = estLecture(state.action.key);
   const etape = { form: 1, scope: avecForm ? 2 : 1, results: avecForm ? 3 : 2 };
   const results = state.action.results({ permissions: state.permissions, openFiles: openFilesFor, handover: versRedirection });
   const vide = !results && state.phase === 'done' ? state.action.emptyState?.() : null;
@@ -545,7 +559,7 @@ function render() {
   const perimetre = scopeCard(etape.scope);
 
   const body = [
-    chooser(),
+    enTete(),
     bandeauConnexion(),
     // Deux saisies courtes valent mieux côte à côte : l'écran tenait sur trois cartes
     // empilées, avec un vide au milieu et le bouton perdu en bas.
@@ -556,37 +570,133 @@ function render() {
     runBar(),
     // Ce que le serveur mene ou a mene : l'agent qui revient le retrouve ici.
     bandeauTournees(),
+    // Dire que c'est fini, AVANT de montrer les chiffres et le detail.
+    banniereFin(),
     statsRow(),
     // En-tête de section plutôt qu'une carte : la vérification n'est pas une saisie.
-    results || vide ? h('div', { class: 'px-1 pt-2' }, stepTitle(etape.results, t('actions.step_result'), t('actions.step_result_hint'))) : null,
+    // LE TITRE DE CETTE ÉTAPE DÉPEND DE LA FAMILLE. Il annonçait « Vérification — rien
+    // n'est encore écrit, relisez puis lancez la création » même sur une analyse en
+    // lecture seule, où il n'y a rien à relire et rien à créer. Les deux familles n'ont
+    // pas la même suite : l'une rend un constat, l'autre une proposition à valider.
+    results || vide
+      ? h(
+          'div',
+          { class: 'px-1 pt-2' },
+          lecture
+            ? stepTitle(etape.results, t('actions.step_read'), t('actions.step_read_hint'))
+            : stepTitle(etape.results, t('actions.step_result'), t('actions.step_result_hint')),
+        )
+      : null,
     results ?? vide,
   ];
   $('#actions-view').replaceChildren(...body.filter(Boolean));
 }
 
-/** Bouton « Action » : une liste déroulante, prête à accueillir les traitements suivants. */
-function chooser() {
+/**
+ * L'EN-TÊTE DE L'ACTION : qui elle est, ce qu'elle touche, et où elle en est.
+ *
+ * Les huit traitements se présentaient de la même façon, et rien ne disait lequel se
+ * contente de LIRE et lequel ÉCRIT sur des sites en production. Ce bandeau porte donc
+ * trois choses, dans cet ordre de lecture :
+ *
+ *   1. le nom et l'icône du traitement, sur fond sombre — c'est l'en-tête du logiciel,
+ *      il ne bouge pas, et c'est ce qui fait qu'on reconnaît l'outil d'un écran à
+ *      l'autre ;
+ *   2. son ÉTIQUETTE DE FAMILLE, « lecture seule » ou « écrit sur les sites ». Elle
+ *      vient de `actionIdentity.js`, elle est verte ou ambre, et elle se lit avant le
+ *      bouton de lancement, pas après ;
+ *   3. une ligne d'état en chasse fixe, qui dit en direct le périmètre et le nombre de
+ *      sites retenus. Elle se met à jour pendant que l'agent compose son lot.
+ *
+ * La chasse fixe et le fond sombre sont le parti pris demandé — un terminal moderne —
+ * mais rien n'y est écrit en jargon : l'agent lit des mots, jamais une commande.
+ */
+function enTete() {
+  const action = state.action;
+  const etiquette = etiquetteDe(action.key);
+
   const select = h(
     'select',
     {
-      class: 'input sm:w-64',
+      class:
+        'rounded-lg border border-ink-700 bg-ink-800 px-3 py-1.5 text-sm font-medium text-white focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none',
       'aria-label': t('actions.choose'),
+      disabled: state.phase === 'running',
       onchange: (e) => {
         state.action = ACTIONS.find((a) => a.key === e.target.value) ?? ACTIONS[0];
         state.phase = 'idle';
         render();
       },
     },
-    ACTIONS.map((a) => h('option', { value: a.key, selected: a.key === state.action.key }, t(a.labelKey))),
+    ACTIONS.map((a) => h('option', { value: a.key, selected: a.key === action.key }, t(a.labelKey))),
   );
 
   return h(
-    'div',
-    { class: 'card flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3' },
-    h('span', { class: 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-700' }, icon(state.action.icon, 'size-5')),
-    h('p', { class: 'text-xs font-semibold tracking-wide text-ink-400 uppercase' }, t('actions.choose')),
-    select,
-    h('p', { class: 'min-w-0 flex-1 basis-80 text-sm text-ink-500' }, t(state.action.hintKey)),
+    'section',
+    { class: 'overflow-hidden rounded-2xl border border-ink-100 shadow-sm' },
+    h(
+      'header',
+      { class: 'flex flex-wrap items-center gap-x-4 gap-y-3 bg-ink px-5 py-3.5' },
+      h('span', { class: 'flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/10 text-accent' }, icon(action.icon, 'size-5')),
+      h(
+        'div',
+        { class: 'min-w-0' },
+        h('h2', { class: 'truncate text-base font-semibold text-white' }, t(action.labelKey)),
+        // Le mot « Action » en petit : il dit à quoi sert la liste déroulante d'à côté.
+        h('p', { class: 'text-[0.7rem] font-medium tracking-widest text-ink-300 uppercase' }, t('actions.choose')),
+      ),
+      h('span', { class: 'flex-1' }),
+      etiquetteFamille(etiquette),
+      select,
+    ),
+    h(
+      'div',
+      { class: 'border-t border-ink-100 bg-white px-5 py-3' },
+      ligneEtat(),
+      h('p', { class: 'mt-1.5 text-sm text-ink-500' }, t(action.hintKey)),
+    ),
+  );
+}
+
+/** « Lecture seule » ou « Écrit sur les sites », avec son point de couleur. */
+function etiquetteFamille(etiquette) {
+  return h(
+    'span',
+    {
+      class: `badge ${etiquette.classes}`,
+      title: t(etiquette.hintKey),
+    },
+    h('span', { class: `size-1.5 rounded-full ${etiquette.point}` }),
+    t(etiquette.labelKey),
+  );
+}
+
+/**
+ * La ligne d'état, en chasse fixe : périmètre, nombre de sites, et rien d'autre.
+ *
+ * Elle répond à la question que l'agent se pose juste avant de cliquer — « sur quoi
+ * est-ce que je lance ça, au juste ? » — sans qu'il ait à relire l'écran entier. Les
+ * séparateurs « · » et la chasse fixe alignent les trois renseignements comme une
+ * ligne de statut, ce qui se parcourt plus vite qu'une phrase.
+ */
+function ligneEtat() {
+  const count = targets().length;
+  const perimetre = state.action.targets?.()
+    ? t('actions.scope_from_form')
+    : t(state.scope === 'server' ? 'actions.scope_server' : state.scope === 'parc' ? 'actions.scope_parc' : 'actions.scope_list');
+
+  const morceau = (txt, classes = 'text-ink-500') => h('span', { class: classes }, txt);
+  const point = () => h('span', { class: 'text-ink-300' }, '·');
+
+  return h(
+    'p',
+    { class: 'flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs' },
+    h('span', { class: 'text-accent-700' }, '▸'),
+    morceau(perimetre.toLowerCase(), 'text-ink'),
+    point(),
+    morceau(t('actions.selected', { count: fmtNum(count) }), count ? 'font-semibold text-ink' : 'text-ink-400'),
+    state.serverId ? point() : null,
+    state.serverId ? morceau(state.serverLabel, 'text-ink-400') : null,
   );
 }
 
@@ -931,23 +1041,101 @@ function progress() {
   );
 }
 
+/**
+ * Une durée, dite comme on la dit à voix haute.
+ *
+ * « 1 862 s » ne veut rien dire pour personne ; « 31 min » se comprend sans calcul. En
+ * dessous de la minute, les secondes ; au-delà de l'heure, les deux.
+ */
+function duree(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return t('actions.dur_s', { n: fmtNum(s) });
+  const m = Math.round(s / 60);
+  if (m < 60) return t('actions.dur_min', { n: fmtNum(m) });
+  return t('actions.dur_h', { h: fmtNum(Math.floor(m / 60)), m: fmtNum(m % 60) });
+}
+
+/**
+ * LE BANDEAU DE FIN : ce qui vient de se passer, dit en une ligne.
+ *
+ * L'écran passait de « barre de progression » à « tableau de résultats » sans rien dire
+ * entre les deux : l'agent devait déduire que c'était fini. Il l'est désormais dit, avec
+ * le nombre de sites traités, le temps que cela a pris, et — pour les traitements de
+ * lecture — le rappel qu'AUCUNE ÉCRITURE N'A EU LIEU. Cette dernière phrase n'est pas
+ * ornementale : elle est la contrepartie de l'étiquette affichée avant le lancement, et
+ * elle vaut d'être tenue jusqu'au bout.
+ */
+function banniereFin() {
+  if (state.phase !== 'done' || !state.total) return null;
+  const complet = state.done >= state.total;
+  const ecoule = state.demarre > 0 && state.fini > state.demarre ? state.fini - state.demarre : 0;
+  const temps = ecoule >= 1000 ? duree(ecoule) : null;
+  const lecture = estLecture(state.action.key);
+
+  return h(
+    'div',
+    {
+      class: `flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-4 py-3 text-sm ${
+        complet ? 'border-accent-200 bg-accent-50' : 'border-amber-200 bg-amber-50'
+      }`,
+    },
+    icon(complet ? 'check' : 'alert', `size-4 shrink-0 ${complet ? 'text-accent-700' : 'text-amber-700'}`),
+    h(
+      'span',
+      { class: `font-semibold ${complet ? 'text-accent-700' : 'text-amber-800'}` },
+      complet ? t('actions.done_title') : t('actions.done_partial'),
+    ),
+    h(
+      'span',
+      { class: 'font-mono text-xs text-ink-500' },
+      t('actions.done_count', { done: fmtNum(state.done), total: fmtNum(state.total) }),
+    ),
+    // En dessous de la seconde, la durée n'apprend rien et « 0 s » a l'air d'une mesure
+    // manquante. On se tait plutôt que d'afficher un chiffre qui ferait douter du reste.
+    temps ? h('span', { class: 'font-mono text-xs text-ink-400' }, `· ${temps}`) : null,
+    h('span', { class: 'flex-1' }),
+    // Le rappel ne s'affiche que là où il est vrai.
+    lecture ? h('span', { class: 'text-xs text-ink-400' }, t('actions.done_read_only')) : null,
+  );
+}
+
 // Classes écrites en toutes lettres : Tailwind lit ce fichier pour produire sa feuille,
 // et ne verrait pas une classe assemblée à l'exécution.
-const GRID = ['lg:grid-cols-3', 'lg:grid-cols-3', 'lg:grid-cols-3', 'lg:grid-cols-4', 'lg:grid-cols-5'];
+const GRID = ['sm:grid-cols-2', 'sm:grid-cols-2', 'sm:grid-cols-3', 'sm:grid-cols-2 lg:grid-cols-4', 'sm:grid-cols-3 lg:grid-cols-5'];
 
+/**
+ * LES CHIFFRES DE L'ACTION, en un seul bloc et non en tuiles éparpillées.
+ *
+ * Chaque traitement a les siens — sites sondés, adresses mortes, groupes de doublons —
+ * et ils sont déclarés par l'action elle-même. Ce qui change ici, c'est la présentation :
+ * un seul cadre, des colonnes séparées d'un filet, des nombres en chasse fixe alignés à
+ * la même hauteur. Des tuiles indépendantes se lisaient une par une ; une rangée se
+ * compare d'un coup d'œil, ce qui est précisément ce qu'on fait avec des chiffres.
+ */
 function statsRow() {
   if (state.phase === 'idle') return null;
   const cells = state.action.stats();
   if (!cells.length) return null;
   return h(
-    'div',
-    { class: `grid grid-cols-2 gap-3 sm:grid-cols-3 ${GRID[Math.min(cells.length, GRID.length) - 1]}` },
-    cells.map(([key, value, tone, hint]) =>
-      h(
-        'div',
-        { class: 'card px-4 py-3', title: hint ? t(hint) : null },
-        h('p', { class: 'text-xs font-medium tracking-wide text-ink-400 uppercase' }, t(key)),
-        h('p', { class: `mt-1 text-2xl font-bold tabular-nums ${tone ?? 'text-ink'}` }, value),
+    'section',
+    { class: 'card overflow-hidden' },
+    h(
+      'header',
+      { class: 'flex items-center gap-2 border-b border-ink-100 bg-ink-50 px-4 py-2' },
+      h('span', { class: 'font-mono text-[0.7rem] tracking-widest text-ink-400 uppercase' }, t('actions.stats_title')),
+      h('span', { class: 'flex-1' }),
+      h('span', { class: 'font-mono text-[0.7rem] text-ink-300' }, t(state.action.labelKey)),
+    ),
+    h(
+      'div',
+      { class: `grid grid-cols-2 divide-ink-100 sm:divide-x ${GRID[Math.min(cells.length, GRID.length) - 1]}` },
+      cells.map(([key, value, tone, hint]) =>
+        h(
+          'div',
+          { class: 'px-4 py-3', title: hint ? t(hint) : null },
+          h('p', { class: 'truncate text-[0.7rem] font-medium tracking-wide text-ink-400 uppercase' }, t(key)),
+          h('p', { class: `mt-0.5 font-mono text-2xl font-semibold tabular-nums ${tone ?? 'text-ink'}` }, value),
+        ),
       ),
     ),
   );

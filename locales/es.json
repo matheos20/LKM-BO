@@ -863,7 +863,21 @@
     "health": "Salud del parque",
     "urls": "Escáner 404",
     "themes": "Cambiar de temática",
-    "duplicates": "Artículos duplicados"
+    "duplicates": "Artículos duplicados",
+    "family_read": "Solo lectura",
+    "family_read_hint": "Esta tarea lee, cuenta y compara. No modifica ningún archivo en los servidores.",
+    "family_write": "Escribe en los sitios",
+    "family_write_hint": "Esta tarea modifica archivos en sitios en producción. Siempre le muestra lo que piensa hacer antes de aplicarlo.",
+    "stats_title": "Cifras",
+    "done_title": "Terminado",
+    "done_partial": "Interrumpido",
+    "done_count": "{done} / {total} sitio(s)",
+    "done_read_only": "No se escribió nada.",
+    "dur_s": "{n} s",
+    "dur_min": "{n} min",
+    "dur_h": "{h} h {m}",
+    "step_read": "Resultado",
+    "step_read_hint": "Lo que encontró el análisis. No se modificó nada en los sitios."
   },
   "translate": {
     "explain": "El back-office lee la página de inicio de los sitios elegidos y detecta los textos escritos en un idioma distinto al del sitio. Nada se modifica durante el análisis.",

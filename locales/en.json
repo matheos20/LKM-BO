@@ -863,7 +863,21 @@
     "health": "Fleet health",
     "urls": "404 scanner",
     "themes": "Change theme",
-    "duplicates": "Duplicate articles"
+    "duplicates": "Duplicate articles",
+    "family_read": "Read only",
+    "family_read_hint": "This task reads, counts and compares. It changes no file on the servers.",
+    "family_write": "Writes to the sites",
+    "family_write_hint": "This task changes files on live sites. It always shows you what it intends to do before applying it.",
+    "stats_title": "Figures",
+    "done_title": "Finished",
+    "done_partial": "Interrupted",
+    "done_count": "{done} / {total} site(s)",
+    "done_read_only": "Nothing was written.",
+    "dur_s": "{n} s",
+    "dur_min": "{n} min",
+    "dur_h": "{h} h {m}",
+    "step_read": "Result",
+    "step_read_hint": "What the analysis found. Nothing was changed on the sites."
   },
   "translate": {
     "explain": "The back office reads the home page of the selected sites and spots texts written in a language other than the site’s own. Nothing is modified during the scan.",

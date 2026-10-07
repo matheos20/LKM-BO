@@ -863,7 +863,21 @@
     "health": "Santé du parc",
     "urls": "Scanner 404",
     "themes": "Changer de thématique",
-    "duplicates": "Articles en doublon"
+    "duplicates": "Articles en doublon",
+    "family_read": "Lecture seule",
+    "family_read_hint": "Ce traitement lit, compte et compare. Il ne modifie aucun fichier sur les serveurs.",
+    "family_write": "Écrit sur les sites",
+    "family_write_hint": "Ce traitement modifie des fichiers sur des sites en production. Il vous montre toujours ce qu’il compte faire avant de l’appliquer.",
+    "stats_title": "Chiffres",
+    "done_title": "Terminé",
+    "done_partial": "Interrompu",
+    "done_count": "{done} / {total} site(s)",
+    "done_read_only": "Aucune écriture n’a eu lieu.",
+    "dur_s": "{n} s",
+    "dur_min": "{n} min",
+    "dur_h": "{h} h {m}",
+    "step_read": "Résultat",
+    "step_read_hint": "Ce que l’analyse a trouvé. Rien n’a été modifié sur les sites."
   },
   "translate": {
     "explain": "Le back-office lit la page d'accueil des sites choisis et repère les textes rédigés dans une autre langue que celle du site. Rien n'est modifié pendant l'analyse.",

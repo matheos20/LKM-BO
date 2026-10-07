@@ -863,7 +863,21 @@
     "health": "Salute del parco",
     "urls": "Scanner 404",
     "themes": "Cambiare tematica",
-    "duplicates": "Articoli doppioni"
+    "duplicates": "Articoli doppioni",
+    "family_read": "Sola lettura",
+    "family_read_hint": "Questo trattamento legge, conta e confronta. Non modifica alcun file sui server.",
+    "family_write": "Scrive sui siti",
+    "family_write_hint": "Questo trattamento modifica file su siti in produzione. Mostra sempre che cosa intende fare prima di applicarlo.",
+    "stats_title": "Cifre",
+    "done_title": "Terminato",
+    "done_partial": "Interrotto",
+    "done_count": "{done} / {total} sito(i)",
+    "done_read_only": "Nessuna scrittura è avvenuta.",
+    "dur_s": "{n} s",
+    "dur_min": "{n} min",
+    "dur_h": "{h} h {m}",
+    "step_read": "Risultato",
+    "step_read_hint": "Ciò che l’analisi ha trovato. Nulla è stato modificato sui siti."
   },
   "translate": {
     "explain": "Il back-office legge la pagina iniziale dei siti scelti e individua i testi scritti in una lingua diversa da quella del sito. Durante l’analisi non viene modificato nulla.",
