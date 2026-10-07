@@ -1062,7 +1062,17 @@
     "existing_scanned": "Categorias lidas em {scanned} site(s) dos {total} escolhidos.",
     "on_sites": "{count} site(s)",
     "clear_choice": "Desmarcar tudo",
-    "or_type": "Ou escreva um nome de categoria que não conste acima"
+    "or_type": "Ou escreva um nome de categoria que não conste acima",
+    "undo_site": "Restaurar",
+    "undo_all": "Restaurar {count} sites",
+    "undo_hint": "Retira a ou as rubricas acabadas de criar e repõe o site como estava.",
+    "undo_title": "Voltar atrás",
+    "undo_body": "As rubricas acabadas de criar em {sites} site(s) serão retiradas: {cats} rubrica(s) no total. Nada mais é tocado.",
+    "undo_articles": "Foram publicados {count} artigo(s) nessas rubricas. São conservados: apenas a pasta vazia é apagada.",
+    "undo_note": "A página da rubrica, a sua entrada no menu e a sua linha no resumo saem juntas. As rubricas anteriores não são tocadas.",
+    "undo_go": "Restaurar",
+    "undone": "{count} rubrica(s) retirada(s) em {sites} site(s).",
+    "undo_failed": "Não foi possível retirar {count} rubrica(s)."
   },
   "audit": {
     "search_placeholder": "Procurar um utilizador, um domínio, uma ação…",

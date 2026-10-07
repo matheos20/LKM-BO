@@ -1062,7 +1062,17 @@
     "existing_scanned": "Kategorien auf {scanned} von {total} gewählten Website(s) gelesen.",
     "on_sites": "{count} Website(s)",
     "clear_choice": "Alle abwählen",
-    "or_type": "Oder einen Kategorienamen eingeben, der oben nicht steht"
+    "or_type": "Oder einen Kategorienamen eingeben, der oben nicht steht",
+    "undo_site": "Zurücknehmen",
+    "undo_all": "{count} Websites zurücknehmen",
+    "undo_hint": "Entfernt die soeben angelegte(n) Rubrik(en) und versetzt die Website in den vorherigen Zustand.",
+    "undo_title": "Anlegen zurücknehmen",
+    "undo_body": "Die soeben auf {sites} Website(s) angelegten Rubriken werden entfernt: {cats} Rubrik(en) insgesamt. Nichts anderes wird angerührt.",
+    "undo_articles": "In diesen Rubriken wurden {count} Artikel veröffentlicht. Sie bleiben erhalten: nur ein leerer Ordner wird gelöscht.",
+    "undo_note": "Die Rubrikseite, ihr Menüeintrag und ihre Zeile in der Übersicht gehen zusammen. Zuvor vorhandene Rubriken bleiben unberührt.",
+    "undo_go": "Zurücknehmen",
+    "undone": "{count} Rubrik(en) auf {sites} Website(s) entfernt.",
+    "undo_failed": "{count} Rubrik(en) konnten nicht entfernt werden."
   },
   "audit": {
     "search_placeholder": "Nach Benutzer, Domain oder Aktion suchen…",

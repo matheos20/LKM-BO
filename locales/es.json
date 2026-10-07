@@ -1062,7 +1062,17 @@
     "existing_scanned": "Categorías leídas en {scanned} sitio(s) de los {total} elegidos.",
     "on_sites": "{count} sitio(s)",
     "clear_choice": "Desmarcar todo",
-    "or_type": "O escriba un nombre de categoría que no figure arriba"
+    "or_type": "O escriba un nombre de categoría que no figure arriba",
+    "undo_site": "Restaurar",
+    "undo_all": "Restaurar {count} sitios",
+    "undo_hint": "Quita la o las secciones recién creadas y deja el sitio como estaba.",
+    "undo_title": "Volver atrás",
+    "undo_body": "Se quitarán las secciones recién creadas en {sites} sitio(s): {cats} sección(es) en total. No se toca nada más.",
+    "undo_articles": "Se publicaron {count} artículo(s) en esas secciones. Se conservan: solo se borra la carpeta vacía.",
+    "undo_note": "La página de la sección, su entrada en el menú y su línea en el resumen se van juntas. Las secciones anteriores no se tocan.",
+    "undo_go": "Restaurar",
+    "undone": "{count} sección(es) quitada(s) en {sites} sitio(s).",
+    "undo_failed": "No se pudieron quitar {count} sección(es)."
   },
   "audit": {
     "search_placeholder": "Buscar un usuario, un dominio, una acción…",

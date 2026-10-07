@@ -1062,7 +1062,17 @@
     "existing_scanned": "Categories read on {scanned} site(s) out of the {total} chosen.",
     "on_sites": "{count} site(s)",
     "clear_choice": "Clear all",
-    "or_type": "Or type a category name that is not listed above"
+    "or_type": "Or type a category name that is not listed above",
+    "undo_site": "Undo",
+    "undo_all": "Undo on {count} sites",
+    "undo_hint": "Removes the section(s) just created and puts the site back as it was.",
+    "undo_title": "Undo the creation",
+    "undo_body": "The sections just created on {sites} site(s) will be removed: {cats} section(s) in all. Nothing else is touched.",
+    "undo_articles": "{count} article(s) have been published in those sections. They are kept: only an empty folder is deleted.",
+    "undo_note": "The section page, its menu entry and its summary line go together. Sections that existed before are not touched.",
+    "undo_go": "Undo",
+    "undone": "{count} section(s) removed on {sites} site(s).",
+    "undo_failed": "{count} section(s) could not be removed."
   },
   "audit": {
     "search_placeholder": "Search a user, a domain, an action…",

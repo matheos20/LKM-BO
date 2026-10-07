@@ -1062,7 +1062,17 @@
     "existing_scanned": "Rubriche lette su {scanned} sito/i sui {total} scelti.",
     "on_sites": "{count} sito/i",
     "clear_choice": "Deseleziona tutto",
-    "or_type": "Oppure scrivi il nome di una rubrica che non compare sopra"
+    "or_type": "Oppure scrivi il nome di una rubrica che non compare sopra",
+    "undo_site": "Ripristina",
+    "undo_all": "Ripristina {count} siti",
+    "undo_hint": "Toglie la o le rubriche appena create e rimette il sito com’era.",
+    "undo_title": "Tornare indietro",
+    "undo_body": "Le rubriche appena create su {sites} sito(i) saranno tolte: {cats} rubrica(che) in tutto. Nient’altro viene toccato.",
+    "undo_articles": "{count} articolo(i) sono stati pubblicati in quelle rubriche. Sono conservati: si cancella solo la cartella vuota.",
+    "undo_note": "La pagina della rubrica, la sua voce di menu e la sua riga nel riepilogo se ne vanno insieme. Le rubriche precedenti non sono toccate.",
+    "undo_go": "Ripristina",
+    "undone": "{count} rubrica(che) tolta(e) su {sites} sito(i).",
+    "undo_failed": "{count} rubrica(che) non hanno potuto essere tolte."
   },
   "audit": {
     "search_placeholder": "Cerca un utente, un dominio, un’azione…",

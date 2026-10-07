@@ -1062,7 +1062,17 @@
     "existing_scanned": "Rubriques lues sur {scanned} site(s) parmi les {total} choisis.",
     "on_sites": "{count} site(s)",
     "clear_choice": "Tout décocher",
-    "or_type": "Ou saisir un nom de rubrique qui ne figure pas ci-dessus"
+    "or_type": "Ou saisir un nom de rubrique qui ne figure pas ci-dessus",
+    "undo_site": "Restaurer",
+    "undo_all": "Restaurer les {count} sites",
+    "undo_hint": "Retire la ou les rubriques qui viennent d’être créées et remet le site dans son état d’avant.",
+    "undo_title": "Revenir en arrière",
+    "undo_body": "Les rubriques qui viennent d’être créées sur {sites} site(s) vont être retirées : {cats} rubrique(s) au total. Rien d’autre ne sera touché.",
+    "undo_articles": "{count} article(s) ont été publiés dans ces rubriques. Ils sont conservés : seul le dossier vide est effacé.",
+    "undo_note": "La page de la rubrique, son entrée dans le menu et sa ligne dans le résumé partent ensemble. Les rubriques qui existaient avant ne sont pas touchées.",
+    "undo_go": "Restaurer",
+    "undone": "{count} rubrique(s) retirée(s) sur {sites} site(s).",
+    "undo_failed": "{count} rubrique(s) n’ont pas pu être retirées."
   },
   "audit": {
     "search_placeholder": "Chercher un utilisateur, un domaine, une action…",

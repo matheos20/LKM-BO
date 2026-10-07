@@ -34,6 +34,17 @@ const state = {
   plan: null, // résultat de la vérification
   selected: null,
   done: new Map(), // clé de site → nombre de rubriques créées
+  /**
+   * CE QUI VIENT D'ÊTRE CRÉÉ, ET QUI PEUT DONC ÊTRE DÉFAIT.
+   *
+   * Clé de site → les rubriques que CETTE création a posées, et elles seules. L'écran
+   * offrait la création sans retour en arrière : une rubrique qui ne convenait pas
+   * obligeait l'agent à changer de verbe, retaper le domaine et le nom, et relancer.
+   * Le bouton « Restaurer » fait l'inverse exact de ce qui vient d'être fait, sur les
+   * rubriques posées et sur aucune autre — une rubrique qui existait déjà avant n'y
+   * figure pas et ne risque rien.
+   */
+  annulables: new Map(), // clé de site → { server, domain, serverLabel, items: [{name, slug}] }
   // Mode « Supprimer » : ce qui existe sur les sites choisis, et ce que l'agent coche.
   existantes: null, // { union, scanned, total, erreur } — lu sur le serveur
   chargement: false,
@@ -511,6 +522,16 @@ async function creer(sites, bouton, etiquette) {
           creees += faites;
           echecs += res.items.filter((it) => it.failed.length).length;
           if (faites) state.done.set(keyOf(site), faites);
+          // Ce qui vient d'être POSÉ est retenu, pour pouvoir être défait d'un clic. Une
+          // rubrique qui existait déjà n'a rien de « fait » : elle n'entre pas dans la
+          // liste, et le retour en arrière ne la touchera pas.
+          if (state.operation === 'add') {
+            const poses = res.items.filter((it) => it.done.length).map((it) => ({ name: it.name, slug: it.slug }));
+            if (poses.length) state.annulables.set(keyOf(site), { server, domain: site.domain, serverLabel: site.serverLabel, items: poses });
+            else state.annulables.delete(keyOf(site));
+          } else {
+            state.annulables.delete(keyOf(site));
+          }
         }
         faits += lot.length;
         if (etiquette) etiquette.textContent = t('categories.working', { done: fmtNum(faits), total: fmtNum(sites.length) });
@@ -566,6 +587,112 @@ function confirmer(sites) {
       h('p', { class: 'text-sm text-ink-600' }, t(suppr ? 'categories.remove_body' : 'categories.create_body', { sites: fmtNum(sites.length), cats: fmtNum(total) })),
       articles ? h('p', { class: 'mt-2 text-sm font-medium text-ink-700' }, t('categories.remove_articles', { count: fmtNum(articles) })) : null,
       h('p', { class: 'mt-2 text-sm text-ink-500' }, t(suppr ? 'categories.remove_note' : 'categories.safety_note')),
+      h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), go),
+    ),
+  );
+}
+
+// ───────────────────────── Retour en arrière ─────────────────────────
+
+/**
+ * DÉFAIRE CE QUI VIENT D'ÊTRE CRÉÉ, et rien d'autre.
+ *
+ * L'écran savait créer et savait supprimer, mais n'offrait pas de RETOUR : une rubrique
+ * qui ne convenait pas obligeait l'agent à changer de verbe, retaper le domaine et le
+ * nom, et relancer — en espérant ne pas se tromper de rubrique au passage. Ici, les
+ * rubriques à retirer sont celles que la création vient de poser, retenues au moment où
+ * le serveur a répondu. L'agent ne saisit rien, donc ne peut rien viser de travers.
+ *
+ * LES ARTICLES SONT PROTÉGÉS PAR LE SERVEUR, et pas par cet écran : le script de
+ * suppression retire la page de la rubrique, puis n'efface le dossier QUE s'il est vide.
+ * Un article publié entre-temps reste donc en place. La fenêtre de confirmation le dit
+ * quand c'est le cas, parce qu'un agent qui l'apprend après coup ne comprend pas
+ * pourquoi le dossier est toujours là.
+ */
+async function annuler(cles, bouton) {
+  const lots = cles.map((cle) => state.annulables.get(cle)).filter(Boolean);
+  if (!lots.length) return toast(t('categories.nothing_to_do'), 'info');
+
+  const parServeur = new Map();
+  for (const lot of lots) {
+    if (!parServeur.has(lot.server)) parServeur.set(lot.server, []);
+    parServeur.get(lot.server).push(lot);
+  }
+
+  if (bouton) bouton.disabled = true;
+  let retirees = 0;
+  let echecs = 0;
+  try {
+    for (const [server, liste] of parServeur) {
+      for (let i = 0; i < liste.length; i += 40) {
+        const tranche = liste.slice(i, i + 40);
+        const request = {};
+        for (const lot of tranche) request[lot.domain] = lot.items;
+        const out = await api(`/api/servers/${enc(server)}/categories/apply`, { method: 'POST', body: { request, operation: 'remove' } });
+        for (const res of out.sites ?? []) {
+          const lot = tranche.find((l) => l.domain === res.domain);
+          if (!lot) continue;
+          const cle = `${lot.server}/${lot.domain}`;
+          retirees += res.items.filter((it) => it.done.length).length;
+          echecs += res.items.filter((it) => it.failed.length).length;
+          // Le site retrouve son état d'avant : plus rien à défaire, plus de pastille
+          // « fait ». La vérification affichée est en revanche devenue caduque — c'est
+          // dit, plutôt que de laisser un tableau qui ne décrit plus le site.
+          state.annulables.delete(cle);
+          state.done.delete(cle);
+          const site = (state.plan?.sites ?? []).find((s) => keyOf(s) === cle);
+          if (site) {
+            site.items = res.items;
+            site.configError = res.configError ?? null;
+          }
+        }
+      }
+    }
+    toast(t('categories.undone', { count: fmtNum(retirees), sites: fmtNum(lots.length) }), echecs ? 'info' : 'success');
+    if (echecs) toast(t('categories.undo_failed', { count: fmtNum(echecs) }), 'error');
+  } catch (err) {
+    toastError(err);
+  } finally {
+    if (bouton) bouton.disabled = false;
+    categoryAction.onChange?.();
+  }
+}
+
+/** La confirmation du retour en arrière : des nombres, et le sort des articles. */
+function confirmerAnnulation(cles) {
+  const lots = cles.map((cle) => state.annulables.get(cle)).filter(Boolean);
+  if (!lots.length) return toast(t('categories.nothing_to_do'), 'info');
+  const total = lots.reduce((n, l) => n + l.items.length, 0);
+  // Les articles publiés dans une rubrique qu'on vient de créer : normalement aucun,
+  // mais le cas existe dès que l'agent a travaillé entre-temps.
+  const articles = lots.reduce((n, lot) => {
+    const site = (state.plan?.sites ?? []).find((s) => keyOf(s) === `${lot.server}/${lot.domain}`);
+    const slugs = new Set(lot.items.map((it) => it.slug));
+    return n + (site?.items ?? []).filter((it) => slugs.has(it.slug)).reduce((m, it) => m + (it.articles ?? 0), 0);
+  }, 0);
+
+  const go = h('button', { type: 'button', class: 'btn btn-dark' }, icon('arrowLeft'), h('span', {}, t('categories.undo_go')));
+  go.addEventListener('click', async () => {
+    await annuler(cles, go);
+    closeModal();
+  });
+
+  openModal(
+    h(
+      'div',
+      {},
+      modalHeader(t('categories.undo_title'), 'bg-ink-100 text-ink-600', 'arrowLeft'),
+      h('p', { class: 'text-sm text-ink-600' }, t('categories.undo_body', { sites: fmtNum(lots.length), cats: fmtNum(total) })),
+      // Le détail : l'agent lit les noms exacts qui vont disparaître.
+      h(
+        'ul',
+        { class: 'mt-3 max-h-40 overflow-y-auto rounded-lg bg-ink-50 px-3 py-2 font-mono text-xs text-ink-600' },
+        lots.slice(0, 20).map((lot) => h('li', { class: 'truncate' }, `${lot.domain} · ${lot.items.map((it) => it.slug).join(', ')}`)),
+      ),
+      articles
+        ? h('p', { class: 'mt-3 text-sm font-medium text-ink-700' }, t('categories.undo_articles', { count: fmtNum(articles) }))
+        : null,
+      h('p', { class: 'mt-2 text-sm text-ink-500' }, t('categories.undo_note')),
       h('div', { class: 'mt-6 flex justify-end gap-2' }, h('button', { type: 'button', class: 'btn btn-ghost', onclick: closeModal }, t('action.cancel')), go),
     ),
   );
@@ -694,6 +821,9 @@ function detailSite(permissions, openFilesFor) {
       // Après coup, c'est là que l'agent va voir le dossier de la rubrique et le
       // menu réécrit dans config.php, sans ouvrir une session SSH.
       folderButton(permissions, openFilesFor && (() => openFilesFor(site))),
+      // LE RETOUR EN ARRIÈRE, juste à côté de ce qui vient d'être fait. Il n'apparaît
+      // que là où il y a quelque chose à défaire, et disparaît une fois défait.
+      boutonRestaurer(site, permissions),
       h(
         'button',
         {
@@ -712,14 +842,55 @@ function detailSite(permissions, openFilesFor) {
   );
 }
 
+/**
+ * Le bouton « Restaurer » d'un site : seulement là où quelque chose vient d'être posé.
+ *
+ * Il est sombre et non rouge : ce n'est pas une suppression, c'est un retour à l'état
+ * d'avant. Le rouge est réservé au verbe « Supprimer », qui vise des rubriques que
+ * l'agent désigne lui-même.
+ */
+function boutonRestaurer(site, permissions) {
+  const lot = state.annulables.get(keyOf(site));
+  if (!lot) return null;
+  return h(
+    'button',
+    {
+      type: 'button',
+      class: 'btn btn-outline',
+      disabled: !peutAppliquerEnMasse(permissions),
+      title: peutAppliquerEnMasse(permissions) ? t('categories.undo_hint') : t('reason.permission_denied'),
+      onclick: () => confirmerAnnulation([keyOf(site)]),
+    },
+    icon('arrowLeft'),
+    t('categories.undo_site'),
+  );
+}
+
 function barre(permissions) {
   const sites = (state.plan?.sites ?? []).filter((s) => !s.error);
   const reste = sites.filter((s) => s.items.some((it) => aFaire(it)));
   const total = reste.reduce((n, s) => n + s.items.filter((it) => aFaire(it)).length, 0);
+  const aDefaire = [...state.annulables.keys()];
   return h(
     'div',
     { class: 'card flex flex-wrap items-center gap-3 px-5 py-3' },
     h('p', { class: 'min-w-0 flex-1 text-sm text-ink-500' }, t(state.operation === 'remove' ? 'categories.bulk_hint_remove' : 'categories.bulk_hint', { sites: fmtNum(reste.length), cats: fmtNum(total) })),
+    // Défaire TOUT ce que la création vient de poser, quand elle a touché plusieurs
+    // sites. Un bouton par site ferait vingt clics là où l'agent en veut un.
+    aDefaire.length > 1
+      ? h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-outline',
+            disabled: !peutAppliquerEnMasse(permissions),
+            title: peutAppliquerEnMasse(permissions) ? t('categories.undo_hint') : t('reason.permission_denied'),
+            onclick: () => confirmerAnnulation(aDefaire),
+          },
+          icon('arrowLeft'),
+          h('span', {}, t('categories.undo_all', { count: fmtNum(aDefaire.length) })),
+        )
+      : null,
     h(
       'button',
       {
@@ -751,6 +922,10 @@ export const categoryAction = {
     state.plan = null;
     state.selected = null;
     state.done.clear();
+    // Le retour en arrière ne survit pas à une nouvelle vérification : il ne porte que
+    // sur la création qui vient d'avoir lieu. Garder une liste périmée proposerait de
+    // défaire quelque chose qui n'est plus à l'écran.
+    state.annulables.clear();
   },
 
   /** Étape 1 : ce que l'agent saisit, avant même de choisir les sites. */
